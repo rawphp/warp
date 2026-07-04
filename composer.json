@@ -1,0 +1,29 @@
+{
+    "name": "warp/warp",
+    "description": "Warm-worker test engine for Laravel/Pest suites (S1)",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "Warp\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Warp\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "require-dev": {
+        "orchestra/testbench": "^11.1",
+        "pestphp/pest": "^4.7"
+    }
+}
