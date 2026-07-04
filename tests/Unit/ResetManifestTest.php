@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Illuminate\Contracts\Auth\Access\Gate as GateContract;
 use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
+use Illuminate\Http\Request;
+use Illuminate\Pagination\Paginator;
 use Warp\ResetManifest;
 
 it('forgets configured services so the sandbox re-resolves them fresh', function () {
@@ -129,4 +131,20 @@ it('rebinds the gate user resolver to the sandbox auth via the default manifest'
     $resolved = (fn () => call_user_func($this->userResolver))->call($gate);
 
     expect($resolved)->toBe($sandboxUser);
+});
+
+it('rebinds the paginator current-page resolver to the sandbox request via the default manifest', function () {
+    $base = $this->createClassicApplication();
+    // PaginationServiceProvider registers the resolvers against the base app at
+    // boot, closing over the base request (which carries no ?page).
+    $base->instance('request', Request::create('/things'));
+
+    $sandbox = clone $base;
+    ResetManifest::default()->apply($sandbox, $base);
+
+    // Give the sandbox its own request on a later page. Without the manifest
+    // rebind the static resolver still reads the base request and returns 1.
+    $sandbox->instance('request', Request::create('/things?page=3'));
+
+    expect(Paginator::resolveCurrentPage())->toBe(3);
 });
