@@ -8,12 +8,16 @@ use Closure;
 use Illuminate\Container\Container;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Facade;
+use Warp\Sentinel\HermeticitySentinel;
+use Warp\Sentinel\LeakReport;
 
 final class WarmApplicationFactory
 {
     private static ?Application $base = null;
 
     private static int $bootCount = 0;
+
+    private static ?HermeticitySentinel $sentinel = null;
 
     /**
      * Return a per-test sandbox cloned from the once-booted base application.
@@ -31,6 +35,8 @@ final class WarmApplicationFactory
             // RefreshDatabase's once-per-process migrate + per-test transaction
             // model working unchanged in warm mode.
             self::$base->make('db');
+
+            self::$sentinel = HermeticitySentinel::capture(self::$base);
         }
 
         $sandbox = clone self::$base;
@@ -61,9 +67,26 @@ final class WarmApplicationFactory
         return self::$bootCount;
     }
 
+    /** Diff current global state against the pristine fingerprint; scrap a corrupted base. */
+    public static function checkHermeticity(): LeakReport
+    {
+        if (! self::$base instanceof Application || self::$sentinel === null) {
+            return new LeakReport([], false);
+        }
+
+        $report = self::$sentinel->check(self::$base);
+
+        if ($report->baseCorrupted) {
+            self::scrap();
+        }
+
+        return $report;
+    }
+
     /** Drop the warm base; the next sandbox request boots a pristine one. */
     public static function scrap(): void
     {
         self::$base = null;
+        self::$sentinel = null;
     }
 }
