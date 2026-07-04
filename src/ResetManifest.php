@@ -7,6 +7,7 @@ namespace Warp;
 use Closure;
 use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
+use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Foundation\Application;
 
 /**
@@ -43,9 +44,27 @@ final class ResetManifest
             ->repoint('db', 'app')
             ->repoint('auth', 'app')
             ->repoint(ConsoleKernel::class, 'app')
+            ->repoint(HttpKernel::class, 'app')
             ->repoint(Gate::class, 'container')
             // Per-test state on shared singletons.
-            ->flush('auth', 'forgetGuards');
+            ->flush('auth', 'forgetGuards')
+            // The Gate's user resolver is a closure captured at boot that closes
+            // over the BASE application ("$app['auth']->userResolver()"). Because
+            // 'auth' is resolved per-sandbox rather than at boot, that closure
+            // reads the wrong container and resolves a null user — every
+            // policy check then fails (403). Re-point the resolver at the
+            // sandbox's auth so authenticated policy checks work in warm mode.
+            ->add(function (Application $sandbox, Application $base): void {
+                if (! $sandbox->resolved(Gate::class)) {
+                    return;
+                }
+
+                $gate = $sandbox->make(Gate::class);
+
+                (function () use ($sandbox): void {
+                    $this->userResolver = fn () => call_user_func($sandbox['auth']->userResolver());
+                })->call($gate);
+            });
     }
 
     public function forget(string ...$ids): self

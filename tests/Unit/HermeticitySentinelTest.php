@@ -58,6 +58,22 @@ it('ignores WARP_ control variables', function () {
     expect($report->clean())->toBeTrue();
 });
 
+it('ignores terminal dimension variables (LINES/COLUMNS)', function () {
+    putenv('LINES');
+    putenv('COLUMNS');
+    $app = $this->createClassicApplication();
+    $sentinel = HermeticitySentinel::capture($app);
+
+    // Symfony Console sets these when it probes the TTY (e.g. migrate:fresh).
+    putenv('LINES=50');
+    putenv('COLUMNS=80');
+    $report = $sentinel->check($app);
+    putenv('LINES');
+    putenv('COLUMNS');
+
+    expect($report->clean())->toBeTrue();
+});
+
 it('flags base config mutation as corruption', function () {
     $app = $this->createClassicApplication();
     $sentinel = HermeticitySentinel::capture($app);

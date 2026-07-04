@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\Auth\Access\Gate as GateContract;
+use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
 use Warp\ResetManifest;
 
 it('forgets configured services so the sandbox re-resolves them fresh', function () {
@@ -96,4 +98,35 @@ it('applies the default manifest to a real booted application', function () {
     expect($container($sandbox->make('router')))->toBe($sandbox)
         ->and($container($sandbox->make('events')))->toBe($sandbox)
         ->and((fn () => $this->app)->call($sandbox->make('db')))->toBe($sandbox);
+});
+
+it('repoints the http kernel app reference via the default manifest', function () {
+    $base = $this->createClassicApplication();
+    $base->make(HttpKernelContract::class);
+
+    $sandbox = clone $base;
+    ResetManifest::default()->apply($sandbox, $base);
+
+    $app = (fn () => $this->app)->call($sandbox->make(HttpKernelContract::class));
+
+    expect($app)->toBe($sandbox);
+});
+
+it('rebinds the gate user resolver to the sandbox auth via the default manifest', function () {
+    $base = $this->createClassicApplication();
+    $base->make(GateContract::class);
+
+    $sandbox = clone $base;
+    ResetManifest::default()->apply($sandbox, $base);
+
+    // The gate resolver captured the BASE app at boot; the manifest must rebind
+    // it so the current user is resolved from the sandbox's auth, not the base's.
+    $sandboxUser = new stdClass;
+    $sandbox->make('auth')->resolveUsersUsing(fn () => $sandboxUser);
+    $base->make('auth')->resolveUsersUsing(fn () => null);
+
+    $gate = $sandbox->make(GateContract::class);
+    $resolved = (fn () => call_user_func($this->userResolver))->call($gate);
+
+    expect($resolved)->toBe($sandboxUser);
 });
