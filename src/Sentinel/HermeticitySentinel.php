@@ -13,6 +13,14 @@ final class HermeticitySentinel
     private const IGNORED_PREFIX = 'WARP_';
 
     /**
+     * Terminal-dimension variables set by Symfony Console when it probes the
+     * TTY (e.g. the first `migrate:fresh` an app's RefreshDatabase runs). They
+     * are terminal metadata, not application state, so they must not be
+     * attributed to the test that happened to trigger the probe.
+     */
+    private const IGNORED_KEYS = ['LINES', 'COLUMNS'];
+
+    /**
      * @param  array<string, string>  $env
      * @param  array<string, string>  $staticFingerprints
      * @param  array<string, callable(): string>  $staticProbes
@@ -82,7 +90,8 @@ final class HermeticitySentinel
     {
         return array_filter(
             getenv(),
-            fn (string $key): bool => ! str_starts_with($key, self::IGNORED_PREFIX),
+            fn (string $key): bool => ! str_starts_with($key, self::IGNORED_PREFIX)
+                && ! in_array($key, self::IGNORED_KEYS, true),
             ARRAY_FILTER_USE_KEY,
         );
     }
