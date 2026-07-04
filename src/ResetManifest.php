@@ -9,6 +9,7 @@ use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Foundation\Application;
+use Illuminate\Pagination\PaginationState;
 
 /**
  * Declarative reset steps applied to every fresh sandbox. A shallow clone
@@ -64,6 +65,18 @@ final class ResetManifest
                 (function () use ($sandbox): void {
                     $this->userResolver = fn () => call_user_func($sandbox['auth']->userResolver());
                 })->call($gate);
+            })
+            // The paginator's current-page/path/query/cursor resolvers are static
+            // closures registered ONCE at boot by PaginationServiceProvider, closing
+            // over the BASE application ("$app['request']->input('page')"). A warm
+            // sandbox never re-runs that registration, so every ->paginate() reads
+            // the base app's request (no ?page=N) and silently returns page 1.
+            // Re-bind all pagination resolvers to the current sandbox — this is the
+            // exact framework contract the service provider uses at boot.
+            ->add(function (Application $sandbox): void {
+                if (class_exists(PaginationState::class)) {
+                    PaginationState::resolveUsing($sandbox);
+                }
             });
     }
 
