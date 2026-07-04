@@ -1,6 +1,6 @@
 # Warp — Test Engine for 100k DB-Backed Feature Tests
 
-**Status:** Approved design, pre-implementation
+**Status:** Approved design — S1 PoC gate PASSED (see docs/reports/2026-07-04-s1-gate.md)
 **Date:** 2026-07-04
 **Working name:** Warp (provisional)
 **First testbed:** YardPilot (~30k Pest tests, MySQL 8, 1,112 test files)
