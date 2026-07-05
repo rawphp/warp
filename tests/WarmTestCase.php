@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Warp\Tests;
+namespace RawPHP\Warp\Tests;
 
 abstract class WarmTestCase extends TestCase
 {

@@ -2,5 +2,5 @@
 
 declare(strict_types=1);
 
-pest()->extend(Warp\Tests\TestCase::class)->in('Unit');
-pest()->extend(Warp\Tests\WarmTestCase::class)->in('Feature');
+pest()->extend(RawPHP\Warp\Tests\TestCase::class)->in('Unit');
+pest()->extend(RawPHP\Warp\Tests\WarmTestCase::class)->in('Feature');

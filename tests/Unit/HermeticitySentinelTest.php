@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use Warp\ResetManifest;
-use Warp\Sentinel\HermeticitySentinel;
-use Warp\WarmApplicationFactory;
+use RawPHP\Warp\ResetManifest;
+use RawPHP\Warp\Sentinel\HermeticitySentinel;
+use RawPHP\Warp\WarmApplicationFactory;
 
 it('reports clean when nothing changed', function () {
     $app = $this->createClassicApplication();

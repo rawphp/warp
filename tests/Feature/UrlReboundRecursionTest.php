@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Contracts\Routing\UrlGenerator as UrlGeneratorContract;
-use Warp\WarmApplicationFactory;
+use RawPHP\Warp\WarmApplicationFactory;
 
 /*
  * RoutingServiceProvider's 'url' extender registers a 'routes' rebinding

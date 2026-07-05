@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Warp\Attributes;
+namespace RawPHP\Warp\Attributes;
 
 use Attribute;
 

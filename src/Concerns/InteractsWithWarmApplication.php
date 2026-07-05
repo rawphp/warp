@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Warp\Concerns;
+namespace RawPHP\Warp\Concerns;
 
 use Illuminate\Foundation\Application;
 use PHPUnit\Framework\Assert;
 use ReflectionClass;
-use Warp\Attributes\Isolated;
-use Warp\ResetManifest;
-use Warp\WarmApplicationFactory;
-use Warp\WarpMode;
+use RawPHP\Warp\Attributes\Isolated;
+use RawPHP\Warp\ResetManifest;
+use RawPHP\Warp\WarmApplicationFactory;
+use RawPHP\Warp\WarpMode;
 
 trait InteractsWithWarmApplication
 {

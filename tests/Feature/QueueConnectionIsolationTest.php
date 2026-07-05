@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Warp\WarmApplicationFactory;
+use RawPHP\Warp\WarmApplicationFactory;
 
 /*
  * The queue manager, once resolved into the warm base (Horizon and many apps
