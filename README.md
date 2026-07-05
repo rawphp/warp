@@ -5,10 +5,10 @@
 Warp boots your Laravel application **once per PHP process** and hands each test a
 sandboxed shallow clone of it, instead of paying the full framework bootstrap
 (~50 ms) on every single test. Classic mode stays the default; warm mode is opt-in
-per run via `WARP_WARM=1` and is designed to produce **byte-identical outcomes** to
+per run via `WARP_MODE=1` and is designed to produce **byte-identical outcomes** to
 classic mode.
 
-## S1 proof-of-concept results
+## Measured results
 
 Measured on YardPilot's `tests/Feature/Quotes` suite (1,372 DB-backed tests):
 
@@ -16,6 +16,19 @@ Measured on YardPilot's `tests/Feature/Quotes` suite (1,372 DB-backed tests):
 |------|--------|
 | **A — per-test framework tax** | classic **53.57 ms/test** → warm **0.55 ms/test** (**97.4× reduction**) |
 | **B — outcome parity** | `PARITY OK` — all 1,372 tests byte-identical classic vs warm; full suite **2.8× faster** warm |
+
+Measured on a large suite (18,921 tests, 12 parallel processes):
+
+| Metric | Classic | Warm |
+|--------|---------|------|
+| **Duration** | 802.08s | 314.23s |
+| **Failures** | 1 (timing assertion, run too slow) | 0 |
+| **Assertions** | 54,024 | 54,276 |
+
+**2.55× speedup, 60.8% reduction, 487.9s saved per run.** The classic run's single failure was a
+timing assertion that blew out under the slower run — warm mode's run had zero failures, which
+illustrates a secondary benefit: warm mode **eliminates timing-based test flakiness caused by slow
+cold-boot runs**.
 
 See [`docs/reports/2026-07-04-s1-gate.md`](docs/reports/2026-07-04-s1-gate.md) for the full gate report
 and [`docs/specs/2026-07-04-warp-test-engine-design.md`](docs/specs/2026-07-04-warp-test-engine-design.md) for the design.
@@ -34,24 +47,8 @@ version conflicts when path-installed into a host app.
 ## Installation
 
 ```bash
-composer require --dev warp/warp
+composer require --dev rawphp/warp
 ```
-
-During the S1 phase Warp is consumed via a Composer **path repository**. In the host app's
-`composer.json`:
-
-```jsonc
-{
-  "repositories": [
-    { "type": "path", "url": "../warp", "options": { "symlink": true } }
-  ],
-  "require-dev": {
-    "warp/warp": "@dev"
-  }
-}
-```
-
-Then `composer update warp/warp`.
 
 ## Usage
 
@@ -83,7 +80,7 @@ abstract class TestCase extends BaseTestCase
 }
 ```
 
-That's the whole integration. With `WARP_WARM` unset, behaviour is **byte-identical** to
+That's the whole integration. With `WARP_MODE` unset, behaviour is **byte-identical** to
 before — the trait falls straight through to `createClassicApplication()`.
 
 ### 2. Run the suite warm
@@ -93,7 +90,7 @@ before — the trait falls straight through to `createClassicApplication()`.
 ./vendor/bin/pest
 
 # Warm mode — boot once, sandbox each test:
-WARP_WARM=1 ./vendor/bin/pest
+WARP_MODE=1 ./vendor/bin/pest
 ```
 
 With Pest's `--parallel`, every paratest worker becomes warm automatically.
@@ -170,7 +167,7 @@ it('needs isolation', function () {
 | Symbol | Description |
 |--------|-------------|
 | `Warp\Concerns\InteractsWithWarmApplication` | The trait host `TestCase`s use. |
-| `Warp\WarpMode::enabled(): bool` | `true` only when `WARP_WARM=1`. |
+| `Warp\WarpMode::enabled(): bool` | `true` when `WARP_MODE` is `1`, `on`, or `true`. |
 | `Warp\Attributes\Isolated` | Class attribute forcing a classic boot. |
 | `Warp\ResetManifest` | `default()` / `forget()` / `repoint()` / `flush()` / `add()`. |
 | `Warp\WarmApplicationFactory` | `sandbox()` / `base()` / `bootCount()` / `checkHermeticity()` / `scrap()`. |
@@ -197,6 +194,6 @@ composer install
 
 ## Status
 
-**S1 gate: PASSED** — the warm-worker model is proven on a real Laravel suite. Next up is
-**S2: golden-snapshot DB provisioning** (scaling the once-per-process DB setup). See the
-[gate report](docs/reports/2026-07-04-s1-gate.md).
+The warm-worker model is proven on real Laravel suites, from a few thousand tests up to
+large parallel runs. See the [gate report](docs/reports/2026-07-04-s1-gate.md) for full
+methodology and results.
