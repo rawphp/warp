@@ -51,9 +51,9 @@ it('ignores WARP_ control variables', function () {
     $app = $this->createClassicApplication();
     $sentinel = HermeticitySentinel::capture($app);
 
-    putenv('WARP_WARM=1');
+    putenv('WARP_MODE=1');
     $report = $sentinel->check($app);
-    putenv('WARP_WARM');
+    putenv('WARP_MODE');
 
     expect($report->clean())->toBeTrue();
 });

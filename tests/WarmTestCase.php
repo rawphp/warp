@@ -8,7 +8,7 @@ abstract class WarmTestCase extends TestCase
 {
     protected function setUp(): void
     {
-        putenv('WARP_WARM=1');
+        putenv('WARP_MODE=1');
 
         parent::setUp();
     }
@@ -17,6 +17,6 @@ abstract class WarmTestCase extends TestCase
     {
         parent::tearDown();
 
-        putenv('WARP_WARM');
+        putenv('WARP_MODE');
     }
 }
