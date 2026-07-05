@@ -1,8 +1,18 @@
 {
-    "name": "warp/warp",
-    "description": "Warm-worker test engine for Laravel/Pest suites (S1)",
+    "name": "rawphp/warp",
+    "description": "Warm-worker test engine for Laravel + Pest — boots the app once per process and hands each test a sandboxed clone",
     "type": "library",
-    "license": "proprietary",
+    "license": "MIT",
+    "keywords": ["laravel", "pest", "testing", "performance", "phpunit"],
+    "authors": [
+        {
+            "name": "Tom Kaczocha"
+        }
+    ],
+    "homepage": "https://github.com/rawphp/warp",
+    "support": {
+        "source": "https://github.com/rawphp/warp"
+    },
     "require": {
         "php": "^8.4"
     },
