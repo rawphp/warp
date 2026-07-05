@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Container\Container;
-use Warp\WarmApplicationFactory;
+use RawPHP\Warp\WarmApplicationFactory;
 
 $warm = new stdClass;
 

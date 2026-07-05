@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Warp\Sentinel;
+namespace RawPHP\Warp\Sentinel;
 
 final class LeakReport
 {

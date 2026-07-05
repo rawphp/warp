@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Warp;
+namespace RawPHP\Warp;
 
 use Closure;
 use Illuminate\Cache\RateLimiter;

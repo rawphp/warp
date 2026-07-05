@@ -63,7 +63,7 @@ namespace Tests;
 
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
-use Warp\Concerns\InteractsWithWarmApplication;
+use RawPHP\Warp\Concerns\InteractsWithWarmApplication;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -102,7 +102,7 @@ A shallow `clone` of the application shares boot-resolved singletons between san
 stateful services. Override `warpResetManifest()` to add app-specific ones:
 
 ```php
-use Warp\ResetManifest;
+use RawPHP\Warp\ResetManifest;
 use Spatie\Permission\PermissionRegistrar;
 
 protected function warpResetManifest(): ResetManifest
@@ -128,7 +128,7 @@ Some tests genuinely can't share a warm base. Opt them out and Warp gives them a
 boot (and skips the hermeticity check):
 
 ```php
-use Warp\Attributes\Isolated;
+use RawPHP\Warp\Attributes\Isolated;
 
 #[Isolated]
 final class NeedsAFreshAppTest extends TestCase { /* … */ }
@@ -166,12 +166,12 @@ it('needs isolation', function () {
 
 | Symbol | Description |
 |--------|-------------|
-| `Warp\Concerns\InteractsWithWarmApplication` | The trait host `TestCase`s use. |
-| `Warp\WarpMode::enabled(): bool` | `true` when `WARP_MODE` is `1`, `on`, or `true`. |
-| `Warp\Attributes\Isolated` | Class attribute forcing a classic boot. |
-| `Warp\ResetManifest` | `default()` / `forget()` / `repoint()` / `flush()` / `add()`. |
-| `Warp\WarmApplicationFactory` | `sandbox()` / `base()` / `bootCount()` / `checkHermeticity()` / `scrap()`. |
-| `Warp\Sentinel\HermeticitySentinel` | Post-test leak detector. |
+| `RawPHP\Warp\Concerns\InteractsWithWarmApplication` | The trait host `TestCase`s use. |
+| `RawPHP\Warp\WarpMode::enabled(): bool` | `true` when `WARP_MODE` is `1`, `on`, or `true`. |
+| `RawPHP\Warp\Attributes\Isolated` | Class attribute forcing a classic boot. |
+| `RawPHP\Warp\ResetManifest` | `default()` / `forget()` / `repoint()` / `flush()` / `add()`. |
+| `RawPHP\Warp\WarmApplicationFactory` | `sandbox()` / `base()` / `bootCount()` / `checkHermeticity()` / `scrap()`. |
+| `RawPHP\Warp\Sentinel\HermeticitySentinel` | Post-test leak detector. |
 
 ## Benchmarks
 

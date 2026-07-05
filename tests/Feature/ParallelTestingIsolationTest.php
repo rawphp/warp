@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Testing\ParallelTesting;
-use Warp\WarmApplicationFactory;
+use RawPHP\Warp\WarmApplicationFactory;
 
 /*
  * Laravel's ParallelTestingServiceProvider registers per-test callbacks

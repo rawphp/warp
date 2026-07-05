@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Warp\WarmApplicationFactory;
+use RawPHP\Warp\WarmApplicationFactory;
 
 /*
  * RoutingServiceProvider's 'url' extender sets the UrlGenerator's session

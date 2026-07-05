@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Warp\WarpMode;
+use RawPHP\Warp\WarpMode;
 
 // The retired switch, spelled indirectly so the rename grep guard stays clean
 // while the clean-break test below can still prove the old name is dead.

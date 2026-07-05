@@ -18,12 +18,12 @@
     },
     "autoload": {
         "psr-4": {
-            "Warp\\": "src/"
+            "RawPHP\\Warp\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Warp\\Tests\\": "tests/"
+            "RawPHP\\Warp\\Tests\\": "tests/"
         }
     },
     "config": {

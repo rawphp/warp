@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Warp\Tests;
+namespace RawPHP\Warp\Tests;
 
 use Illuminate\Foundation\Application;
 use Orchestra\Testbench\TestCase as Testbench;
-use Warp\Concerns\InteractsWithWarmApplication;
+use RawPHP\Warp\Concerns\InteractsWithWarmApplication;
 
 abstract class TestCase extends Testbench
 {

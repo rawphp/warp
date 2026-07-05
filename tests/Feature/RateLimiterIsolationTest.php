@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Cache\RateLimiter;
 use Illuminate\Cache\RateLimiting\Limit;
-use Warp\WarmApplicationFactory;
+use RawPHP\Warp\WarmApplicationFactory;
 
 /*
  * Apps register named limiters at boot (RateLimiter::for in a provider),

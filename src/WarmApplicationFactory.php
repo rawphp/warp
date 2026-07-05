@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Warp;
+namespace RawPHP\Warp;
 
 use Closure;
 use Illuminate\Console\Application as ConsoleApplication;
@@ -11,8 +11,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Facade;
 use ReflectionProperty;
-use Warp\Sentinel\HermeticitySentinel;
-use Warp\Sentinel\LeakReport;
+use RawPHP\Warp\Sentinel\HermeticitySentinel;
+use RawPHP\Warp\Sentinel\LeakReport;
 
 final class WarmApplicationFactory
 {

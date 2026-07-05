@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use Illuminate\Container\Container;
 use Illuminate\Support\Facades\Facade;
-use Warp\ResetManifest;
-use Warp\WarmApplicationFactory;
+use RawPHP\Warp\ResetManifest;
+use RawPHP\Warp\WarmApplicationFactory;
 
 it('boots the base application exactly once across sandboxes', function () {
     $manifest = ResetManifest::default();

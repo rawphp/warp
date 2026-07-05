@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Warp\WarmApplicationFactory;
+use RawPHP\Warp\WarmApplicationFactory;
 
 /*
  * Provider closures registered at boot capture the provider ($this->app =

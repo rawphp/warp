@@ -6,7 +6,7 @@ use Illuminate\Contracts\Auth\Access\Gate as GateContract;
 use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
-use Warp\ResetManifest;
+use RawPHP\Warp\ResetManifest;
 
 it('forgets configured services so the sandbox re-resolves them fresh', function () {
     $base = $this->createClassicApplication();
