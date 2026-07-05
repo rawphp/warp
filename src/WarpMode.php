@@ -8,6 +8,6 @@ final class WarpMode
 {
     public static function enabled(): bool
     {
-        return getenv('WARP_WARM') === '1';
+        return in_array(getenv('WARP_MODE'), ['1', 'on', 'true'], true);
     }
 }
