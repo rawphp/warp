@@ -77,8 +77,15 @@ final class HermeticitySentinel
         }
 
         foreach ($this->staticProbes as $name => $probe) {
-            if ($probe() !== $this->staticFingerprints[$name]) {
-                $leaks[] = "static state leaked: {$name}";
+            $current = $probe();
+
+            if ($current !== $this->staticFingerprints[$name]) {
+                $added = implode(', ', array_diff(
+                    explode('|', $current),
+                    explode('|', $this->staticFingerprints[$name]),
+                ));
+
+                $leaks[] = "static state leaked: {$name}".($added !== '' ? " (added: {$added})" : '');
             }
         }
 
