@@ -9,8 +9,8 @@ WARP="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$(mktemp -d)"
 
 echo "== classic =="
-(cd "$APP" && WARP_WARM=0 ./vendor/bin/pest "$SUITE" --log-junit "$OUT/classic.xml") || true
+(cd "$APP" && WARP_MODE=0 ./vendor/bin/pest "$SUITE" --log-junit "$OUT/classic.xml") || true
 echo "== warm =="
-(cd "$APP" && WARP_WARM=1 ./vendor/bin/pest "$SUITE" --log-junit "$OUT/warm.xml") || true
+(cd "$APP" && WARP_MODE=1 ./vendor/bin/pest "$SUITE" --log-junit "$OUT/warm.xml") || true
 
 php "$WARP/bench/compare-junit.php" "$OUT/classic.xml" "$OUT/warm.xml"
