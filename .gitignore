@@ -2,3 +2,6 @@
 /.phpunit.cache/
 /.worktrees/
 composer.phar
+/.do-work/
+/docs/superpowers/
+/composer.lock
