@@ -7,6 +7,7 @@ namespace RawPHP\Warp\Concerns;
 use Illuminate\Foundation\Application;
 use PHPUnit\Framework\Assert;
 use RawPHP\Warp\Attributes\Isolated;
+use RawPHP\Warp\Db\SnapshotDatabaseManager;
 use RawPHP\Warp\ResetManifest;
 use RawPHP\Warp\WarmApplicationFactory;
 use RawPHP\Warp\WarpMode;
@@ -30,15 +31,34 @@ trait InteractsWithWarmApplication
         if (! WarpMode::enabled() || $this->warpShouldIsolate()) {
             $this->warpSandboxActive = false;
 
-            return $this->createClassicApplication();
+            return $this->warpProvisionDatabase($this->createClassicApplication());
         }
 
         $this->warpSandboxActive = true;
 
-        return WarmApplicationFactory::sandbox(
+        return $this->warpProvisionDatabase(WarmApplicationFactory::sandbox(
             fn (): Application => $this->createClassicApplication(),
             $this->warpResetManifest(),
-        );
+        ));
+    }
+
+    /** WARP_DB=1: point this app instance at the per-worker snapshot clone. */
+    private function warpProvisionDatabase(Application $app): Application
+    {
+        if (WarpMode::databaseEnabled()) {
+            SnapshotDatabaseManager::apply($app);
+        }
+
+        return $app;
+    }
+
+    /**
+     * Fresh committed DB state via a sub-second re-clone from the golden
+     * snapshot — for tests that must commit (multi-connection, DDL, …).
+     */
+    protected function warpRecycleDatabase(): void
+    {
+        SnapshotDatabaseManager::recycle($this->app);
     }
 
     public function usingWarmSandbox(): bool
