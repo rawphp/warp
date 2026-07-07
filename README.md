@@ -142,6 +142,41 @@ it('needs isolation', function () {
 })->group('warp-isolated');
 ```
 
+## Snapshot DB provisioning (S2)
+
+`WARP_DB=1` replaces the per-worker `migrate:fresh`/schema-load fixed cost with an
+instant copy-on-write clone of a **golden datadir** — a fully migrated MySQL data
+directory built once per schema change and cached under `.warp/snapshots/` (add
+`.warp/` to your app's `.gitignore`). Each worker gets its own throwaway `mysqld`
+on a private unix socket, so parallel workers can't collide by construction.
+
+```bash
+# Warm workers + snapshot DB:
+WARP_MODE=1 WARP_DB=1 ./vendor/bin/pest --parallel
+```
+
+Requirements: MySQL 8 binaries on the machine (`mysqld` + `mysqladmin`; Homebrew,
+apt, or point `WARP_DB_MYSQLD` at one) and a `mysql`-driver test connection.
+Per-test isolation is unchanged — `RefreshDatabase` transaction-wraps as before;
+the golden snapshot just makes its migrate step a no-op.
+
+Optional config, all under `config('warp.db')`:
+
+| Key | Default | Purpose |
+|-----|---------|---------|
+| `connection` | `database.default` | Which connection to rewire (must be `mysql` driver) |
+| `database` | the connection's `database` | Schema name baked into the snapshot |
+| `hash_paths` | `database/migrations`, `database/seeders` | Files whose content keys the snapshot |
+| `build_command` | `php artisan migrate --force` | Command that builds the schema (swap in `--seed` for a fixture universe) |
+| `build_env` | `[]` | Extra env for the build command (wins over the injected `DB_*` vars) |
+| `snapshot_dir` | `.warp/snapshots` | Golden snapshot cache (env: `WARP_DB_SNAPSHOT_DIR`) |
+| `runtime_dir` | `/tmp/warp-db` | Clone + socket dir — keep it short, sockets live here (env: `WARP_DB_RUNTIME_DIR`) |
+| `mysqld` | auto-discovered | Path to `mysqld` (env: `WARP_DB_MYSQLD`) |
+
+Tests that must **commit** (DDL, multi-connection assertions) can call
+`$this->warpRecycleDatabase()` for a fresh committed state via a sub-second
+re-clone from golden.
+
 ## How it works
 
 - **`WarmApplicationFactory`** boots the base app once per process and hands each test a
@@ -172,6 +207,8 @@ it('needs isolation', function () {
 | `RawPHP\Warp\ResetManifest` | `default()` / `forget()` / `repoint()` / `flush()` / `add()`. |
 | `RawPHP\Warp\WarmApplicationFactory` | `sandbox()` / `base()` / `bootCount()` / `checkHermeticity()` / `scrap()`. |
 | `RawPHP\Warp\Sentinel\HermeticitySentinel` | Post-test leak detector. |
+| `RawPHP\Warp\WarpMode::databaseEnabled(): bool` | `true` when `WARP_DB` is `1`, `on`, or `true`. |
+| `RawPHP\Warp\Db\SnapshotDatabaseManager` | `apply()` / `recycle()` / `shutdown()` — per-worker snapshot DB provisioning. |
 
 ## Benchmarks
 
@@ -183,6 +220,9 @@ bench/warm-tax.sh /path/to/your/app
 
 # Gate B — outcome parity on a suite (classic vs warm junit diff):
 bench/parity.sh /path/to/your/app tests/Feature/YourSuite
+
+# Gate S2 — DB provisioning fixed cost (classic migrate vs snapshot clone):
+bench/db-provision.sh /path/to/your/app
 ```
 
 ## Development

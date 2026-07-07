@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Added
+
+- **S2 — golden-snapshot DB provisioning** (`WARP_DB=1`): per-worker copy-on-write
+  clones of a content-addressed golden MySQL datadir, served by throwaway `mysqld`
+  instances on private unix sockets. Replaces the ~14.4s per-worker migrate/seed
+  fixed cost with a ~2s clone+boot; parallel-safe by construction.
+- `WarpMode::databaseEnabled()`, `SnapshotDatabaseManager` (`apply`/`recycle`/`shutdown`),
+  `warpRecycleDatabase()` test helper, `warp.db.*` config surface,
+  `WARP_DB_MYSQLD` / `WARP_DB_SNAPSHOT_DIR` / `WARP_DB_RUNTIME_DIR` env overrides.
+- `bench/db-provision.sh` — S2 gate harness (fixed-cost delta + 4-way multi-mysqld PoC).
+
 ## 0.1.0 - 2026-07-05
 
 First public release.
