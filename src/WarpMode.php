@@ -10,4 +10,9 @@ final class WarpMode
     {
         return in_array(getenv('WARP_MODE'), ['1', 'on', 'true'], true);
     }
+
+    public static function databaseEnabled(): bool
+    {
+        return in_array(getenv('WARP_DB'), ['1', 'on', 'true'], true);
+    }
 }

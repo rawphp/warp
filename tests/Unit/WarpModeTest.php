@@ -10,6 +10,7 @@ $legacy = 'WARP_'.'WARM';
 
 afterEach(function () use ($legacy) {
     putenv('WARP_MODE');
+    putenv('WARP_DB');
     putenv($legacy);
 });
 
@@ -36,4 +37,29 @@ it('ignores the legacy warm variable (clean break)', function () use ($legacy) {
     putenv('WARP_MODE');
 
     expect(WarpMode::enabled())->toBeFalse();
+});
+
+it('database provisioning is disabled when WARP_DB is unset', function () {
+    putenv('WARP_DB');
+
+    expect(WarpMode::databaseEnabled())->toBeFalse();
+});
+
+it('database provisioning is enabled for the accepted truthy values', function (string $value) {
+    putenv("WARP_DB={$value}");
+
+    expect(WarpMode::databaseEnabled())->toBeTrue();
+})->with(['1', 'on', 'true']);
+
+it('database provisioning is disabled for falsey or unrecognised values', function (string $value) {
+    putenv("WARP_DB={$value}");
+
+    expect(WarpMode::databaseEnabled())->toBeFalse();
+})->with(['0', 'off', 'false', 'yes', 'TRUE', '']);
+
+it('database provisioning is independent of WARP_MODE', function () {
+    putenv('WARP_MODE=1');
+    putenv('WARP_DB');
+
+    expect(WarpMode::databaseEnabled())->toBeFalse();
 });
