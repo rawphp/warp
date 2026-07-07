@@ -34,6 +34,12 @@
     "minimum-stability": "stable",
     "require-dev": {
         "orchestra/testbench": "^11.1",
-        "pestphp/pest": "^4.7"
+        "pestphp/pest": "^4.7",
+        "laravel/pint": "^1.29"
+    },
+    "scripts": {
+        "test": "pest",
+        "lint": "pint --test",
+        "format": "pint"
     }
 }

@@ -6,11 +6,11 @@ namespace RawPHP\Warp\Concerns;
 
 use Illuminate\Foundation\Application;
 use PHPUnit\Framework\Assert;
-use ReflectionClass;
 use RawPHP\Warp\Attributes\Isolated;
 use RawPHP\Warp\ResetManifest;
 use RawPHP\Warp\WarmApplicationFactory;
 use RawPHP\Warp\WarpMode;
+use ReflectionClass;
 
 trait InteractsWithWarmApplication
 {

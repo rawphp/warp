@@ -10,8 +10,7 @@ final class LeakReport
     public function __construct(
         public readonly array $leaks,
         public readonly bool $baseCorrupted,
-    ) {
-    }
+    ) {}
 
     public function clean(): bool
     {

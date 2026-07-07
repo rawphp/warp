@@ -10,9 +10,9 @@ use Illuminate\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Facade;
-use ReflectionProperty;
 use RawPHP\Warp\Sentinel\HermeticitySentinel;
 use RawPHP\Warp\Sentinel\LeakReport;
+use ReflectionProperty;
 
 final class WarmApplicationFactory
 {

@@ -12,6 +12,4 @@ use Attribute;
  * Pest closure tests use ->group('warp-isolated') instead.
  */
 #[Attribute(Attribute::TARGET_CLASS)]
-final class Isolated
-{
-}
+final class Isolated {}

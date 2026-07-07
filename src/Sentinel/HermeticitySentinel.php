@@ -30,8 +30,7 @@ final class HermeticitySentinel
         private readonly string $configHash,
         private readonly array $staticFingerprints,
         private readonly array $staticProbes,
-    ) {
-    }
+    ) {}
 
     /** @param array<string, callable(): string> $staticProbes */
     public static function capture(Application $base, array $staticProbes = []): self
