@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Testing\Fakes\EventFake;
 
 class WarpBootProbeModel extends Model
 {
@@ -27,9 +28,7 @@ class WarpProbeObserver
 }
 
 #[Illuminate\Database\Eloquent\Attributes\ObservedBy(WarpProbeObserver::class)]
-class WarpObservedModel extends Model
-{
-}
+class WarpObservedModel extends Model {}
 
 /*
  * The event dispatcher is shared across sandboxes (repointed, same object),
@@ -77,13 +76,13 @@ it('does not see the previous test listener in the next sandbox', function () {
 it('fakes events, which also swaps the Eloquent static dispatcher', function () {
     Event::fake(['warp-faked-event']);
 
-    expect(Illuminate\Database\Eloquent\Model::getEventDispatcher())
-        ->toBeInstanceOf(Illuminate\Support\Testing\Fakes\EventFake::class);
+    expect(Model::getEventDispatcher())
+        ->toBeInstanceOf(EventFake::class);
 });
 
 it('gives the next sandbox a real Eloquent static dispatcher again', function () {
-    expect(Illuminate\Database\Eloquent\Model::getEventDispatcher())
-        ->not->toBeInstanceOf(Illuminate\Support\Testing\Fakes\EventFake::class);
+    expect(Model::getEventDispatcher())
+        ->not->toBeInstanceOf(EventFake::class);
 });
 
 it('boots a model mid-test and observes its model events', function () {

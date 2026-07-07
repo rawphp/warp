@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace RawPHP\Warp;
 
 use Closure;
+use Illuminate\Broadcasting\BroadcastManager;
 use Illuminate\Cache\RateLimiter;
 use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Foundation\Application;
+use Illuminate\Notifications\ChannelManager;
 use Illuminate\Pagination\PaginationState;
 use Illuminate\Testing\ParallelTestingServiceProvider;
 
@@ -120,7 +122,7 @@ final class ResetManifest
                 }
 
                 foreach ([
-                    \Illuminate\Notifications\ChannelManager::class,
+                    ChannelManager::class,
                 ] as $id) {
                     if (! class_exists($id) || ! $sandbox->resolved($id)) {
                         continue;
@@ -135,9 +137,9 @@ final class ResetManifest
                     })->call($manager);
                 }
 
-                if (class_exists(\Illuminate\Broadcasting\BroadcastManager::class)
-                    && $sandbox->resolved(\Illuminate\Broadcasting\BroadcastManager::class)) {
-                    $manager = $sandbox->make(\Illuminate\Broadcasting\BroadcastManager::class);
+                if (class_exists(BroadcastManager::class)
+                    && $sandbox->resolved(BroadcastManager::class)) {
+                    $manager = $sandbox->make(BroadcastManager::class);
 
                     (function () use ($sandbox): void {
                         $this->app = $sandbox;

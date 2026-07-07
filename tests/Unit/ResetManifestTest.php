@@ -24,9 +24,7 @@ it('repoints a shared service container reference to the sandbox', function () {
     $base = $this->createClassicApplication();
     $base->singleton('warp.holder', fn ($app) => new class($app)
     {
-        public function __construct(protected $container)
-        {
-        }
+        public function __construct(protected $container) {}
 
         public function exposedContainer()
         {
