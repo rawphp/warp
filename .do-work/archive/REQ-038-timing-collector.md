@@ -1,19 +1,13 @@
 # REQ-038: In-process timing collector
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.73078
-**Claimed at:** 2026-07-08T20:38:39Z
-**Heartbeat:** 2026-07-08T20:38:39Z
-<!-- claimed-end -->
-
 **UR:** UR-010
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** `TimingCollector` records and flushes per-process timing batches once; focused and full package suites pass.
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -30,11 +24,11 @@ The collector is the in-memory bridge between PHPUnit events and `TimingStore`. 
 
 ## Acceptance Criteria
 
-- [ ] Started/finished pairs record the elapsed milliseconds with the correct file path.
-- [ ] Interleaved tests are tracked independently.
-- [ ] Finishes without starts and finishes without file attribution are ignored.
-- [ ] `flush()` writes one pending batch and is idempotent.
-- [ ] Empty flushes write nothing.
+- [x] Started/finished pairs record the elapsed milliseconds with the correct file path.
+- [x] Interleaved tests are tracked independently.
+- [x] Finishes without starts and finishes without file attribution are ignored.
+- [x] `flush()` writes one pending batch and is idempotent.
+- [x] Empty flushes write nothing.
 
 ## Verification Steps
 
@@ -50,3 +44,14 @@ The collector is the in-memory bridge between PHPUnit events and `TimingStore`. 
 **Data dependencies:** Holds per-process test id, file, and duration state in memory until flush.
 
 **Service dependencies:** Consumes `RawPHP\Warp\Timing\TimingStore` from REQ-037.
+
+## Outputs
+
+- `src/Timing/TimingCollector.php` — in-process started/finished collector with rounded millisecond duration recording and idempotent flush.
+- `tests/Unit/Timing/TimingCollectorTest.php` — coverage for deltas, interleaving, missing starts, missing files, single flush, and empty flush behavior.
+
+## Verification Evidence
+
+- `./vendor/bin/pest tests/Unit/Timing/TimingCollectorTest.php` — PASS, 6 tests / 6 assertions.
+- `./vendor/bin/pest` — PASS, 153 tests / 261 assertions after replacing the worktree-only `vendor` symlink with a local install because symlinked Pest resolved test paths through the main checkout.
+- `./vendor/bin/pint --dirty` — PASS.
