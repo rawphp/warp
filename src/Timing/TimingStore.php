@@ -12,6 +12,8 @@ final class TimingStore
     /** Bump to discard every stored timing when the on-disk format changes. */
     private const VERSION = 1;
 
+    private static int $lastPendingTimestamp = 0;
+
     public function __construct(private readonly string $dir) {}
 
     public static function fromEnv(): self
@@ -34,7 +36,7 @@ final class TimingStore
 
         Dirs::ensure($this->dir.'/pending');
 
-        $path = $this->dir.'/pending/'.getmypid().'-'.bin2hex(random_bytes(4)).'.json';
+        $path = $this->dir.'/pending/'.self::nextPendingTimestamp().'-'.getmypid().'-'.bin2hex(random_bytes(4)).'.json';
         $tmp = $path.'.tmp';
 
         if (file_put_contents($tmp, json_encode($tests, JSON_THROW_ON_ERROR)) === false) {
@@ -128,14 +130,38 @@ final class TimingStore
 
             $path = $this->dir.'/pending/'.$entry;
 
-            if (is_file($path)) {
-                $files[] = $path;
+            if (! is_file($path)) {
+                continue;
             }
+
+            if (! preg_match('/^(\d+)-\d+-[a-f0-9]{8}\.json$/', $entry, $matches)) {
+                self::warn('[warp] skipped old-format pending timings batch: '.$path.PHP_EOL);
+
+                continue;
+            }
+
+            $files[] = ['path' => $path, 'timestamp' => (int) $matches[1]];
         }
 
-        sort($files);
+        usort($files, static function (array $a, array $b): int {
+            return $a['timestamp'] <=> $b['timestamp']
+                ?: $a['path'] <=> $b['path'];
+        });
 
-        return $files;
+        return array_column($files, 'path');
+    }
+
+    private static function nextPendingTimestamp(): int
+    {
+        $timestamp = (int) floor(microtime(true) * 1_000_000);
+
+        if ($timestamp <= self::$lastPendingTimestamp) {
+            $timestamp = self::$lastPendingTimestamp + 1;
+        }
+
+        self::$lastPendingTimestamp = $timestamp;
+
+        return $timestamp;
     }
 
     private static function warn(string $message): void
