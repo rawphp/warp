@@ -1,19 +1,13 @@
 # REQ-041: Recursive test file finder
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.73078
-**Claimed at:** 2026-07-08T20:47:55Z
-**Heartbeat:** 2026-07-08T20:47:55Z
-<!-- claimed-end -->
-
 **UR:** UR-010
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** Recursive file discovery implemented and verified by focused and full package suites.
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -30,11 +24,11 @@ Implement plan **Task 6**: create `RawPHP\Warp\Shard\TestFileFinder::find(array 
 
 ## Acceptance Criteria
 
-- [ ] Directory inputs discover suffix-matching test files recursively and return a sorted list.
-- [ ] Explicit file inputs pass through regardless of suffix and dedupe with directory discovery.
-- [ ] Custom suffixes are honored.
-- [ ] Trailing slashes on directory arguments are stripped.
-- [ ] Missing paths throw `RuntimeException` with `[warp] no such test path`.
+- [x] Directory inputs discover suffix-matching test files recursively and return a sorted list.
+- [x] Explicit file inputs pass through regardless of suffix and dedupe with directory discovery.
+- [x] Custom suffixes are honored.
+- [x] Trailing slashes on directory arguments are stripped.
+- [x] Missing paths throw `RuntimeException` with `[warp] no such test path`.
 
 ## Verification Steps
 
@@ -50,3 +44,14 @@ Implement plan **Task 6**: create `RawPHP\Warp\Shard\TestFileFinder::find(array 
 **Data dependencies:** Reads filesystem paths supplied by CLI users or bench scripts.
 
 **Service dependencies:** Pure SPL recursive iteration under the existing Composer PSR-4 namespace `RawPHP\Warp\`.
+
+## Outputs
+
+- `src/Shard/TestFileFinder.php` — deterministic recursive suffix-based test file discovery with explicit file pass-through and missing-path errors.
+- `tests/Unit/Shard/TestFileFinderTest.php` — coverage for recursion, sorting, dedupe, custom suffixes, trailing slashes, and missing paths.
+
+## Verification Evidence
+
+- `./vendor/bin/pest tests/Unit/Shard/TestFileFinderTest.php` — PASS, 5 tests / 6 assertions.
+- `./vendor/bin/pest` — PASS, 165 tests / 382 assertions after replacing the worktree-only `vendor` symlink with a local install because symlinked Pest resolved test paths through the main checkout.
+- `./vendor/bin/pint --dirty` — PASS.
