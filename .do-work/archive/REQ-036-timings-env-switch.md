@@ -1,19 +1,13 @@
 # REQ-036: `WarpMode::timingsEnabled()` — WARP_TIMINGS env switch
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.73078
-**Claimed at:** 2026-07-08T20:35:56Z
-**Heartbeat:** 2026-07-08T20:35:56Z
-<!-- claimed-end -->
-
 **UR:** UR-010
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** `WarpMode::timingsEnabled()` implemented with strict truthy parsing and verified by focused and full package test suites.
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -30,10 +24,10 @@ UR-010 executes the S3 timing capture and duration-balanced sharding plan. The p
 
 ## Acceptance Criteria
 
-- [ ] `WarpMode::timingsEnabled()` returns true for `WARP_TIMINGS=1`, `on`, and `true`.
-- [ ] `timingsEnabled()` returns false for unset, `0`, `off`, `false`, `yes`, `TRUE`, and empty string.
-- [ ] `timingsEnabled()` is independent of `WARP_MODE` and `WARP_DB`.
-- [ ] `tests/Unit/WarpModeTest.php` clears `WARP_TIMINGS` in `afterEach`.
+- [x] `WarpMode::timingsEnabled()` returns true for `WARP_TIMINGS=1`, `on`, and `true`.
+- [x] `timingsEnabled()` returns false for unset, `0`, `off`, `false`, `yes`, `TRUE`, and empty string.
+- [x] `timingsEnabled()` is independent of `WARP_MODE` and `WARP_DB`.
+- [x] `tests/Unit/WarpModeTest.php` clears `WARP_TIMINGS` in `afterEach`.
 
 ## Verification Steps
 
@@ -49,3 +43,14 @@ UR-010 executes the S3 timing capture and duration-balanced sharding plan. The p
 **Data dependencies:** Reads only the `WARP_TIMINGS` environment variable.
 
 **Service dependencies:** Extends existing `RawPHP\Warp\WarpMode` in `src/WarpMode.php`, mirroring `enabled()` and `databaseEnabled()`.
+
+## Outputs
+
+- `src/WarpMode.php` — added `WarpMode::timingsEnabled()` using the same strict env parsing as the existing mode switches.
+- `tests/Unit/WarpModeTest.php` — added WARP_TIMINGS reset and truthy/falsey/independence coverage.
+
+## Verification Evidence
+
+- `./vendor/bin/pest tests/Unit/WarpModeTest.php` — PASS, 35 tests / 35 assertions.
+- `./vendor/bin/pest` — PASS, 147 tests / 255 assertions after replacing the worktree-only `vendor` symlink with a local install because symlinked Pest resolved test paths through the main checkout.
+- `./vendor/bin/pint --dirty` — PASS.
