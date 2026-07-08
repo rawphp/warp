@@ -1,7 +1,13 @@
 # REQ-039: Test-file resolver for Pest and classic PHPUnit tests
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.73078
+**Claimed at:** 2026-07-08T20:41:41Z
+**Heartbeat:** 2026-07-08T20:41:41Z
+<!-- claimed-end -->
+
 **UR:** UR-010
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
