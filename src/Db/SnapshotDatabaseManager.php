@@ -135,8 +135,6 @@ final class SnapshotDatabaseManager
 
         $env = array_merge(getenv(), [
             'DB_CONNECTION' => $config->connection,
-            'DB_HOST' => 'localhost',
-            'DB_PORT' => '3306',
             'DB_SOCKET' => $socket,
             'DB_DATABASE' => $database,
             'DB_USERNAME' => 'root',
