@@ -1,7 +1,13 @@
 # REQ-042: Deterministic duration-balanced LPT sharder
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.73078
+**Claimed at:** 2026-07-08T20:50:56Z
+**Heartbeat:** 2026-07-08T20:50:56Z
+<!-- claimed-end -->
+
 **UR:** UR-010
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
