@@ -1,19 +1,13 @@
 # REQ-039: Test-file resolver for Pest and classic PHPUnit tests
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.73078
-**Claimed at:** 2026-07-08T20:41:41Z
-**Heartbeat:** 2026-07-08T20:41:41Z
-<!-- claimed-end -->
-
 **UR:** UR-010
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** `TestFileResolver` handles classic reported files, Pest static filenames, eval paths, outside-root paths, and trailing-root slashes; focused and full suites pass.
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -30,11 +24,11 @@ Spike fact #3 says `TestMethod::file()` reports Pest tests as eval code, while P
 
 ## Acceptance Criteria
 
-- [ ] Classic PHPUnit classes resolve from the reported file when it is inside the project root.
-- [ ] Pest-generated classes prefer static `$__filename` over eval-reported paths.
-- [ ] Eval paths without a Pest filename return `null`.
-- [ ] Files outside the project root return `null`.
-- [ ] A trailing slash on the root is tolerated.
+- [x] Classic PHPUnit classes resolve from the reported file when it is inside the project root.
+- [x] Pest-generated classes prefer static `$__filename` over eval-reported paths.
+- [x] Eval paths without a Pest filename return `null`.
+- [x] Files outside the project root return `null`.
+- [x] A trailing slash on the root is tolerated.
 
 ## Verification Steps
 
@@ -50,3 +44,14 @@ Spike fact #3 says `TestMethod::file()` reports Pest tests as eval code, while P
 **Data dependencies:** Reads class metadata and reported file paths from PHPUnit event test objects.
 
 **Service dependencies:** Pure PHP helper under the existing Composer PSR-4 namespace `RawPHP\Warp\` declared in `composer.json`.
+
+## Outputs
+
+- `src/Timing/TestFileResolver.php` — resolves project-relative test file paths for Pest-generated and classic PHPUnit classes.
+- `tests/Unit/Timing/TestFileResolverTest.php` — coverage for classic paths, Pest static filenames, eval paths, outside-root files, and trailing root slashes.
+
+## Verification Evidence
+
+- `./vendor/bin/pest tests/Unit/Timing/TestFileResolverTest.php` — PASS, 5 tests / 5 assertions.
+- `./vendor/bin/pest` — PASS, 158 tests / 266 assertions after replacing the worktree-only `vendor` symlink with a local install because symlinked Pest resolved test paths through the main checkout.
+- `./vendor/bin/pint --dirty` — PASS.
