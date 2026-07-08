@@ -1,7 +1,13 @@
 # REQ-048: Atomic pending-batch writes and tolerant, glob-safe pending discovery
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.21409
+**Claimed at:** 2026-07-08T23:01:09Z
+**Heartbeat:** 2026-07-08T23:01:09Z
+<!-- claimed-end -->
+
 **UR:** UR-011
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
