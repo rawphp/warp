@@ -1,19 +1,13 @@
 # REQ-037: Persistent per-test timing store
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.73078
-**Claimed at:** 2026-07-08T20:31:10Z
-**Heartbeat:** 2026-07-08T20:31:10Z
-<!-- claimed-end -->
-
 **UR:** UR-010
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** Focused timing store tests pass; full package suite passes in isolated worktree after local vendor install.
 **Criteria approved:** agent-drafted
 **Priority:** 3
 **Size:** M
@@ -30,11 +24,11 @@ This is the durable artifact layer for S3. It is consumed by the collector, exte
 
 ## Acceptance Criteria
 
-- [ ] Empty loads and empty pending writes do not create directories.
-- [ ] Pending batches merge into `timings.json`, consumed pending files are removed, and corrupt pending files are ignored and deleted.
-- [ ] A fresh batch for a file supersedes all previous entries for that file while preserving other files.
-- [ ] Malformed pending entries are dropped, unknown merged versions load as empty, and `aggregate()` returns path-sorted file totals.
-- [ ] `TimingStore::fromEnv()` honors `WARP_TIMINGS_DIR` and defaults to `.warp/timings` under the invocation cwd.
+- [x] Empty loads and empty pending writes do not create directories.
+- [x] Pending batches merge into `timings.json`, consumed pending files are removed, and corrupt pending files are ignored and deleted.
+- [x] A fresh batch for a file supersedes all previous entries for that file while preserving other files.
+- [x] Malformed pending entries are dropped, unknown merged versions load as empty, and `aggregate()` returns path-sorted file totals.
+- [x] `TimingStore::fromEnv()` honors `WARP_TIMINGS_DIR` and defaults to `.warp/timings` under the invocation cwd.
 
 ## Verification Steps
 
@@ -50,3 +44,14 @@ This is the durable artifact layer for S3. It is consumed by the collector, exte
 **Data dependencies:** Reads and writes the portable `.warp/timings` artifact, or `WARP_TIMINGS_DIR` when set.
 
 **Service dependencies:** Reuses existing `RawPHP\Warp\Db\Dirs` from `src/Db/Dirs.php`.
+
+## Outputs
+
+- `src/Timing/TimingStore.php` — persistent timing artifact store with pending batch writes, deterministic merge, superseding file semantics, and aggregate helpers.
+- `tests/Unit/Timing/TimingStoreTest.php` — Task 2 coverage for empty/no-op behavior, pending merges, corrupt/malformed files, version handling, aggregation, and env resolution.
+
+## Verification Evidence
+
+- `./vendor/bin/pest tests/Unit/Timing/TimingStoreTest.php` — PASS, 10 tests / 18 assertions.
+- `./vendor/bin/pest` — PASS, 136 tests / 244 assertions after replacing the worktree-only `vendor` symlink with a local install because symlinked Pest resolved test paths through the main checkout.
+- `./vendor/bin/pint --dirty` — PASS.
