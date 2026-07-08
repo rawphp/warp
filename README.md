@@ -160,6 +160,24 @@ apt, or point `WARP_DB_MYSQLD` at one) and a `mysql`-driver test connection.
 Per-test isolation is unchanged — `RefreshDatabase` transaction-wraps as before;
 the golden snapshot just makes its migrate step a no-op.
 
+**Host wiring (required):** the golden build runs as a subprocess with
+`DB_HOST`, `DB_PORT`, `DB_SOCKET`, `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD`
+injected into its env, pointed at that worker's throwaway `mysqld`. Your test
+connection config must read the socket from that env var:
+
+```php
+// config/database.php — the connection named by config('warp.db.connection')
+'mysql' => [
+    // ...
+    'unix_socket' => env('DB_SOCKET', ''),
+],
+```
+
+Without it, the build subprocess falls back to whatever socket your driver
+defaults to instead of the per-worker one warp provisioned — this can silently
+target the wrong database in a single process, and fails outright
+(`SQLSTATE[HY000] [2002] No such file or directory`) under `--parallel`.
+
 Optional config, all under `config('warp.db')`:
 
 | Key | Default | Purpose |
