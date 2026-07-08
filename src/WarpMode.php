@@ -15,4 +15,9 @@ final class WarpMode
     {
         return in_array(getenv('WARP_DB'), ['1', 'on', 'true'], true);
     }
+
+    public static function timingsEnabled(): bool
+    {
+        return in_array(getenv('WARP_TIMINGS'), ['1', 'on', 'true'], true);
+    }
 }
