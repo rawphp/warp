@@ -1,23 +1,17 @@
 # REQ-055: Canonicalize timing keys and shard lookups; warn on total key mismatch
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.21409
-**Claimed at:** 2026-07-08T23:26:05Z
-**Heartbeat:** 2026-07-08T23:26:05Z
-<!-- claimed-end -->
-
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
 **Terminal state:**
 **Parent:** REQ-054
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:bfdfcc8
 **Criteria approved:** agent-drafted
 **Priority:** 3
 **Size:** M
-**Files:** src/Timing/TestFileResolver.php, src/Shard/TestFileFinder.php, src/Cli/ShardCommand.php, tests/Unit/Timing/TestFileResolverTest.php, tests/Unit/Shard/TestFileFinderTest.php, tests/Unit/Cli/ShardCommandTest.php
+**Files:** src/Timing/TestFileResolver.php, src/Shard/TestFileFinder.php, src/Cli/ShardCommand.php, src/Support/Paths.php, tests/Unit/Timing/TestFileResolverTest.php, tests/Unit/Shard/TestFileFinderTest.php, tests/Unit/Cli/ShardCommandTest.php
 **Depends on:**
 
 ## Task
@@ -37,10 +31,10 @@ Review finding #1 — the top-ranked bug: `array_intersect_key` in DurationBalan
 
 ## Acceptance Criteria
 
-- [ ] `warp shard 1/4 tests`, `warp shard 1/4 ./tests`, and `warp shard 1/4 <absolute path to tests>` against the same recorded timings produce byte-identical stdout.
-- [ ] Weights are actually applied in all three spellings: a test with skewed recorded durations asserts the duration-balanced (not count-balanced) partition for each spelling.
-- [ ] With non-empty recorded totals and zero matching discovered files, stderr contains a warning naming the mismatch; exit code and stdout plan are unchanged (still count-balanced fallback).
-- [ ] `TestFileResolver` emits canonical keys (no `./` prefix, root-relative) — asserted directly in its unit test.
+- [x] `warp shard 1/4 tests`, `warp shard 1/4 ./tests`, and `warp shard 1/4 <absolute path to tests>` against the same recorded timings produce byte-identical stdout.
+- [x] Weights are actually applied in all three spellings: a test with skewed recorded durations asserts the duration-balanced (not count-balanced) partition for each spelling.
+- [x] With non-empty recorded totals and zero matching discovered files, stderr contains a warning naming the mismatch; exit code and stdout plan are unchanged (still count-balanced fallback).
+- [x] `TestFileResolver` emits canonical keys (no `./` prefix, root-relative) — asserted directly in its unit test.
 
 ## Verification Steps
 
@@ -60,3 +54,12 @@ Review finding #1 — the top-ranked bug: `array_intersect_key` in DurationBalan
 **Data dependencies:** `timings.json` key format (clean break to canonical form) read via `TimingStore::fileTotals()`.
 
 **Service dependencies:** `DurationBalancedSharder::assign()`'s `array_intersect_key` lookup (src/Shard/DurationBalancedSharder.php:26) consumes the canonical keys; new `Support\Paths` helper shared with future callers.
+
+## Outputs
+
+- src/Support/Paths.php — Shared realpath-based project-root-relative path canonicalizer.
+- src/Timing/TestFileResolver.php — Timing resolver now emits canonical root-relative keys through the shared helper.
+- src/Cli/ShardCommand.php — Shard planning canonicalizes discovered files for lookup/output and warns on zero timing-key matches.
+- src/Shard/TestFileFinder.php — Finder boundary comment updated to document caller-spelling discovery with consumer-side canonicalization.
+- tests/Unit/Timing/TestFileResolverTest.php — Added resolver coverage for canonical root-relative keys without ./ prefixes.
+- tests/Unit/Cli/ShardCommandTest.php — Added spelling-equivalence, skewed-duration, and mismatch-warning shard command coverage.
