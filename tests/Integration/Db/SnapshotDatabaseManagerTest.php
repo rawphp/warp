@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\DB;
 use RawPHP\Warp\Db\Dirs;
+use RawPHP\Warp\Db\MysqldServer;
 use RawPHP\Warp\Db\SnapshotDatabaseManager;
 
 beforeEach(function () {
@@ -99,4 +100,47 @@ it('shutdown removes the worker runtime dir and is idempotent', function () {
 
     expect(glob('/tmp/warp-mgr-it/w*'))->toBe([])
         ->and(SnapshotDatabaseManager::provisioned())->toBeFalse();
+});
+
+it('resets the singleton and rethrows when server->stop() throws mid-recycle, so the next apply re-provisions', function () {
+    SnapshotDatabaseManager::apply($this->app);
+
+    // Force MysqldServer::stop() to throw by swapping its process handle for a
+    // resource of the wrong subtype — proc_terminate() rejects it with a TypeError,
+    // simulating a genuine stop() failure without waiting out a real mysqld timeout.
+    $instance = (new ReflectionProperty(SnapshotDatabaseManager::class, 'instance'))->getValue();
+    $workerDir = (new ReflectionProperty(SnapshotDatabaseManager::class, 'workerDir'))->getValue($instance);
+    $server = (new ReflectionProperty(SnapshotDatabaseManager::class, 'server'))->getValue($instance);
+    $processProperty = new ReflectionProperty(MysqldServer::class, 'process');
+    $wrongResource = fopen('php://memory', 'r');
+    $processProperty->setValue($server, $wrongResource);
+
+    $thrown = null;
+
+    try {
+        SnapshotDatabaseManager::recycle($this->app);
+    } catch (\Throwable $e) {
+        $thrown = $e;
+    }
+
+    expect($thrown)->not->toBeNull()
+        ->and($thrown)->toBeInstanceOf(\TypeError::class)
+        ->and(SnapshotDatabaseManager::provisioned())->toBeFalse();
+
+    fclose($wrongResource);
+
+    // recycle() lost the real process handle before it could stop the still-running
+    // mysqld — reap it directly (by pid file) so this test doesn't leak the process.
+    $orphanPid = (int) @file_get_contents($workerDir.'/datadir/warp-mysqld.pid');
+    if ($orphanPid > 0) {
+        exec(sprintf('kill -9 %d 2>/dev/null', $orphanPid));
+    }
+    Dirs::delete($workerDir);
+
+    // A subsequent apply() must re-provision a fresh instance, not reuse the dead one.
+    DB::purge('warp_it');
+    SnapshotDatabaseManager::apply($this->app);
+
+    expect(SnapshotDatabaseManager::provisioned())->toBeTrue()
+        ->and(DB::table('marks')->count())->toBe(1);
 });

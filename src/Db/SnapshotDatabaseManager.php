@@ -44,17 +44,24 @@ final class SnapshotDatabaseManager
 
         $app->make('db')->purge($self->config->connection);
 
-        $self->server->stop();
-        Dirs::delete($self->workerDir.'/datadir');
-        $self->cloner->clone($self->store->datadir($self->key), $self->workerDir.'/datadir');
+        try {
+            $self->server->stop();
+            Dirs::delete($self->workerDir.'/datadir');
+            $self->cloner->clone($self->store->datadir($self->key), $self->workerDir.'/datadir');
 
-        $self->server = new MysqldServer(
-            $self->binaries,
-            $self->workerDir.'/datadir',
-            $self->workerDir.'/mysql.sock',
-            $self->workerDir.'/error.log',
-        );
-        $self->server->start();
+            $self->server = new MysqldServer(
+                $self->binaries,
+                $self->workerDir.'/datadir',
+                $self->workerDir.'/mysql.sock',
+                $self->workerDir.'/error.log',
+            );
+            $self->server->start();
+        } catch (\Throwable $e) {
+            // A broken instance must never be reused: the next apply() re-boots fresh.
+            self::$instance = null;
+
+            throw $e;
+        }
 
         $self->applyConnectionConfig($app);
     }
