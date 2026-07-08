@@ -1,19 +1,13 @@
 # REQ-048: Atomic pending-batch writes and tolerant, glob-safe pending discovery
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.21409
-**Claimed at:** 2026-07-08T23:01:09Z
-**Heartbeat:** 2026-07-08T23:01:09Z
-<!-- claimed-end -->
-
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
 **Terminal state:**
 **Parent:** REQ-046
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:cffbd27
 **Criteria approved:** agent-drafted
 **Priority:** 3
 **Size:** M
@@ -34,10 +28,10 @@ Review findings #7 and #8. `writePending()` uses plain `file_put_contents` with 
 
 ## Acceptance Criteria
 
-- [ ] `writePending()` writes via tmp-file + `rename()`; a test proves no non-`.tmp` partial file is ever visible under `pending/` (e.g. by asserting the final file decodes even when written concurrently-style, and that no stray `.tmp` remains after a successful write).
-- [ ] A pending file containing invalid JSON is left on disk after `mergePending()`, a stderr warning names it, and valid sibling batches still merge.
-- [ ] Pending discovery finds batches when the store directory path contains `[`, `]`, `*`, or `?` (test creates a store under a path like `base[1]/timings` and asserts merge picks the batch up).
-- [ ] Existing TimingStore tests still pass unchanged except where they pinned the old unlink-on-decode-failure behaviour.
+- [x] `writePending()` writes via tmp-file + `rename()`; a test proves no non-`.tmp` partial file is ever visible under `pending/` (e.g. by asserting the final file decodes even when written concurrently-style, and that no stray `.tmp` remains after a successful write).
+- [x] A pending file containing invalid JSON is left on disk after `mergePending()`, a stderr warning names it, and valid sibling batches still merge.
+- [x] Pending discovery finds batches when the store directory path contains `[`, `]`, `*`, or `?` (test creates a store under a path like `base[1]/timings` and asserts merge picks the batch up).
+- [x] Existing TimingStore tests still pass unchanged except where they pinned the old unlink-on-decode-failure behaviour.
 
 ## Verification Steps
 
@@ -55,3 +49,8 @@ Review findings #7 and #8. `writePending()` uses plain `file_put_contents` with 
 **Data dependencies:** Reads/writes `pending/*.json` batch files and `timings.json` under the store directory (default `.warp/timings`).
 
 **Service dependencies:** None beyond PHP filesystem functions; interacts with the same `TimingStore` internals REQ-049/REQ-050 modify (hence the dependency chain).
+
+## Outputs
+
+- src/Timing/TimingStore.php — Pending timing batches now publish atomically, discover via directory scan, and preserve invalid JSON batches with warnings.
+- tests/Unit/Timing/TimingStoreTest.php — Added coverage for atomic writes, corrupt pending preservation with stderr warning, and glob-metacharacter paths.
