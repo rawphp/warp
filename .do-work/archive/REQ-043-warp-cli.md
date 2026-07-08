@@ -1,24 +1,18 @@
 # REQ-043: `warp` CLI with shard and timings commands
 
 **UR:** UR-010
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:** `php bin/warp`, `./vendor/bin/warp shard <k>/<n>`, and `./vendor/bin/warp timings`
 **Terminal state:** The CLI prints machine-clean shard file lists on stdout, diagnostics on stderr, timing summaries on demand, valid usage errors, and is registered as the package binary.
 **Parent:**
-**Closure proof:**
+**Closure proof:** Merged as `merge(REQ-043): warp CLI commands`; CLI unit tests, binary integration tests, `php bin/warp`, `composer validate --no-check-publish`, full Pest suite, and Pint passed.
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** L
 **Files:** bin/warp, src/Cli/WarpCli.php, src/Cli/ShardCommand.php, src/Cli/TimingsCommand.php, composer.json, tests/Unit/Cli/ShardCommandTest.php, tests/Unit/Cli/TimingsCommandTest.php, tests/Integration/Cli/WarpBinTest.php
 **Depends on:** REQ-037, REQ-041, REQ-042
-
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.73078
-**Claimed at:** 2026-07-08T20:55:27Z
-**Heartbeat:** 2026-07-08T20:55:27Z
-<!-- claimed-end -->
 
 ## Task
 
@@ -30,25 +24,32 @@ This is the user-facing command surface for S3. `warp shard` is designed for she
 
 ## Acceptance Criteria
 
-- [ ] `warp shard <index>/<total> [paths...]` discovers files, loads timings, prints only selected files to stdout, and warns to stderr when no timings exist.
-- [ ] `warp shard` supports `--timings-dir=DIR` and `--suffix=SUFFIX`.
-- [ ] Usage, missing paths, and invalid shard specs return exit code 2 with `[warp]` diagnostics.
-- [ ] Empty shards return exit code 3 and print no stdout file list.
-- [ ] `warp timings` merges pending data and reports test count, file count, total milliseconds, and slowest files.
-- [ ] `bin/warp` resolves the autoloader in both package-development and installed-vendor layouts, is executable, and `composer.json` registers it in `bin`.
+- [x] `warp shard <index>/<total> [paths...]` discovers files, loads timings, prints only selected files to stdout, and warns to stderr when no timings exist.
+- [x] `warp shard` supports `--timings-dir=DIR` and `--suffix=SUFFIX`.
+- [x] Usage, missing paths, and invalid shard specs return exit code 2 with `[warp]` diagnostics.
+- [x] Empty shards return exit code 3 and print no stdout file list.
+- [x] `warp timings` merges pending data and reports test count, file count, total milliseconds, and slowest files.
+- [x] `bin/warp` resolves the autoloader in both package-development and installed-vendor layouts, is executable, and `composer.json` registers it in `bin`.
 
 ## Verification Steps
 
 1. **test** `./vendor/bin/pest tests/Unit/Cli`
    - Expected: PASS for shard and timings command unit tests.
+   - Actual: PASS, 10 tests / 26 assertions.
 2. **test** `./vendor/bin/pest tests/Integration/Cli/WarpBinTest.php`
    - Expected: PASS for binary invocation behavior.
+   - Actual: PASS, 3 tests / 9 assertions.
 3. **runtime** `php bin/warp`
    - Expected: exits 2 and prints usage to stderr.
+   - Actual: PASS, exit 2 with usage on stderr and empty stdout.
 4. **runtime** `composer validate`
    - Expected: valid Composer manifest.
+   - Actual: PASS via `composer validate --no-check-publish`.
 5. **test** `./vendor/bin/pest`
    - Expected: full suite PASS.
+   - Actual: PASS, 188 tests / 437 assertions.
+6. **format** `./vendor/bin/pint --dirty`
+   - Actual: PASS.
 
 ## Integration
 
