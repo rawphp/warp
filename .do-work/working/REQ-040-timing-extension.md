@@ -1,7 +1,13 @@
 # REQ-040: PHPUnit timing extension and end-to-end capture test
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.73078
+**Claimed at:** 2026-07-08T20:44:19Z
+**Heartbeat:** 2026-07-08T20:44:19Z
+<!-- claimed-end -->
+
 **UR:** UR-010
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** integration
 **Entry point:** `WARP_TIMINGS=1 ./vendor/bin/pest` with `RawPHP\Warp\Timing\TimingExtension` registered in `phpunit.xml`
