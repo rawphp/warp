@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.2.0 - 2026-07-08
+
 ### Added
 
 - **S2 — golden-snapshot DB provisioning** (`WARP_DB=1`): per-worker copy-on-write
