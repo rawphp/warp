@@ -1,19 +1,13 @@
 # REQ-049: Merge pending batches in recording order, not pid-lexicographic order
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.21409
-**Claimed at:** 2026-07-08T23:14:17Z
-**Heartbeat:** 2026-07-08T23:14:17Z
-<!-- claimed-end -->
-
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
 **Terminal state:**
 **Parent:** REQ-046
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:6e812c2
 **Criteria approved:** agent-drafted
 **Priority:** 3
 **Size:** M
@@ -30,9 +24,9 @@ Review finding #5: pending filenames carry no timestamp, and lexicographic `sort
 
 ## Acceptance Criteria
 
-- [ ] Pending filenames begin with a sortable numeric timestamp; two batches written in sequence produce filenames whose timestamp order matches write order.
-- [ ] A test writes batch A (older timestamp, covering FooTest at 5000ms) and batch B (newer timestamp, covering FooTest at 50ms) with A's filename lexicographically smaller AND another case where A's is larger — after merge, FooTest is 50ms in both cases.
-- [ ] Old-format (non-timestamp-prefixed) pending files are handled by an explicit documented rule (skip + stderr warning, or merge-first), asserted by a test — never a crash.
+- [x] Pending filenames begin with a sortable numeric timestamp; two batches written in sequence produce filenames whose timestamp order matches write order.
+- [x] A test writes batch A (older timestamp, covering FooTest at 5000ms) and batch B (newer timestamp, covering FooTest at 50ms) with A's filename lexicographically smaller AND another case where A's is larger — after merge, FooTest is 50ms in both cases.
+- [x] Old-format (non-timestamp-prefixed) pending files are handled by an explicit documented rule (skip + stderr warning, or merge-first), asserted by a test — never a crash.
 
 ## Verification Steps
 
@@ -50,3 +44,8 @@ Review finding #5: pending filenames carry no timestamp, and lexicographic `sort
 **Data dependencies:** `pending/*.json` filename format (clean break) and `timings.json` supersede semantics.
 
 **Service dependencies:** Builds directly on REQ-048's rewritten pending I/O in src/Timing/TimingStore.php (hard dependency).
+
+## Outputs
+
+- src/Timing/TimingStore.php — Pending batches now use monotonic timestamp-prefixed filenames and merge by parsed recording timestamp, skipping old-format files with a warning.
+- tests/Unit/Timing/TimingStoreTest.php — Added coverage for timestamped pending filenames, numeric recording-order merge behavior, and explicit old-format skip handling.
