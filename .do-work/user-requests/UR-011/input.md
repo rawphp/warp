@@ -80,3 +80,23 @@ Review of the s3 branch (~1,700 lines: timing-based test sharding — TimingStor
 ```
 
 Nine verified findings didn't fit the cap of 10, most notably: `TestFileResolver` depends on Pest's undocumented `$__filename` internal and silently drops every Pest test from timings if it fails (and a userland `$__filename` property can crash the run — PLAUSIBLE); the bench script duplicates the sharder's private fallback-weight policy and crashes on zero discovered files; `WarpMode`'s env-flag idiom is triplicated; `TimingStore` re-implements `SnapshotStore::withLock()`; and the resolver runs unmemoized reflection on every test finish.
+
+## Clarifications
+
+**Q:** The path-canonicalization fix (finding #1) and any pending-filename format change (finding #5) may invalidate existing recorded .warp/timings data — is a clean break without migration code acceptable?
+**A:** Yes — clean break on stored timing artifacts, no migration/back-compat code needed. *(inferred, confirmed — .do-work/decisions.md 2026-07-05: "clean break, no legacy alias", "zero public users pre-release")*
+
+**Q:** The brief's closing paragraph names 9 over-cap findings that "didn't fit the cap of 10" — which are in scope for UR-011?
+**A:** All 19 findings are in scope — the top 10 plus all 9 over-cap findings.
+
+**Q:** Finding #9 (shard discovery hardcodes 'tests'/'Test.php' "instead of reading phpunit.xml testsuites") is feature-sized — how should UR-011 handle it?
+**A:** Full phpunit.xml support in this UR: parse testsuites properly via PHPUnit's own configuration loader, accepting it's the largest REQ of the batch.
+
+**Q:** Findings #3/#5/#7/#8 interlock in TimingStore's merge machinery; #3 shows `warp shard` writing on its read path breaks read-only CI artifacts. What should the fixed contract be?
+**A:** Read-only shard: `warp shard`/`warp timings` never write — they read timings.json AND overlay unmerged pending/*.json in memory. Merging to disk happens only in an explicit `warp merge` step (or on the recording side). Read-only artifacts just work.
+
+**Q:** Fixing finding #2 and the read-only shard contract changes what REQ-045 documented — should UR-011 update the docs alongside the code?
+**A:** README only: update the README (CI recipe, exit codes, new merge contract, version-lock note for canonical paths). Leave the S3 plan doc as a dated historical record, per the decisions.md 2026-07-05 precedent.
+
+**Q:** With all 19 findings in scope, how deep should the Pest `$__filename` hardening go?
+**A:** Guard + loud warning: keep reading `$__filename` but via safe reflection (which also fixes the userland-`$__filename` crash), count unattributed tests, and print a stderr warning when the count is nonzero so a Pest internals change is noticed immediately.
