@@ -11,6 +11,7 @@ $legacy = 'WARP_'.'WARM';
 afterEach(function () use ($legacy) {
     putenv('WARP_MODE');
     putenv('WARP_DB');
+    putenv('WARP_TIMINGS');
     putenv($legacy);
 });
 
@@ -62,4 +63,30 @@ it('database provisioning is independent of WARP_MODE', function () {
     putenv('WARP_DB');
 
     expect(WarpMode::databaseEnabled())->toBeFalse();
+});
+
+it('timing capture is disabled when WARP_TIMINGS is unset', function () {
+    putenv('WARP_TIMINGS');
+
+    expect(WarpMode::timingsEnabled())->toBeFalse();
+});
+
+it('timing capture is enabled for the accepted truthy values', function (string $value) {
+    putenv("WARP_TIMINGS={$value}");
+
+    expect(WarpMode::timingsEnabled())->toBeTrue();
+})->with(['1', 'on', 'true']);
+
+it('timing capture is disabled for falsey or unrecognised values', function (string $value) {
+    putenv("WARP_TIMINGS={$value}");
+
+    expect(WarpMode::timingsEnabled())->toBeFalse();
+})->with(['0', 'off', 'false', 'yes', 'TRUE', '']);
+
+it('timing capture is independent of WARP_MODE and WARP_DB', function () {
+    putenv('WARP_MODE=1');
+    putenv('WARP_DB=1');
+    putenv('WARP_TIMINGS');
+
+    expect(WarpMode::timingsEnabled())->toBeFalse();
 });
