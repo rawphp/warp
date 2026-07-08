@@ -55,6 +55,21 @@ it('short-circuits when the snapshot already exists', function () {
     expect($seeds)->toBe(1);
 });
 
+it('throws and does not promote when the migrated datadir has no schema for the target database', function () {
+    try {
+        // Simulates the DB_HOST/DB_PORT footgun: the build subprocess exits 0
+        // (e.g. it "migrated" against the wrong server) but never seeds this datadir.
+        $this->builder->build($this->key, 'warp_golden', function (string $socket, string $database): void {
+        });
+        $this->fail('expected build() to throw when no schema landed in the built datadir');
+    } catch (RuntimeException $e) {
+        expect($e->getMessage())->toContain('warp_golden');
+    }
+
+    expect($this->store->exists($this->key))->toBeFalse()
+        ->and(glob($this->root.'/*.staging-*'))->toBe([]);
+});
+
 it('cleans staging and rethrows when the seed callable fails', function () {
     try {
         $this->builder->build($this->key, 'warp_golden', function (): void {

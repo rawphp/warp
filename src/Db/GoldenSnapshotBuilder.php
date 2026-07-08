@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RawPHP\Warp\Db;
 
+use RuntimeException;
 use Throwable;
 
 final class GoldenSnapshotBuilder
@@ -47,6 +48,8 @@ final class GoldenSnapshotBuilder
                 $seed($socket, $database);
                 // Clean shutdown is mandatory: clones must start without crash recovery.
                 $server->stop();
+
+                self::verifySchemaLanded($staging, $database);
             } catch (Throwable $e) {
                 try {
                     $server->stop();
@@ -70,5 +73,33 @@ final class GoldenSnapshotBuilder
 
             $this->store->promote($staging, $key);
         });
+    }
+
+    /**
+     * Trust but verify: the build subprocess can exit 0 while having migrated
+     * against the wrong server entirely (e.g. a host/port footgun bypassing the
+     * intended build-time socket). Confirm the target schema actually has tables
+     * in this datadir before letting the caller promote it as golden.
+     */
+    private static function verifySchemaLanded(string $staging, string $database): void
+    {
+        $schemaDir = $staging.'/datadir/'.$database;
+
+        if (! is_dir($schemaDir)) {
+            throw new RuntimeException(
+                "[warp] golden build produced no schema directory for database '{$database}' — the build subprocess likely migrated against the wrong server",
+            );
+        }
+
+        $tables = array_filter(
+            scandir($schemaDir) ?: [],
+            static fn (string $entry): bool => ! in_array($entry, ['.', '..', 'db.opt'], true),
+        );
+
+        if ($tables === []) {
+            throw new RuntimeException(
+                "[warp] golden build database '{$database}' has no tables in the built datadir — the build subprocess likely migrated against the wrong server (check DB_SOCKET/unix_socket wiring)",
+            );
+        }
     }
 }
