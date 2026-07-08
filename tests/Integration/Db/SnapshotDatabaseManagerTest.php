@@ -119,12 +119,12 @@ it('resets the singleton and rethrows when server->stop() throws mid-recycle, so
 
     try {
         SnapshotDatabaseManager::recycle($this->app);
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         $thrown = $e;
     }
 
     expect($thrown)->not->toBeNull()
-        ->and($thrown)->toBeInstanceOf(\TypeError::class)
+        ->and($thrown)->toBeInstanceOf(TypeError::class)
         ->and(SnapshotDatabaseManager::provisioned())->toBeFalse();
 
     fclose($wrongResource);

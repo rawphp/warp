@@ -67,7 +67,7 @@ it('provisions through createApplication when WARP_DB is on, and recycles', func
 
     // Simulate the next test's createApplication() on the configured app.
     putenv('WARP_DB=1');
-    RawPHP\Warp\Db\SnapshotDatabaseManager::apply($this->app);
+    SnapshotDatabaseManager::apply($this->app);
 
     expect(SnapshotDatabaseManager::provisioned())->toBeTrue()
         ->and(DB::table('marks')->count())->toBe(1);

@@ -37,7 +37,7 @@ it('builds, seeds, and promotes a golden datadir with metadata', function () {
     expect($this->store->exists($this->key))->toBeTrue()
         ->and(is_dir($this->store->datadir($this->key).'/warp_golden'))->toBeTrue()
         ->and(json_decode((string) file_get_contents($this->store->path($this->key).'/meta.json'), true))
-            ->toHaveKeys(['key', 'database', 'mysqld_version', 'format', 'built_at'])
+        ->toHaveKeys(['key', 'database', 'mysqld_version', 'format', 'built_at'])
         ->and(glob($this->root.'/*.staging-*'))->toBe([]);
 });
 
@@ -59,8 +59,7 @@ it('throws and does not promote when the migrated datadir has no schema for the 
     try {
         // Simulates the DB_HOST/DB_PORT footgun: the build subprocess exits 0
         // (e.g. it "migrated" against the wrong server) but never seeds this datadir.
-        $this->builder->build($this->key, 'warp_golden', function (string $socket, string $database): void {
-        });
+        $this->builder->build($this->key, 'warp_golden', function (string $socket, string $database): void {});
         $this->fail('expected build() to throw when no schema landed in the built datadir');
     } catch (RuntimeException $e) {
         expect($e->getMessage())->toContain('warp_golden');
