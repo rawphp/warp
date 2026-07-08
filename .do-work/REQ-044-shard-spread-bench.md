@@ -1,7 +1,7 @@
 # REQ-044: S3 shard-spread bench harness
 
 **UR:** UR-010
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** bench
 **Entry point:** `bench/shard-spread.sh /path/to/app <shards> [suite-path]`
@@ -13,6 +13,12 @@
 **Size:** M
 **Files:** bench/shard-spread.php, bench/shard-spread.sh
 **Depends on:** REQ-037, REQ-040, REQ-041, REQ-042
+
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.73078
+**Claimed at:** 2026-07-08T20:59:53Z
+**Heartbeat:** 2026-07-08T20:59:53Z
+<!-- claimed-end -->
 
 ## Task
 
