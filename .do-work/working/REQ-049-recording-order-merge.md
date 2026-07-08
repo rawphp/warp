@@ -1,7 +1,13 @@
 # REQ-049: Merge pending batches in recording order, not pid-lexicographic order
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.21409
+**Claimed at:** 2026-07-08T23:14:17Z
+**Heartbeat:** 2026-07-08T23:14:17Z
+<!-- claimed-end -->
+
 **UR:** UR-011
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
