@@ -6,9 +6,11 @@ classification: feature
 layers_in_scope: [package, bench, integration, docs]
 layer_decisions: {}
 open_gaps:
-  - Parallel timing writes need deterministic merge behavior under corrupt or concurrent pending batches.
-  - Pest file attribution must use the generated class filename and skip unattributable tests instead of guessing.
-  - The shard CLI must keep stdout machine-clean while reporting diagnostics and empty shards through stderr/exit codes.
+  - UR-010/input.md stores only a plan path, so plan edits could drift from the captured REQs.
+  - Timing artifacts can lose useful data if filtered runs supersede full-file timings.
+  - CI shard agreement depends on stable path forms, fallback weights, and tie breaks.
+  - PHPUnit extension classes must stay safe despite no runtime PHPUnit dependency in composer.json.
+  - warp shard must keep stdout file-only across warnings, usage errors, and empty shards.
 reqs:
   - { id: REQ-036, layer: package, integration_confidence: high }
   - { id: REQ-037, layer: package, integration_confidence: high }
