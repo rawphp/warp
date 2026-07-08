@@ -1,8 +1,61 @@
 ---
 ur: UR-011
 received: 2026-07-09
-status: intake
+status: captured
+classification: feature
+layers_in_scope: [package, bench, integration, docs]
+layer_decisions: {}
+reqs:
+  - { id: REQ-046, layer: none, integration_confidence: n/a }
+  - { id: REQ-047, layer: package, integration_confidence: high }
+  - { id: REQ-048, layer: package, integration_confidence: high }
+  - { id: REQ-049, layer: package, integration_confidence: high }
+  - { id: REQ-050, layer: package, integration_confidence: high }
+  - { id: REQ-051, layer: package, integration_confidence: high }
+  - { id: REQ-052, layer: package, integration_confidence: high }
+  - { id: REQ-053, layer: integration, integration_confidence: high }
+  - { id: REQ-054, layer: none, integration_confidence: n/a }
+  - { id: REQ-055, layer: package, integration_confidence: high }
+  - { id: REQ-056, layer: package, integration_confidence: high }
+  - { id: REQ-057, layer: bench, integration_confidence: high }
+  - { id: REQ-058, layer: package, integration_confidence: high }
+  - { id: REQ-059, layer: none, integration_confidence: n/a }
+  - { id: REQ-060, layer: package, integration_confidence: high }
+  - { id: REQ-061, layer: package, integration_confidence: high }
+  - { id: REQ-062, layer: docs, integration_confidence: high }
+acknowledged_partials: []
 ---
+
+<!-- capture-summary-start -->
+## Capture summary (2026-07-09)
+
+| Item | Value |
+|---|---|
+| Classification | feature |
+| Layers in scope | package, bench, integration, docs |
+| Layer decisions | (none — all covered) |
+| REQs generated | 17 |
+
+| REQ | Layer | Integration confidence |
+|---|---|---|
+| REQ-046 | none | n/a |
+| REQ-047 | package | high |
+| REQ-048 | package | high |
+| REQ-049 | package | high |
+| REQ-050 | package | high |
+| REQ-051 | package | high |
+| REQ-052 | package | high |
+| REQ-053 | integration | high |
+| REQ-054 | none | n/a |
+| REQ-055 | package | high |
+| REQ-056 | package | high |
+| REQ-057 | bench | high |
+| REQ-058 | package | high |
+| REQ-059 | none | n/a |
+| REQ-060 | package | high |
+| REQ-061 | package | high |
+| REQ-062 | docs | high |
+<!-- capture-summary-end -->
 
 # UR-011: User Request
 
