@@ -13,6 +13,9 @@
     "support": {
         "source": "https://github.com/rawphp/warp"
     },
+    "bin": [
+        "bin/warp"
+    ],
     "require": {
         "php": "^8.4"
     },

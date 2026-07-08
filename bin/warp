@@ -1,0 +1,15 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// Resolve the autoloader for installed vendor layout and this checkout.
+foreach ([__DIR__.'/../../../autoload.php', __DIR__.'/../vendor/autoload.php'] as $autoload) {
+    if (file_exists($autoload)) {
+        require $autoload;
+
+        break;
+    }
+}
+
+exit(RawPHP\Warp\Cli\WarpCli::run($argv, STDOUT, STDERR));
