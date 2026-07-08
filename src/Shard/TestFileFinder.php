@@ -12,8 +12,8 @@ use RuntimeException;
 final class TestFileFinder
 {
     /**
-     * Paths come back in the form they were given because the shard list is
-     * handed verbatim to `pest` as CLI arguments.
+     * Paths come back in the form they were given. Consumers that compare
+     * paths to stored timing keys canonicalize them at that boundary.
      *
      * @param  list<string>  $paths
      * @return list<string>

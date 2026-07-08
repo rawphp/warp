@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace RawPHP\Warp\Timing;
 
+use RawPHP\Warp\Support\Paths;
+
 final class TestFileResolver
 {
     /**
@@ -22,8 +24,6 @@ final class TestFileResolver
             return null;
         }
 
-        $prefix = rtrim($root, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
-
-        return str_starts_with($file, $prefix) ? substr($file, strlen($prefix)) : null;
+        return Paths::canonical($file, $root);
     }
 }
