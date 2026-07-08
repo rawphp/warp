@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace RawPHP\Warp\Db;
 
 use Closure;
-use RuntimeException;
+use RawPHP\Warp\Support\FileLock;
 
 final class SnapshotStore
 {
@@ -31,20 +31,7 @@ final class SnapshotStore
     {
         Dirs::ensure($this->root);
 
-        $handle = fopen($this->path($key).'.lock', 'c');
-
-        if ($handle === false) {
-            throw new RuntimeException('[warp] cannot open snapshot lock in '.$this->root);
-        }
-
-        flock($handle, LOCK_EX);
-
-        try {
-            return $callback();
-        } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
-        }
+        return FileLock::withLock($this->path($key).'.lock', $callback);
     }
 
     public function stagingPath(string $key): string
