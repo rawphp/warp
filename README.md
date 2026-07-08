@@ -195,6 +195,67 @@ Tests that must **commit** (DDL, multi-connection assertions) can call
 `$this->warpRecycleDatabase()` for a fresh committed state via a sub-second
 re-clone from golden.
 
+## Timing capture + duration-balanced CI sharding (S3)
+
+At 100k tests, count-based CI sharding leaves minutes on the table: shards get
+equal file counts but wildly unequal durations, and the run is as slow as the
+unluckiest shard. Warp records real per-test durations and packs shards to
+equal **time** instead — shard spread collapses to the mean.
+
+### 1. Register the timing extension (one-time)
+
+```xml
+<!-- phpunit.xml -->
+<extensions>
+    <bootstrap class="RawPHP\Warp\Timing\TimingExtension"/>
+</extensions>
+```
+
+The extension is a no-op unless `WARP_TIMINGS` is set — with it unset,
+behaviour is byte-identical to before.
+
+### 2. Record timings on full runs
+
+```bash
+WARP_TIMINGS=1 ./vendor/bin/pest --parallel
+```
+
+Every test's duration lands in `.warp/timings/` (override with
+`WARP_TIMINGS_DIR`), keyed per test with file attribution; parallel workers
+write lock-free batches that merge deterministically. Persist that directory
+as a CI artifact/cache and refresh it on scheduled full runs. Record on
+**full** runs — a `--filter` run replaces a file's entries with just the
+filtered subset. Inspect any time with:
+
+```bash
+./vendor/bin/warp timings
+```
+
+### 3. Shard CI by duration
+
+```bash
+# shard 3 of 8 — prints this shard's test files, one per line:
+./vendor/bin/pest $(./vendor/bin/warp shard 3/8 tests)
+```
+
+`warp shard` discovers test files (`*Test.php` by default; `--suffix=` to
+change), weighs each by recorded duration (unmeasured files get the average),
+and LPT-packs them into equal-duration bins. The assignment is fully
+deterministic: every shard machine computes the whole plan independently from
+the same timings artifact and agrees — no coordination service. Restore the
+**same** timings artifact on every shard of a run.
+
+With no timings recorded it degrades gracefully to count-balanced sharding
+(warning on stderr; stdout stays clean for `$( )` consumption). Exit code 3
+means the shard is empty (more shards than files) — skip the pest invocation
+in that case rather than letting an empty `$( )` expansion run the full suite:
+
+```bash
+if FILES=$(./vendor/bin/warp shard "${CI_NODE_INDEX}/${CI_NODE_TOTAL}" tests); then
+    ./vendor/bin/pest $FILES
+fi
+```
+
 ## How it works
 
 - **`WarmApplicationFactory`** boots the base app once per process and hands each test a
@@ -227,6 +288,11 @@ re-clone from golden.
 | `RawPHP\Warp\Sentinel\HermeticitySentinel` | Post-test leak detector. |
 | `RawPHP\Warp\WarpMode::databaseEnabled(): bool` | `true` when `WARP_DB` is `1`, `on`, or `true`. |
 | `RawPHP\Warp\Db\SnapshotDatabaseManager` | `apply()` / `recycle()` / `shutdown()` — per-worker snapshot DB provisioning. |
+| `RawPHP\Warp\WarpMode::timingsEnabled(): bool` | `true` when `WARP_TIMINGS` is `1`, `on`, or `true`. |
+| `RawPHP\Warp\Timing\TimingExtension` | PHPUnit extension recording per-test durations (register in `phpunit.xml`). |
+| `RawPHP\Warp\Timing\TimingStore` | `load()` / `fileTotals()` / `aggregate()` — the portable timings artifact. |
+| `RawPHP\Warp\Shard\DurationBalancedSharder` | `assign()` — deterministic LPT shard packing. |
+| `bin/warp` | `warp shard <k>/<n>` / `warp timings` CLI. |
 
 ## Benchmarks
 
@@ -241,6 +307,9 @@ bench/parity.sh /path/to/your/app tests/Feature/YourSuite
 
 # Gate S2 — DB provisioning fixed cost (classic migrate vs snapshot clone):
 bench/db-provision.sh /path/to/your/app
+
+# Gate S3 — shard spread: count-based vs duration-balanced (record + report):
+bench/shard-spread.sh /path/to/your/app 8
 ```
 
 ## Development
