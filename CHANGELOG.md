@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Added
+
+- **S3 — per-test timing capture + duration-balanced CI sharding**: a PHPUnit
+  extension (`RawPHP\Warp\Timing\TimingExtension`, engaged via `WARP_TIMINGS=1`)
+  records every test's duration with file attribution into a portable
+  `.warp/timings` artifact; the new `warp` CLI packs CI shards to equal
+  duration via deterministic LPT (`warp shard <k>/<n>`), collapsing
+  count-based shard spread to the mean. `warp timings` prints artifact stats.
+- `WarpMode::timingsEnabled()`, `WARP_TIMINGS_DIR` env override, `bin/warp`
+  composer binary.
+- `bench/shard-spread.sh` — S3 gate harness (count-based vs duration-balanced
+  spread report from recorded timings).
+
 ## 0.2.0 - 2026-07-08
 
 ### Added
