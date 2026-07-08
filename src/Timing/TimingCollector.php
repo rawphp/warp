@@ -38,13 +38,13 @@ final class TimingCollector
     }
 
     /** Idempotent: the ExecutionFinished subscriber and the shutdown backstop may both call this. */
-    public function flush(TimingStore $store): void
+    public function flush(TimingStore $store, bool $complete = true): void
     {
         if ($this->flushed) {
             return;
         }
 
         $this->flushed = true;
-        $store->writePending($this->tests);
+        $store->writePending($this->tests, $complete);
     }
 }

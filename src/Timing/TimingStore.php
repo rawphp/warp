@@ -28,7 +28,7 @@ final class TimingStore
      *
      * @param  array<string, array{file: string, ms: float}>  $tests
      */
-    public function writePending(array $tests): void
+    public function writePending(array $tests, bool $complete = true): void
     {
         if ($tests === []) {
             return;
@@ -39,7 +39,9 @@ final class TimingStore
         $path = $this->dir.'/pending/'.self::nextPendingTimestamp().'-'.getmypid().'-'.bin2hex(random_bytes(4)).'.json';
         $tmp = $path.'.tmp';
 
-        if (file_put_contents($tmp, json_encode($tests, JSON_THROW_ON_ERROR)) === false) {
+        $payload = ['complete' => $complete, 'tests' => $tests];
+
+        if (file_put_contents($tmp, json_encode($payload, JSON_THROW_ON_ERROR)) === false) {
             throw new RuntimeException('[warp] cannot write pending timings batch to '.$tmp);
         }
 
@@ -72,6 +74,7 @@ final class TimingStore
             }
 
             $tests = $this->readMerged();
+            $fileIndex = self::indexByFile($tests);
 
             foreach ($pending as $path) {
                 $batch = json_decode((string) file_get_contents($path), true);
@@ -83,7 +86,7 @@ final class TimingStore
                 }
 
                 if (is_array($batch)) {
-                    $tests = self::apply($tests, $batch);
+                    $tests = self::apply($tests, $fileIndex, $batch);
                 }
 
                 unlink($path);
@@ -193,18 +196,23 @@ final class TimingStore
     }
 
     /**
-     * A batch supersedes every previous entry for the files it covers, so
-     * tests renamed or deleted within a re-run file can't linger.
+     * Complete batches supersede whole files; incomplete crash batches only upsert observed test IDs.
      *
      * @param  array<string, array{file: string, ms: float}>  $tests
+     * @param  array<string, array<string, true>>  $fileIndex
      * @param  array<mixed>  $batch
      * @return array<string, array{file: string, ms: float}>
      */
-    private static function apply(array $tests, array $batch): array
+    private static function apply(array $tests, array &$fileIndex, array $batch): array
     {
         $clean = [];
+        $batchTests = $batch['tests'] ?? null;
 
-        foreach ($batch as $id => $entry) {
+        if (! is_array($batchTests)) {
+            return $tests;
+        }
+
+        foreach ($batchTests as $id => $entry) {
             if (is_string($id) && is_array($entry)
                 && is_string($entry['file'] ?? null) && is_numeric($entry['ms'] ?? null)) {
                 $clean[$id] = ['file' => $entry['file'], 'ms' => (float) $entry['ms']];
@@ -215,15 +223,52 @@ final class TimingStore
             return $tests;
         }
 
-        $covered = [];
+        if (($batch['complete'] ?? false) === true) {
+            $covered = [];
 
-        foreach ($clean as $entry) {
-            $covered[$entry['file']] = true;
+            foreach ($clean as $entry) {
+                $covered[$entry['file']] = true;
+            }
+
+            foreach (array_keys($covered) as $file) {
+                foreach (array_keys($fileIndex[$file] ?? []) as $id) {
+                    unset($tests[$id]);
+                }
+
+                unset($fileIndex[$file]);
+            }
         }
 
-        $tests = array_filter($tests, static fn (array $entry): bool => ! isset($covered[$entry['file']]));
+        foreach ($clean as $id => $entry) {
+            if (isset($tests[$id])) {
+                $oldFile = $tests[$id]['file'];
+                unset($fileIndex[$oldFile][$id]);
 
-        return [...$tests, ...$clean];
+                if (($fileIndex[$oldFile] ?? []) === []) {
+                    unset($fileIndex[$oldFile]);
+                }
+            }
+
+            $tests[$id] = $entry;
+            $fileIndex[$entry['file']][$id] = true;
+        }
+
+        return $tests;
+    }
+
+    /**
+     * @param  array<string, array{file: string, ms: float}>  $tests
+     * @return array<string, array<string, true>>
+     */
+    private static function indexByFile(array $tests): array
+    {
+        $index = [];
+
+        foreach ($tests as $id => $entry) {
+            $index[$entry['file']][$id] = true;
+        }
+
+        return $index;
     }
 
     /** @return array<string, array{file: string, ms: float}> */
