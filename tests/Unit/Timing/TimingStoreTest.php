@@ -43,11 +43,28 @@ it('writes pending batches atomically and leaves no temporary file behind', func
     $files = array_values(array_diff(scandir($this->dir.'/pending') ?: [], ['.', '..']));
 
     expect($files)->toHaveCount(1)
-        ->and($files[0])->toEndWith('.json')
+        ->and($files[0])->toMatch('/^\d{16,}-\d+-[a-f0-9]{8}\.json$/')
         ->and($files[0])->not->toEndWith('.tmp')
         ->and(json_decode((string) file_get_contents($this->dir.'/pending/'.$files[0]), true))->toBe([
             't1' => ['file' => 'tests/ATest.php', 'ms' => 10.5],
         ]);
+});
+
+it('names pending batches with monotonically increasing timestamp prefixes', function () {
+    $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
+    usleep(1000);
+    $this->store->writePending(['t2' => ['file' => 'tests/BTest.php', 'ms' => 20.5]]);
+
+    $files = array_values(array_diff(scandir($this->dir.'/pending') ?: [], ['.', '..']));
+
+    expect($files)->toHaveCount(2);
+
+    $timestamps = array_map(
+        static fn (string $file): int => (int) strtok($file, '-'),
+        $files,
+    );
+
+    expect($timestamps[0])->toBeLessThan($timestamps[1]);
 });
 
 it('a rerun of a file supersedes all of that file\'s previous entries', function () {
@@ -69,11 +86,35 @@ it('a rerun of a file supersedes all of that file\'s previous entries', function
         ->and($tests['t3']['ms'])->toBe(30.5);
 });
 
+it('merges pending batches by numeric timestamp when older filename sorts first lexicographically', function () {
+    Dirs::ensure($this->dir.'/pending');
+    file_put_contents($this->dir.'/pending/100-99999-aaaaaaaa.json', json_encode([
+        'old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0],
+    ]));
+    file_put_contents($this->dir.'/pending/200-1-bbbbbbbb.json', json_encode([
+        'new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0],
+    ]));
+
+    expect($this->store->fileTotals())->toBe(['tests/FooTest.php' => 50.0]);
+});
+
+it('merges pending batches by numeric timestamp when older filename sorts after newer lexicographically', function () {
+    Dirs::ensure($this->dir.'/pending');
+    file_put_contents($this->dir.'/pending/9-99999-aaaaaaaa.json', json_encode([
+        'old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0],
+    ]));
+    file_put_contents($this->dir.'/pending/10-1-bbbbbbbb.json', json_encode([
+        'new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0],
+    ]));
+
+    expect($this->store->fileTotals())->toBe(['tests/FooTest.php' => 50.0]);
+});
+
 it('leaves corrupt pending files in place and warns while merging valid siblings', function () {
     Dirs::ensure($this->dir.'/pending');
-    $badPath = $this->dir.'/pending/0-bad.json';
+    $badPath = $this->dir.'/pending/100-0-badbad00.json';
     file_put_contents($badPath, 'not json');
-    file_put_contents($this->dir.'/pending/1-good.json', json_encode([
+    file_put_contents($this->dir.'/pending/200-1-aabbccdd.json', json_encode([
         't1' => ['file' => 'tests/ATest.php', 'ms' => 10.5],
     ]));
 
@@ -104,7 +145,49 @@ PHP);
 
     expect($merged['tests'] ?? [])->toHaveKey('t1')
         ->and(is_file($badPath))->toBeTrue()
-        ->and($stderr)->toContain('0-bad.json');
+        ->and($stderr)->toContain('100-0-badbad00.json');
+});
+
+it('skips old-format pending files with a warning', function () {
+    Dirs::ensure($this->dir.'/pending');
+    $oldPath = $this->dir.'/pending/12345-aaaaaaaa.json';
+    file_put_contents($oldPath, json_encode([
+        'old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0],
+    ]));
+    file_put_contents($this->dir.'/pending/200-1-bbbbbbbb.json', json_encode([
+        'new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0],
+    ]));
+
+    $script = $this->dir.'/merge-old-format.php';
+    file_put_contents($script, <<<'PHP'
+<?php
+
+require getcwd().'/vendor/autoload.php';
+
+(new RawPHP\Warp\Timing\TimingStore($argv[1]))->load();
+PHP);
+
+    $process = proc_open([PHP_BINARY, $script, $this->dir], [
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
+    ], $pipes, getcwd());
+
+    expect($process)->not->toBeFalse();
+
+    $stderr = stream_get_contents($pipes[2]);
+
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+
+    expect(proc_close($process))->toBe(0);
+
+    $merged = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
+
+    expect($merged['tests']['new']['file'] ?? null)->toBe('tests/FooTest.php')
+        ->and((float) ($merged['tests']['new']['ms'] ?? 0))->toBe(50.0)
+        ->and(is_file($oldPath))->toBeTrue()
+        ->and($stderr)->toContain('skipped old-format pending timings batch')
+        ->and($stderr)->toContain('12345-aaaaaaaa.json');
 });
 
 it('discovers pending batches when the store path contains glob metacharacters', function () {
@@ -120,7 +203,7 @@ it('discovers pending batches when the store path contains glob metacharacters',
 
 it('drops malformed entries from a pending batch', function () {
     Dirs::ensure($this->dir.'/pending');
-    file_put_contents($this->dir.'/pending/0-mixed.json', json_encode([
+    file_put_contents($this->dir.'/pending/100-0-aabbccdd.json', json_encode([
         'good' => ['file' => 'tests/ATest.php', 'ms' => 5.5],
         'no-file' => ['ms' => 5.5],
         'bad-ms' => ['file' => 'tests/BTest.php', 'ms' => 'slow'],
