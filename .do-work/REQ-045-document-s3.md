@@ -1,7 +1,7 @@
 # REQ-045: Document S3 timing capture and CI sharding
 
 **UR:** UR-010
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** docs
 **Entry point:** README and CHANGELOG readers looking for Warp timing capture, sharding, CLI, and bench usage.
@@ -13,6 +13,12 @@
 **Size:** M
 **Files:** README.md, CHANGELOG.md
 **Depends on:** REQ-036, REQ-037, REQ-038, REQ-039, REQ-040, REQ-041, REQ-042, REQ-043, REQ-044
+
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.73078
+**Claimed at:** 2026-07-08T21:03:50Z
+**Heartbeat:** 2026-07-08T21:03:50Z
+<!-- claimed-end -->
 
 ## Task
 
