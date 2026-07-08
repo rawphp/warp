@@ -1,19 +1,13 @@
 # REQ-047: Extract shared file-lock helper from SnapshotStore
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.21409
-**Claimed at:** 2026-07-08T23:42:15Z
-**Heartbeat:** 2026-07-08T23:42:15Z
-<!-- claimed-end -->
-
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
 **Terminal state:**
 **Parent:** REQ-046
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 2 verification checkpoints passed commit:e30ad8e
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -30,10 +24,10 @@ Review over-cap finding C3: `TimingStore::mergePending()` re-implements the iden
 
 ## Acceptance Criteria
 
-- [ ] `Support\FileLock::withLock()` exists, takes a lock-file path and a closure, returns the closure's return value, and always releases the lock (LOCK_UN + fclose) even when the closure throws.
-- [ ] `FileLock::withLock()` throws `RuntimeException` with a `[warp]`-prefixed message when the lock file cannot be opened.
-- [ ] `SnapshotStore` delegates to the helper; its inline lock choreography is deleted; existing SnapshotStore behaviour is unchanged.
-- [ ] Unit tests cover: closure return value passthrough, lock release on exception, and RuntimeException on unopenable lock path.
+- [x] `Support\FileLock::withLock()` exists, takes a lock-file path and a closure, returns the closure's return value, and always releases the lock (LOCK_UN + fclose) even when the closure throws.
+- [x] `FileLock::withLock()` throws `RuntimeException` with a `[warp]`-prefixed message when the lock file cannot be opened.
+- [x] `SnapshotStore` delegates to the helper; its inline lock choreography is deleted; existing SnapshotStore behaviour is unchanged.
+- [x] Unit tests cover: closure return value passthrough, lock release on exception, and RuntimeException on unopenable lock path.
 
 ## Verification Steps
 
@@ -51,3 +45,9 @@ Review over-cap finding C3: `TimingStore::mergePending()` re-implements the iden
 **Data dependencies:** Lock files on disk only (`merge.lock`-style paths passed by callers); no models or persisted app data.
 
 **Service dependencies:** Extends the existing `src/Db/SnapshotStore.php` lock behaviour; no external services.
+
+## Outputs
+
+- src/Support/FileLock.php — New shared helper for fopen('c') + flock(LOCK_EX) + try/finally unlock and close behavior.
+- src/Db/SnapshotStore.php — SnapshotStore::withLock() now delegates to the shared FileLock helper.
+- tests/Unit/Support/FileLockTest.php — Unit coverage for FileLock return passthrough, release on exception, and open-failure RuntimeException.
