@@ -1,7 +1,13 @@
 # REQ-050: Batch completeness flag — partial crash-flush batches must not supersede complete data
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.21409
+**Claimed at:** 2026-07-08T23:51:41Z
+**Heartbeat:** 2026-07-08T23:51:41Z
+<!-- claimed-end -->
+
 **UR:** UR-011
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
