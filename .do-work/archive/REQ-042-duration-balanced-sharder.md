@@ -1,19 +1,13 @@
 # REQ-042: Deterministic duration-balanced LPT sharder
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.73078
-**Claimed at:** 2026-07-08T20:50:56Z
-**Heartbeat:** 2026-07-08T20:50:56Z
-<!-- claimed-end -->
-
 **UR:** UR-010
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
-**Entry point:**
-**Terminal state:**
+**Entry point:** `RawPHP\Warp\Shard\DurationBalancedSharder::assign()`
+**Terminal state:** merged
 **Parent:**
-**Closure proof:**
+**Closure proof:** Merged as `merge(REQ-042): duration-balanced sharder`; focused sharder tests passed, full Pest suite passed, and Pint passed.
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -30,18 +24,22 @@ This is the core CI sharding algorithm. Every CI shard machine computes the enti
 
 ## Acceptance Criteria
 
-- [ ] Dominant files are isolated while smaller files fill the remaining shard capacity.
-- [ ] Shards are disjoint and cover every input file across all shard indexes.
-- [ ] Unmeasured files use the average known timing, or `1.0` when no timings exist.
-- [ ] With no timings, assignment degrades to deterministic count-balanced round-robin.
-- [ ] Out-of-range shard specs throw `InvalidArgumentException` with `[warp] shard index out of range`.
+- [x] Dominant files are isolated while smaller files fill the remaining shard capacity.
+- [x] Shards are disjoint and cover every input file across all shard indexes.
+- [x] Unmeasured files use the average known timing, or `1.0` when no timings exist.
+- [x] With no timings, assignment degrades to deterministic count-balanced round-robin.
+- [x] Out-of-range shard specs throw `InvalidArgumentException` with `[warp] shard index out of range`.
 
 ## Verification Steps
 
 1. **test** `./vendor/bin/pest tests/Unit/Shard/DurationBalancedSharderTest.php`
    - Expected: PASS for all plan Task 7 sharder tests.
+   - Actual: PASS, 10 tests / 20 assertions.
 2. **test** `./vendor/bin/pest`
    - Expected: full suite PASS.
+   - Actual: PASS, 175 tests / 402 assertions.
+3. **format** `./vendor/bin/pint --dirty`
+   - Actual: PASS.
 
 ## Integration
 
