@@ -1,7 +1,13 @@
 # REQ-047: Extract shared file-lock helper from SnapshotStore
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.21409
+**Claimed at:** 2026-07-08T23:42:15Z
+**Heartbeat:** 2026-07-08T23:42:15Z
+<!-- claimed-end -->
+
 **UR:** UR-011
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
