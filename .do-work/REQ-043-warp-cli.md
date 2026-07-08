@@ -1,7 +1,7 @@
 # REQ-043: `warp` CLI with shard and timings commands
 
 **UR:** UR-010
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:** `php bin/warp`, `./vendor/bin/warp shard <k>/<n>`, and `./vendor/bin/warp timings`
@@ -13,6 +13,12 @@
 **Size:** L
 **Files:** bin/warp, src/Cli/WarpCli.php, src/Cli/ShardCommand.php, src/Cli/TimingsCommand.php, composer.json, tests/Unit/Cli/ShardCommandTest.php, tests/Unit/Cli/TimingsCommandTest.php, tests/Integration/Cli/WarpBinTest.php
 **Depends on:** REQ-037, REQ-041, REQ-042
+
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.73078
+**Claimed at:** 2026-07-08T20:55:27Z
+**Heartbeat:** 2026-07-08T20:55:27Z
+<!-- claimed-end -->
 
 ## Task
 
