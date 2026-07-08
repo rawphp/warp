@@ -22,7 +22,7 @@ final class TimingStore
     }
 
     /**
-     * Lock-free per-process batch: unique filename, single atomic write.
+     * Lock-free per-process batch: unique filename, atomic tmp+rename publish.
      *
      * @param  array<string, array{file: string, ms: float}>  $tests
      */
@@ -34,10 +34,18 @@ final class TimingStore
 
         Dirs::ensure($this->dir.'/pending');
 
-        file_put_contents(
-            $this->dir.'/pending/'.getmypid().'-'.bin2hex(random_bytes(4)).'.json',
-            json_encode($tests, JSON_THROW_ON_ERROR),
-        );
+        $path = $this->dir.'/pending/'.getmypid().'-'.bin2hex(random_bytes(4)).'.json';
+        $tmp = $path.'.tmp';
+
+        if (file_put_contents($tmp, json_encode($tests, JSON_THROW_ON_ERROR)) === false) {
+            throw new RuntimeException('[warp] cannot write pending timings batch to '.$tmp);
+        }
+
+        if (! rename($tmp, $path)) {
+            @unlink($tmp);
+
+            throw new RuntimeException('[warp] cannot publish pending timings batch to '.$path);
+        }
     }
 
     public function mergePending(): void
@@ -55,18 +63,22 @@ final class TimingStore
         flock($handle, LOCK_EX);
 
         try {
-            $pending = glob($this->dir.'/pending/*.json') ?: [];
+            $pending = $this->pendingFiles();
 
             if ($pending === []) {
                 return;
             }
 
-            sort($pending);
-
             $tests = $this->readMerged();
 
             foreach ($pending as $path) {
                 $batch = json_decode((string) file_get_contents($path), true);
+
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    self::warn('[warp] skipped undecodable pending timings batch: '.$path.PHP_EOL);
+
+                    continue;
+                }
 
                 if (is_array($batch)) {
                     $tests = self::apply($tests, $batch);
@@ -96,6 +108,45 @@ final class TimingStore
     public function fileTotals(): array
     {
         return self::aggregate($this->load());
+    }
+
+    /** @return list<string> */
+    private function pendingFiles(): array
+    {
+        $entries = scandir($this->dir.'/pending');
+
+        if ($entries === false) {
+            return [];
+        }
+
+        $files = [];
+
+        foreach ($entries as $entry) {
+            if ($entry === '.' || $entry === '..' || ! str_ends_with($entry, '.json')) {
+                continue;
+            }
+
+            $path = $this->dir.'/pending/'.$entry;
+
+            if (is_file($path)) {
+                $files[] = $path;
+            }
+        }
+
+        sort($files);
+
+        return $files;
+    }
+
+    private static function warn(string $message): void
+    {
+        if (defined('STDERR')) {
+            fwrite(STDERR, $message);
+
+            return;
+        }
+
+        file_put_contents('php://stderr', $message);
     }
 
     /**
