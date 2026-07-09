@@ -2,8 +2,49 @@
 
 declare(strict_types=1);
 
+namespace RawPHP\Warp\Timing {
+    function file_put_contents($filename, $data, $flags = 0, $context = null): int|false
+    {
+        if (\TimingStoreShortWrite::enabledFor($filename)) {
+            return \TimingStoreShortWrite::write($filename, (string) $data, $flags, $context);
+        }
+
+        return \file_put_contents($filename, $data, $flags, $context);
+    }
+}
+
+namespace {
 use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Timing\TimingStore;
+
+final class TimingStoreShortWrite
+{
+    private static ?int $bytes = null;
+
+    public static function enable(int $bytes): void
+    {
+        self::$bytes = $bytes;
+    }
+
+    public static function disable(): void
+    {
+        self::$bytes = null;
+    }
+
+    public static function enabledFor(string $path): bool
+    {
+        return self::$bytes !== null && str_ends_with($path, '.json.tmp');
+    }
+
+    public static function write(string $path, string $data, int $flags = 0, $context = null): int|false
+    {
+        $bytes = min(self::$bytes ?? strlen($data), strlen($data) - 1);
+
+        $result = \file_put_contents($path, substr($data, 0, $bytes), $flags, $context);
+
+        return $result === false ? false : $bytes;
+    }
+}
 
 beforeEach(function () {
     $this->dir = sys_get_temp_dir().'/warp-timings-'.bin2hex(random_bytes(4));
@@ -11,6 +52,7 @@ beforeEach(function () {
 });
 
 afterEach(function () {
+    TimingStoreShortWrite::disable();
     putenv('WARP_TIMINGS_DIR');
     Dirs::delete($this->dir);
 });
@@ -100,6 +142,18 @@ it('writes pending batches atomically and leaves no temporary file behind', func
             'complete' => true,
             'tests' => ['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]],
         ]);
+});
+
+it('treats a short pending batch write as a failed write and does not publish it', function () {
+    TimingStoreShortWrite::enable(8);
+
+    expect(fn () => $this->store->writePending([
+        't1' => ['file' => 'tests/ATest.php', 'ms' => 10.5],
+    ]))->toThrow(RuntimeException::class, '[warp] cannot write pending timings batch');
+
+    $files = array_values(array_diff(scandir($this->dir.'/pending') ?: [], ['.', '..']));
+
+    expect($files)->toBe([]);
 });
 
 it('names pending batches with monotonically increasing timestamp prefixes', function () {
@@ -398,3 +452,4 @@ it('fromEnv honours WARP_TIMINGS_DIR', function () {
 
     expect(glob($this->dir.'/pending/*.json'))->toHaveCount(1);
 });
+}
