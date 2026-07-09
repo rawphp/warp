@@ -47,6 +47,24 @@ it('degrades to count-balanced round-robin with no timings at all', function () 
         ->and(DurationBalancedSharder::assign($files, [], 2, 2))->toBe(['tests/BTest.php', 'tests/DTest.php']);
 });
 
+it('degrades to count-balanced round-robin when every timing weight is zero', function () {
+    $files = [
+        'tests/ATest.php',
+        'tests/BTest.php',
+        'tests/CTest.php',
+        'tests/DTest.php',
+        'tests/ETest.php',
+        'tests/FTest.php',
+    ];
+    $totals = array_fill_keys($files, 0.0);
+
+    expect(DurationBalancedSharder::plan($files, $totals, 3))->toBe([
+        ['tests/ATest.php', 'tests/DTest.php'],
+        ['tests/BTest.php', 'tests/ETest.php'],
+        ['tests/CTest.php', 'tests/FTest.php'],
+    ]);
+});
+
 it('ignores totals for files not in the given list', function () {
     $files = ['tests/ATest.php', 'tests/BTest.php'];
     $totals = ['tests/DeletedTest.php' => 9999.0, 'tests/ATest.php' => 10.0, 'tests/BTest.php' => 10.0];
@@ -88,6 +106,12 @@ it('exposes resolved per-file weights and per-bin loads without re-deriving fall
 
     $weights = DurationBalancedSharder::weights($files, $totals);
     $plan = DurationBalancedSharder::plan($files, $totals, 3);
+
+    expect($plan)->toBe([
+        ['tests/ATest.php'],
+        ['tests/BTest.php', 'tests/CTest.php'],
+        ['tests/DTest.php'],
+    ]);
 
     expect($weights)->toBe([
         'tests/ATest.php' => 30.0,

@@ -27,8 +27,17 @@ final class DurationBalancedSharder
         $order = array_keys($weights);
         usort($order, static fn (string $a, string $b): int => ($weights[$b] <=> $weights[$a]) ?: strcmp($a, $b));
 
-        $loads = array_fill(0, $shards, 0.0);
         $bins = array_fill(0, $shards, []);
+
+        if (self::allWeightsEqual($weights)) {
+            foreach ($order as $offset => $file) {
+                $bins[$offset % $shards][] = $file;
+            }
+
+            return self::sortBins($bins);
+        }
+
+        $loads = array_fill(0, $shards, 0.0);
 
         foreach ($order as $file) {
             $lightest = (int) array_search(min($loads), $loads, true);
@@ -36,6 +45,35 @@ final class DurationBalancedSharder
             $bins[$lightest][] = $file;
         }
 
+        return self::sortBins($bins);
+    }
+
+    /**
+     * @param  array<string, float>  $weights
+     */
+    private static function allWeightsEqual(array $weights): bool
+    {
+        if ($weights === []) {
+            return false;
+        }
+
+        $first = reset($weights);
+
+        foreach ($weights as $weight) {
+            if ($weight !== $first) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  list<list<string>>  $bins
+     * @return list<list<string>>
+     */
+    private static function sortBins(array $bins): array
+    {
         foreach ($bins as &$bin) {
             sort($bin);
         }
