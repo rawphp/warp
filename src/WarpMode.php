@@ -8,16 +8,21 @@ final class WarpMode
 {
     public static function enabled(): bool
     {
-        return in_array(getenv('WARP_MODE'), ['1', 'on', 'true'], true);
+        return self::flag('WARP_MODE');
     }
 
     public static function databaseEnabled(): bool
     {
-        return in_array(getenv('WARP_DB'), ['1', 'on', 'true'], true);
+        return self::flag('WARP_DB');
     }
 
     public static function timingsEnabled(): bool
     {
-        return in_array(getenv('WARP_TIMINGS'), ['1', 'on', 'true'], true);
+        return self::flag('WARP_TIMINGS');
+    }
+
+    private static function flag(string $var): bool
+    {
+        return in_array(getenv($var), ['1', 'on', 'true'], true);
     }
 }
