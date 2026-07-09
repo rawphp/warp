@@ -29,14 +29,39 @@ final class DurationBalancedSharder
 
         $bins = array_fill(0, $shards, []);
         $loads = array_fill(0, $shards, 0.0);
+        $counts = array_fill(0, $shards, 0);
 
         foreach ($order as $file) {
-            $lightest = (int) array_search((float) min($loads), $loads, true);
+            $lightest = self::lightestBin($loads, $counts);
             $loads[$lightest] += $weights[$file];
+            $counts[$lightest]++;
             $bins[$lightest][] = $file;
         }
 
         return self::sortBins($bins);
+    }
+
+    /**
+     * @param  list<float>  $loads
+     * @param  list<int>  $counts
+     */
+    private static function lightestBin(array $loads, array $counts): int
+    {
+        $lightest = 0;
+
+        foreach ($loads as $index => $load) {
+            if ($load < $loads[$lightest]) {
+                $lightest = $index;
+
+                continue;
+            }
+
+            if ($load === $loads[$lightest] && $counts[$index] < $counts[$lightest]) {
+                $lightest = $index;
+            }
+        }
+
+        return $lightest;
     }
 
     /**
