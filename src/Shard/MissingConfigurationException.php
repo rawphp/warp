@@ -6,6 +6,4 @@ namespace RawPHP\Warp\Shard;
 
 use RuntimeException;
 
-final class MissingConfigurationException extends RuntimeException
-{
-}
+final class MissingConfigurationException extends RuntimeException {}
