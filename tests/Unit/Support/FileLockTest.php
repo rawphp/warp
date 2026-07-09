@@ -5,6 +5,29 @@ declare(strict_types=1);
 use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Support\FileLock;
 
+final class FailingLockStream
+{
+    public static int $closed = 0;
+
+    /** @var resource|null */
+    public $context;
+
+    public function stream_open(string $path, string $mode, int $options, ?string &$openedPath): bool
+    {
+        return true;
+    }
+
+    public function stream_lock(int $operation): bool
+    {
+        return $operation !== LOCK_EX;
+    }
+
+    public function stream_close(): void
+    {
+        self::$closed++;
+    }
+}
+
 beforeEach(function () {
     $this->root = sys_get_temp_dir().'/warp-file-lock-'.bin2hex(random_bytes(4));
     Dirs::ensure($this->root);
@@ -12,6 +35,10 @@ beforeEach(function () {
 });
 
 afterEach(function () {
+    if (in_array('warp-failing-lock', stream_get_wrappers(), true)) {
+        stream_wrapper_unregister('warp-failing-lock');
+    }
+
     Dirs::delete($this->root);
 });
 
@@ -34,6 +61,20 @@ it('releases the lock when the callback throws', function () {
 
     flock($handle, LOCK_UN);
     fclose($handle);
+});
+
+it('throws without invoking the callback when flock fails', function () {
+    FailingLockStream::$closed = 0;
+    expect(stream_wrapper_register('warp-failing-lock', FailingLockStream::class))->toBeTrue();
+
+    $called = false;
+
+    expect(fn () => FileLock::withLock('warp-failing-lock://test.lock', function () use (&$called): void {
+        $called = true;
+    }))->toThrow(RuntimeException::class, '[warp] cannot acquire file lock');
+
+    expect($called)->toBeFalse()
+        ->and(FailingLockStream::$closed)->toBe(1);
 });
 
 it('throws a warp-prefixed runtime exception when the lock file cannot be opened', function () {
