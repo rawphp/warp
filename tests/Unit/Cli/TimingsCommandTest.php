@@ -81,6 +81,14 @@ it('lets timings-dir override WARP_TIMINGS_DIR', function () {
         ->and($stderr)->toBe('');
 });
 
+it('rejects an empty timings-dir', function () {
+    [$exit, $stdout, $stderr] = ($this->run)(['--timings-dir=']);
+
+    expect($exit)->toBe(2)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toContain('[warp] --timings-dir must not be empty');
+});
+
 it('rejects unknown arguments', function () {
     [$exit, , $stderr] = ($this->run)(['positional']);
 

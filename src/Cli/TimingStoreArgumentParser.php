@@ -26,6 +26,11 @@ final class TimingStoreArgumentParser
         foreach ($args as $arg) {
             if (str_starts_with($arg, '--timings-dir=')) {
                 $dir = substr($arg, strlen('--timings-dir='));
+
+                if ($dir === '') {
+                    throw new InvalidArgumentException('[warp] --timings-dir must not be empty');
+                }
+
                 $store = new TimingStore($dir);
                 $dirLabel = $dir;
 
