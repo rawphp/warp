@@ -1,8 +1,47 @@
 ---
 ur: UR-012
 received: 2026-07-09
-status: intake
+status: captured
+classification: bug-fix
+layers_in_scope: []
+layer_decisions: {}
+reqs:
+  - { id: REQ-063, layer: none, integration_confidence: n/a }
+  - { id: REQ-064, layer: none, integration_confidence: n/a }
+  - { id: REQ-065, layer: none, integration_confidence: n/a }
+  - { id: REQ-066, layer: none, integration_confidence: n/a }
+  - { id: REQ-067, layer: none, integration_confidence: n/a }
+  - { id: REQ-068, layer: none, integration_confidence: n/a }
+  - { id: REQ-069, layer: none, integration_confidence: n/a }
+  - { id: REQ-070, layer: none, integration_confidence: n/a }
+  - { id: REQ-071, layer: none, integration_confidence: n/a }
+acknowledged_partials: []
 ---
+
+<!-- capture-summary-start -->
+## Capture summary (2026-07-09)
+
+| Item | Value |
+|---|---|
+| Classification | bug-fix |
+| Layers in scope | (none — bug-fix) |
+| Layer decisions | (none — all covered) |
+| REQs generated | 9 |
+
+| REQ | Layer | Integration confidence |
+|---|---|---|
+| REQ-063 | none | n/a |
+| REQ-064 | none | n/a |
+| REQ-065 | none | n/a |
+| REQ-066 | none | n/a |
+| REQ-067 | none | n/a |
+| REQ-068 | none | n/a |
+| REQ-069 | none | n/a |
+| REQ-070 | none | n/a |
+| REQ-071 | none | n/a |
+
+Notes: finding #1 (shard reads pending overlay) dropped as unreachable — see `.do-work/decisions.md` (grilled at question gate; reaffirms UR-011/REQ-051). REQ-068/069 must reconcile against archived REQ-048/050 before changing merge machinery. Cleanup REQ-070/071 ordered last via deps.
+<!-- capture-summary-end -->
 
 # UR-012: User Request
 
