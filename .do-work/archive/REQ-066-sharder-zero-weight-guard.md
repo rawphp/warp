@@ -1,13 +1,14 @@
 # REQ-066: Guard all-zero-weight collapse in DurationBalancedSharder
 
+
 **UR:** UR-012
-**Status:** backlog
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 1 verification checkpoints passed; commit:9e9a890
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -24,13 +25,18 @@ Code-review finding #7 (PLAUSIBLE). The trigger — all weights exactly `0.0` �
 
 ## Acceptance Criteria
 
-- [ ] Given N files all with weight `0.0` and M shards (M ≤ N), `plan()` distributes files across all M shards (no shard empty when N ≥ M) instead of piling all into shard 0.
-- [ ] The all-equal-nonzero-weight case (e.g. every file weight `1.0`) also distributes evenly rather than collapsing.
-- [ ] Normal mixed-weight LPT behaviour is unchanged — existing `DurationBalancedSharderTest` cases for realistic weight distributions still pass with identical assignments.
-- [ ] Tie-breaking remains deterministic (same input → same assignment across runs).
+- [x] Given N files all with weight `0.0` and M shards (M ≤ N), `plan()` distributes files across all M shards (no shard empty when N ≥ M) instead of piling all into shard 0.
+- [x] The all-equal-nonzero-weight case (e.g. every file weight `1.0`) also distributes evenly rather than collapsing.
+- [x] Normal mixed-weight LPT behaviour is unchanged — existing `DurationBalancedSharderTest` cases for realistic weight distributions still pass with identical assignments.
+- [x] Tie-breaking remains deterministic (same input → same assignment across runs).
 
 ## Verification Steps
 
 > Execute these after implementation to confirm the fix works at runtime. Each must pass before committing.
 
 1. **test** `./vendor/bin/pest --filter=DurationBalancedSharder` — Expected: all pass, including a new case asserting that all-zero weights across N files and M shards yield M non-empty, evenly-sized shards (not a single shard 0), and that mixed-weight assignments are byte-for-byte unchanged.
+
+## Outputs
+
+- src/Shard/DurationBalancedSharder.php — Added deterministic count-balanced round-robin handling for all-equal weight plans before mixed-weight LPT assignment.
+- tests/Unit/Shard/DurationBalancedSharderTest.php — Added all-zero weight regression coverage and pinned mixed-weight LPT assignment behavior.
