@@ -1,10 +1,10 @@
 # REQ-088: Attribute inherited tests to concrete files
 
 **UR:** UR-015
-**Status:** backlog
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 2 verification checkpoints passed; commit:7a74834
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** M
@@ -21,10 +21,10 @@ Confirmed finding 8: `TimingExtension` receives `TestMethod::file()` from PHPUni
 
 ## Acceptance Criteria
 
-- [ ] A unit-level resolver test proves a concrete PHPUnit test class with inherited test methods resolves to the concrete class file, not the abstract base or trait declaring file.
-- [ ] A child timing-capture integration test with multiple concrete subclasses of a shared abstract/trait test records timings under each concrete test file.
-- [ ] Pest `__filename` handling still takes precedence for Pest-generated eval classes.
-- [ ] Resolver caching remains root-aware and does not leak one concrete class path into another class/root pair.
+- [x] A unit-level resolver test proves a concrete PHPUnit test class with inherited test methods resolves to the concrete class file, not the abstract base or trait declaring file.
+- [x] A child timing-capture integration test with multiple concrete subclasses of a shared abstract/trait test records timings under each concrete test file.
+- [x] Pest `__filename` handling still takes precedence for Pest-generated eval classes.
+- [x] Resolver caching remains root-aware and does not leak one concrete class path into another class/root pair.
 
 ## Verification Steps
 
@@ -34,3 +34,9 @@ Confirmed finding 8: `TimingExtension` receives `TestMethod::file()` from PHPUni
    - Expected: resolver and child timing-capture tests pass, including inherited-method attribution to concrete files.
 2. **test** `./vendor/bin/pest`
    - Expected: full suite green; Pest attribution and root-aware cache behavior remain intact.
+
+## Outputs
+
+- src/Timing/TestFileResolver.php — Prefers concrete class files inside the active root after Pest `__filename` and before PHPUnit's reported declaring file.
+- tests/Unit/Timing/TestFileResolverTest.php — Adds inherited-method resolver coverage and preserves Pest/root-aware cache behavior.
+- tests/Integration/Timing/TimingCaptureTest.php — Adds child-process timing capture coverage for inherited base and trait methods across concrete classes.
