@@ -1,7 +1,13 @@
 # REQ-060: Path-unit — phpunit.xml testsuite-driven shard discovery
 
+<!-- claimed-start -->
+**Claimed by:** codex-main
+**Claimed at:** 2026-07-09T02:28:03Z
+**Heartbeat:** 2026-07-09T02:28:03Z
+<!-- claimed-end -->
+
 **UR:** UR-011
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:** `./vendor/bin/warp shard k/n` with no explicit paths, in a project whose phpunit.xml declares testsuites (multiple roots, custom suffixes, `<file>` entries, `<exclude>` blocks).
