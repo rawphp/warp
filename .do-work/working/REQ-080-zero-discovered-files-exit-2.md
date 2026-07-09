@@ -1,7 +1,13 @@
 # REQ-080: Exit 2 when discovery finds zero test files
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.53726
+**Claimed at:** 2026-07-09T11:11:38Z
+**Heartbeat:** 2026-07-09T11:11:38Z
+<!-- claimed-end -->
+
 **UR:** UR-014
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
