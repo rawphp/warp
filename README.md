@@ -218,14 +218,22 @@ behaviour is byte-identical to before.
 
 ```bash
 WARP_TIMINGS=1 ./vendor/bin/pest --parallel
+./vendor/bin/warp merge
 ```
 
 Every test's duration lands in `.warp/timings/` (override with
-`WARP_TIMINGS_DIR`), keyed per test with file attribution; parallel workers
-write lock-free batches that merge deterministically. Persist that directory
-as a CI artifact/cache and refresh it on scheduled full runs. Record on
-**full** runs — a `--filter` run replaces a file's entries with just the
-filtered subset. Inspect any time with:
+`WARP_TIMINGS_DIR`), keyed per test with file attribution. Parallel workers
+write lock-free pending batches; `warp merge` is the explicit compaction step
+that folds them into `timings.json`. Run it once after recording, before
+persisting `.warp/timings/` as a CI artifact/cache, and refresh that artifact
+on scheduled full runs. Record on **full** runs — a `--filter` run replaces a
+file's entries with just the filtered subset.
+
+`warp shard` and `warp timings` are read-only: they overlay pending batches in
+memory and do not rewrite the artifact, so read-only CI artifact restores are
+supported. `WARP_TIMINGS_DIR` is honored by every timing subcommand
+(`merge`, `shard`, and `timings`); pass `--timings-dir=DIR` when a command
+needs an explicit override. Inspect any time with:
 
 ```bash
 ./vendor/bin/warp timings
@@ -234,27 +242,59 @@ filtered subset. Inspect any time with:
 ### 3. Shard CI by duration
 
 ```bash
-# shard 3 of 8 — prints this shard's test files, one per line:
-./vendor/bin/pest $(./vendor/bin/warp shard 3/8 tests)
+# shard 3 of 8 - prints this shard's test files, one per line:
+./vendor/bin/warp shard 3/8
 ```
 
-`warp shard` discovers test files (`*Test.php` by default; `--suffix=` to
-change), weighs each by recorded duration (unmeasured files get the average),
-and LPT-packs them into equal-duration bins. The assignment is fully
-deterministic: every shard machine computes the whole plan independently from
-the same timings artifact and agrees — no coordination service. Restore the
-**same** timings artifact on every shard of a run.
+With no path arguments, `warp shard` discovers tests from `phpunit.xml` or
+`phpunit.xml.dist` testsuites, including configured directories, files,
+suffixes, prefixes, and excludes. Use `--configuration=path/to/phpunit.xml`
+to point at a non-default config. If no PHPUnit config exists, Warp falls back
+to `tests/` discovery with the `Test.php` suffix; pass paths explicitly or use
+`--suffix=` to change that fallback.
+
+`warp shard` weighs each discovered file by recorded duration (unmeasured
+files get the average) and LPT-packs them into equal-duration bins. Timing keys
+are canonical root-relative paths, so `tests`, `./tests`, and absolute paths
+inside the project resolve to the same shard plan. All CI nodes for a run must
+use the same Warp version: mixed versions across the canonical-key format
+change can compute divergent plans. Restore the **same** timings artifact on
+every shard of a run.
 
 With no timings recorded it degrades gracefully to count-balanced sharding
-(warning on stderr; stdout stays clean for `$( )` consumption). Exit code 3
-means the shard is empty (more shards than files) — skip the pest invocation
-in that case rather than letting an empty `$( )` expansion run the full suite:
+(warning on stderr; stdout stays clean for `$( )` consumption). Shard exit
+codes are:
+
+| Exit | Meaning | CI recipe consequence |
+|------|---------|-----------------------|
+| 0 | Shard has files; stdout is the newline-delimited file list. | Run Pest with `FILES`. |
+| 2 | Usage, discovery, timings, or other shard error. | Fail the job with the same code. |
+| 3 | Empty shard (more shards than files). | Skip cleanly; do not run Pest with an empty file list. |
+
+Use an exit-code-aware guard under `sh -e`; this exact contract is exercised by
+Warp's integration suite:
 
 ```bash
-if FILES=$(./vendor/bin/warp shard "${CI_NODE_INDEX}/${CI_NODE_TOTAL}" tests); then
-    ./vendor/bin/pest $FILES
+set +e
+FILES=$(./vendor/bin/warp shard "${CI_NODE_INDEX}/${CI_NODE_TOTAL}")
+rc=$?
+set -e
+
+if [ "$rc" -eq 3 ]; then
+    echo "[warp] shard is empty; skipping pest"
+    exit 0
 fi
+
+if [ "$rc" -ne 0 ]; then
+    exit "$rc"
+fi
+
+./vendor/bin/pest $FILES
 ```
+
+Pre-UR-011 timing artifacts are a clean break: delete old `.warp/timings/`
+contents, record a fresh full run, run `warp merge`, and persist the new
+artifact.
 
 ## How it works
 
@@ -292,7 +332,7 @@ fi
 | `RawPHP\Warp\Timing\TimingExtension` | PHPUnit extension recording per-test durations (register in `phpunit.xml`). |
 | `RawPHP\Warp\Timing\TimingStore` | `load()` / `fileTotals()` / `aggregate()` — the portable timings artifact. |
 | `RawPHP\Warp\Shard\DurationBalancedSharder` | `assign()` — deterministic LPT shard packing. |
-| `bin/warp` | `warp shard <k>/<n>` / `warp timings` CLI. |
+| `bin/warp` | `warp merge` / `warp shard <k>/<n>` / `warp timings` CLI. |
 
 ## Benchmarks
 
