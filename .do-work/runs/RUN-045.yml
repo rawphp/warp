@@ -1,0 +1,35 @@
+run_id: RUN-045
+req: REQ-058
+ur: UR-011
+agent_id: "Toms-MacBook-Pro.local.21409"
+model: "inherited"
+branch: "s3"
+started_at: "2026-07-09T02:02:18Z"
+ended_at: "2026-07-09T02:16:43Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "tier-weighted estimate"
+cost_estimate_num: 0.12
+pr_url: ""
+commands:
+  - "./vendor/bin/pest tests/Unit/Cli/ShardCommandTest.php tests/Unit/Cli/TimingsCommandTest.php tests/Unit/Cli/MergeCommandTest.php"
+  - "WARP_TIMINGS_DIR=<fixture-dir> php bin/warp timings"
+  - "php bin/warp shard 1/2 --bogus-flag=1 tests; echo $?"
+  - "./vendor/bin/pest"
+  - "grep -rn \"\.warp/timings\" src/"
+  - "./vendor/bin/pint --test changed files"
+tests:
+  - "./vendor/bin/pest tests/Unit/Cli/ShardCommandTest.php tests/Unit/Cli/TimingsCommandTest.php tests/Unit/Cli/MergeCommandTest.php: 26 passed, 87 assertions"
+  - "runtime env timings: reported 1 test, 12.5ms"
+  - "runtime bogus shard flag: exit 2 unknown option"
+  - "./vendor/bin/pest: 224 passed, 558 assertions"
+  - "grep .warp/timings src/: only src/Timing/TimingStore.php"
+  - "pint changed files: passed"
+changed_files:
+  - "src/Cli/ShardCommand.php"
+  - "src/Cli/TimingsCommand.php"
+  - "src/Cli/MergeCommand.php"
+  - "tests/Unit/Cli/ShardCommandTest.php"
+  - "tests/Unit/Cli/TimingsCommandTest.php"
+  - "tests/Unit/Cli/MergeCommandTest.php"

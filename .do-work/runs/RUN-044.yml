@@ -1,0 +1,26 @@
+run_id: RUN-044
+req: REQ-057
+ur: UR-011
+agent_id: "Toms-MacBook-Pro.local.21409"
+model: "inherited"
+branch: "req/REQ-057"
+started_at: "2026-07-09T02:00:41Z"
+ended_at: "2026-07-09T02:16:43Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "tier-weighted estimate"
+cost_estimate_num: 0.08
+pr_url: ""
+commands:
+  - "php bench/shard-spread.php <fixture-timings-dir> 4 tests"
+  - "compare DurationBalancedSharder::plan bins against php bin/warp shard k/4 tests --timings-dir=<fixture>"
+  - "php bench/shard-spread.php <fixture-timings-dir> 4 src; echo $?"
+  - "./vendor/bin/pest"
+tests:
+  - "bench fixture: 36 files, 6660.0ms recorded; loads 1680+1670+1660+1650=6660"
+  - "shard membership comparison: all four k/4 bins matched bin/warp"
+  - "zero discovery: diagnostic printed, exit 1, no stack trace"
+  - "./vendor/bin/pest: 215 passed, 526 assertions"
+changed_files:
+  - "bench/shard-spread.php"
