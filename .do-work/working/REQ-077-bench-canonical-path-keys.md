@@ -1,7 +1,13 @@
 # REQ-077: Bench must canonicalize file paths before weight lookup
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.23132
+**Claimed at:** 2026-07-09T09:41:25Z
+**Heartbeat:** 2026-07-09T09:41:25Z
+<!-- claimed-end -->
+
 **UR:** UR-013
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
