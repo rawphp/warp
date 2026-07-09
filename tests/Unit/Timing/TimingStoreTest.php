@@ -3,13 +3,28 @@
 declare(strict_types=1);
 
 namespace RawPHP\Warp\Timing {
-    function file_put_contents($filename, $data, $flags = 0, $context = null): int|false
-    {
-        if (\TimingStoreShortWrite::enabledFor($filename)) {
-            return \TimingStoreShortWrite::write($filename, (string) $data, $flags, $context);
-        }
+    if (! function_exists(__NAMESPACE__.'\\file_put_contents')) {
+        function file_put_contents($filename, $data, $flags = 0, $context = null): int|false
+        {
+            if (\AtomicWriteShortWrite::enabledFor($filename)) {
+                return \AtomicWriteShortWrite::write($filename, (string) $data, $flags, $context);
+            }
 
-        return \file_put_contents($filename, $data, $flags, $context);
+            return \file_put_contents($filename, $data, $flags, $context);
+        }
+    }
+}
+
+namespace RawPHP\Warp\Support {
+    if (! function_exists(__NAMESPACE__.'\\file_put_contents')) {
+        function file_put_contents($filename, $data, $flags = 0, $context = null): int|false
+        {
+            if (\AtomicWriteShortWrite::enabledFor($filename)) {
+                return \AtomicWriteShortWrite::write($filename, (string) $data, $flags, $context);
+            }
+
+            return \file_put_contents($filename, $data, $flags, $context);
+        }
     }
 }
 
@@ -18,32 +33,39 @@ namespace {
     use RawPHP\Warp\Support\Stderr;
     use RawPHP\Warp\Timing\TimingStore;
 
-    final class TimingStoreShortWrite
-    {
-        private static ?int $bytes = null;
-
-        public static function enable(int $bytes): void
+    if (! class_exists(AtomicWriteShortWrite::class, false)) {
+        final class AtomicWriteShortWrite
         {
-            self::$bytes = $bytes;
-        }
+            private static ?int $bytes = null;
 
-        public static function disable(): void
-        {
-            self::$bytes = null;
-        }
+            public static function enable(int $bytes): void
+            {
+                self::$bytes = $bytes;
+            }
 
-        public static function enabledFor(string $path): bool
-        {
-            return self::$bytes !== null && str_ends_with($path, '.json.tmp');
-        }
+            public static function disable(): void
+            {
+                self::$bytes = null;
+            }
 
-        public static function write(string $path, string $data, int $flags = 0, $context = null): int|false
-        {
-            $bytes = min(self::$bytes ?? strlen($data), strlen($data) - 1);
+            public static function enabled(): bool
+            {
+                return self::$bytes !== null;
+            }
 
-            $result = \file_put_contents($path, substr($data, 0, $bytes), $flags, $context);
+            public static function enabledFor(string $path): bool
+            {
+                return self::$bytes !== null && str_ends_with($path, '.json.tmp');
+            }
 
-            return $result === false ? false : $bytes;
+            public static function write(string $path, string $data, int $flags = 0, $context = null): int|false
+            {
+                $bytes = min(self::$bytes ?? strlen($data), strlen($data) - 1);
+
+                $result = \file_put_contents($path, substr($data, 0, $bytes), $flags, $context);
+
+                return $result === false ? false : $bytes;
+            }
         }
     }
 
@@ -53,7 +75,7 @@ namespace {
     });
 
     afterEach(function () {
-        TimingStoreShortWrite::disable();
+        AtomicWriteShortWrite::disable();
         putenv('WARP_TIMINGS_DIR');
         Dirs::delete($this->dir);
     });
@@ -167,7 +189,7 @@ namespace {
     });
 
     it('treats a short pending batch write as a failed write and does not publish it', function () {
-        TimingStoreShortWrite::enable(8);
+        AtomicWriteShortWrite::enable(8);
 
         expect(fn () => $this->store->writePending([
             't1' => ['file' => 'tests/ATest.php', 'ms' => 10.5],
@@ -176,6 +198,29 @@ namespace {
         $files = array_values(array_diff(scandir($this->dir.'/pending') ?: [], ['.', '..']));
 
         expect($files)->toBe([]);
+    });
+
+    it('treats a short merged timings write as a failed write and does not publish it', function () {
+        Dirs::ensure($this->dir.'/pending');
+        file_put_contents($this->dir.'/timings.json', json_encode([
+            'version' => 1,
+            'tests' => ['old' => ['file' => 'tests/OldTest.php', 'ms' => 99.0]],
+        ]));
+        file_put_contents($this->dir.'/pending/100-1-aabbccdd.json', json_encode([
+            'complete' => true,
+            'tests' => ['new' => ['file' => 'tests/NewTest.php', 'ms' => 10.5]],
+        ]));
+
+        $original = (string) file_get_contents($this->dir.'/timings.json');
+
+        AtomicWriteShortWrite::enable(8);
+
+        expect(fn () => $this->store->mergeToDisk())
+            ->toThrow(RuntimeException::class, '[warp] cannot write merged timings');
+
+        expect(file_get_contents($this->dir.'/timings.json'))->toBe($original)
+            ->and(glob($this->dir.'/pending/*.json'))->toHaveCount(1)
+            ->and(is_file($this->dir.'/timings.json.tmp'))->toBeFalse();
     });
 
     it('names pending batches with monotonically increasing timestamp prefixes', function () {

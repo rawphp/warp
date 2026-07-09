@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RawPHP\Warp\Timing;
 
 use RawPHP\Warp\Db\Dirs;
+use RawPHP\Warp\Support\AtomicFile;
 use RawPHP\Warp\Support\FileLock;
 use RawPHP\Warp\Support\Stderr;
 use RuntimeException;
@@ -39,22 +40,14 @@ final class TimingStore
         Dirs::ensure($this->dir.'/pending');
 
         $path = $this->dir.'/pending/'.self::nextPendingTimestamp().'-'.getmypid().'-'.bin2hex(random_bytes(4)).'.json';
-        $tmp = $path.'.tmp';
 
         $encoded = json_encode(['complete' => $complete, 'tests' => $tests], JSON_THROW_ON_ERROR);
-        $bytes = file_put_contents($tmp, $encoded);
-
-        if ($bytes === false || $bytes < strlen($encoded)) {
-            @unlink($tmp);
-
-            throw new RuntimeException('[warp] cannot write pending timings batch to '.$tmp);
-        }
-
-        if (! rename($tmp, $path)) {
-            @unlink($tmp);
-
-            throw new RuntimeException('[warp] cannot publish pending timings batch to '.$path);
-        }
+        AtomicFile::write(
+            $path,
+            $encoded,
+            '[warp] cannot write pending timings batch',
+            '[warp] cannot publish pending timings batch',
+        );
     }
 
     public function mergeToDisk(): int
@@ -72,17 +65,12 @@ final class TimingStore
 
             [$tests, $mergedPending] = $this->mergedWithPending($pending);
 
-            $tmp = $this->dir.'/timings.json.tmp';
-
-            if (file_put_contents($tmp, json_encode(['version' => self::VERSION, 'tests' => $tests], JSON_THROW_ON_ERROR)) === false) {
-                throw new RuntimeException('[warp] cannot write merged timings to '.$tmp);
-            }
-
-            if (! rename($tmp, $this->dir.'/timings.json')) {
-                @unlink($tmp);
-
-                throw new RuntimeException('[warp] cannot publish merged timings to '.$this->dir.'/timings.json');
-            }
+            AtomicFile::write(
+                $this->dir.'/timings.json',
+                json_encode(['version' => self::VERSION, 'tests' => $tests], JSON_THROW_ON_ERROR),
+                '[warp] cannot write merged timings',
+                '[warp] cannot publish merged timings',
+            );
 
             foreach ($mergedPending as $path) {
                 if (! unlink($path)) {
