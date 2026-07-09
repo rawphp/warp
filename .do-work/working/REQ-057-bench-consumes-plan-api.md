@@ -1,7 +1,13 @@
 # REQ-057: Bench consumes sharder plan API; guard zero discovered files
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.21409
+**Claimed at:** 2026-07-09T02:00:41Z
+**Heartbeat:** 2026-07-09T02:00:41Z
+<!-- claimed-end -->
+
 **UR:** UR-011
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** bench
 **Entry point:**

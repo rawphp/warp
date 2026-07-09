@@ -1,7 +1,13 @@
 # REQ-061: Path-unit — Pest file-attribution hardening: safe reflection, memoization, loud drop warning
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.21409
+**Claimed at:** 2026-07-09T02:00:41Z
+**Heartbeat:** 2026-07-09T02:00:41Z
+<!-- claimed-end -->
+
 **UR:** UR-011
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:** `WARP_TIMINGS=1 ./vendor/bin/pest` on a suite containing Pest tests — including a hostile case: a PHPUnit-style test class declaring its own `$__filename` property.
