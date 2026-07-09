@@ -6,6 +6,7 @@ namespace RawPHP\Warp\Timing;
 
 use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Support\FileLock;
+use RawPHP\Warp\Support\Stderr;
 use RuntimeException;
 
 final class TimingStore
@@ -54,11 +55,6 @@ final class TimingStore
 
             throw new RuntimeException('[warp] cannot publish pending timings batch to '.$path);
         }
-    }
-
-    public function mergePending(): void
-    {
-        $this->mergeToDisk();
     }
 
     public function mergeToDisk(): int
@@ -139,7 +135,7 @@ final class TimingStore
             }
 
             if (! preg_match('/^(\d+)-\d+-[a-f0-9]{8}\.json$/', $entry, $matches)) {
-                self::warn('[warp] skipped old-format pending timings batch: '.$path.PHP_EOL);
+                Stderr::write('[warp] skipped old-format pending timings batch: '.$path.PHP_EOL);
 
                 continue;
             }
@@ -168,17 +164,6 @@ final class TimingStore
         return $timestamp;
     }
 
-    private static function warn(string $message): void
-    {
-        if (defined('STDERR')) {
-            fwrite(STDERR, $message);
-
-            return;
-        }
-
-        file_put_contents('php://stderr', $message);
-    }
-
     /**
      * @param  list<string>  $pending
      * @return array{0: array<string, array{file: string, ms: float}>, 1: list<string>}
@@ -193,7 +178,7 @@ final class TimingStore
             $batch = json_decode((string) file_get_contents($path), true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
-                self::warn('[warp] skipped undecodable pending timings batch: '.$path.PHP_EOL);
+                Stderr::write('[warp] skipped undecodable pending timings batch: '.$path.PHP_EOL);
 
                 continue;
             }

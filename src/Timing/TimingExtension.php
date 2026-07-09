@@ -17,6 +17,7 @@ use PHPUnit\Runner\Extension\Extension;
 use PHPUnit\Runner\Extension\Facade;
 use PHPUnit\Runner\Extension\ParameterCollection;
 use PHPUnit\TextUI\Configuration\Configuration;
+use RawPHP\Warp\Support\Stderr;
 use RawPHP\Warp\WarpMode;
 
 final class TimingExtension implements Extension
@@ -102,7 +103,7 @@ final class TimingExtension implements Extension
         $unattributed = $collector->unattributedCount();
 
         if ($unattributed > 0) {
-            self::warn("[warp] {$unattributed} test(s) could not be attributed to a file; their timings were not recorded".PHP_EOL);
+            Stderr::write("[warp] {$unattributed} test(s) could not be attributed to a file; their timings were not recorded".PHP_EOL);
         }
     }
 
@@ -122,16 +123,5 @@ final class TimingExtension implements Extension
             E_USER_ERROR,
             E_RECOVERABLE_ERROR,
         ], true);
-    }
-
-    private static function warn(string $message): void
-    {
-        if (defined('STDERR')) {
-            fwrite(STDERR, $message);
-
-            return;
-        }
-
-        file_put_contents('php://stderr', $message);
     }
 }

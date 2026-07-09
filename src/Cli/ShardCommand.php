@@ -9,7 +9,6 @@ use RawPHP\Warp\Shard\DurationBalancedSharder;
 use RawPHP\Warp\Shard\SuiteDiscovery;
 use RawPHP\Warp\Shard\TestFileFinder;
 use RawPHP\Warp\Support\Paths;
-use RawPHP\Warp\Timing\TimingStore;
 use RuntimeException;
 
 final class ShardCommand
@@ -23,35 +22,45 @@ final class ShardCommand
     {
         $spec = null;
         $paths = [];
-        $store = TimingStore::fromEnv();
-        $dirLabel = 'configured timings dir';
         $suffix = 'Test.php';
         $configuration = null;
 
-        foreach ($args as $arg) {
-            if (str_starts_with($arg, '--timings-dir=')) {
-                $dir = substr($arg, strlen('--timings-dir='));
-                $store = new TimingStore($dir);
-                $dirLabel = $dir;
-            } elseif (str_starts_with($arg, '--suffix=')) {
-                $suffix = substr($arg, strlen('--suffix='));
+        try {
+            $timings = TimingStoreArgumentParser::parse($args, function (string $arg) use (&$spec, &$paths, &$suffix, &$configuration): bool {
+                if (str_starts_with($arg, '--suffix=')) {
+                    $suffix = substr($arg, strlen('--suffix='));
 
-                if ($suffix === '') {
-                    fwrite($stderr, "[warp] --suffix must not be empty\n");
+                    if ($suffix === '') {
+                        throw new InvalidArgumentException('[warp] --suffix must not be empty');
+                    }
 
-                    return 2;
+                    return true;
                 }
-            } elseif (str_starts_with($arg, '--configuration=')) {
-                $configuration = substr($arg, strlen('--configuration='));
-            } elseif ($spec === null && preg_match('#^(\d+)/(\d+)$#', $arg, $matches) === 1) {
-                $spec = [(int) $matches[1], (int) $matches[2]];
-            } elseif (str_starts_with($arg, '--')) {
-                fwrite($stderr, "[warp] unknown option: {$arg}\n");
 
-                return 2;
-            } else {
+                if (str_starts_with($arg, '--configuration=')) {
+                    $configuration = substr($arg, strlen('--configuration='));
+
+                    return true;
+                }
+
+                if ($spec === null && preg_match('#^(\d+)/(\d+)$#', $arg, $matches) === 1) {
+                    $spec = [(int) $matches[1], (int) $matches[2]];
+
+                    return true;
+                }
+
+                if (str_starts_with($arg, '--')) {
+                    return false;
+                }
+
                 $paths[] = $arg;
-            }
+
+                return true;
+            });
+        } catch (InvalidArgumentException|RuntimeException $exception) {
+            fwrite($stderr, $exception->getMessage()."\n");
+
+            return 2;
         }
 
         if ($spec === null) {
@@ -63,11 +72,14 @@ final class ShardCommand
         try {
             if ($paths === []) {
                 $root = getcwd() ?: '.';
-                $configurationPath = SuiteDiscovery::configurationPath($root, $configuration);
 
-                if ($configurationPath !== null) {
+                try {
                     $files = SuiteDiscovery::discover($root, $configuration);
-                } else {
+                } catch (RuntimeException $exception) {
+                    if ($configuration !== null || $exception->getMessage() !== '[warp] no phpunit.xml found at project root') {
+                        throw $exception;
+                    }
+
                     fwrite($stderr, "[warp] no phpunit.xml found - falling back to tests/Test.php discovery\n");
                     $files = TestFileFinder::find(['tests'], $suffix);
                 }
@@ -76,10 +88,10 @@ final class ShardCommand
             }
 
             $files = self::canonicalFiles($files, getcwd() ?: '.');
-            $totals = $store->fileTotals();
+            $totals = $timings->store->fileTotals();
 
             if ($totals === []) {
-                fwrite($stderr, "[warp] no recorded timings under {$dirLabel} - sharding count-balanced\n");
+                fwrite($stderr, "[warp] no recorded timings under {$timings->dirLabel} - sharding count-balanced\n");
             } elseif (array_intersect_key($totals, array_flip($files)) === []) {
                 fwrite($stderr, "[warp] recorded timings match no discovered file - likely path-form or stale-artifact mismatch; sharding count-balanced\n");
             }

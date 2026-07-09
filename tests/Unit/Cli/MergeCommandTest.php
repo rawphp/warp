@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use RawPHP\Warp\Cli\MergeCommand;
+use RawPHP\Warp\Cli\TimingStoreArgumentParser;
 use RawPHP\Warp\Cli\WarpCli;
 use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Timing\TimingStore;
@@ -104,6 +105,19 @@ it('rejects unknown options', function () {
     expect($exit)->toBe(2)
         ->and($stdout)->toBe('')
         ->and($stderr)->toContain('[warp] unknown option: --bogus');
+});
+
+it('keeps timings-dir parsing in one shared CLI helper', function () {
+    $cliDir = dirname(__DIR__, 3).'/src/Cli';
+    $sources = '';
+
+    foreach (['MergeCommand.php', 'TimingsCommand.php', 'ShardCommand.php', 'TimingStoreArgumentParser.php'] as $file) {
+        $path = $cliDir.'/'.$file;
+        $sources .= is_file($path) ? (string) file_get_contents($path) : '';
+    }
+
+    expect(class_exists(TimingStoreArgumentParser::class))->toBeTrue()
+        ->and(substr_count($sources, "str_starts_with(\$arg, '--timings-dir=')"))->toBe(1);
 });
 
 it('lists the merge command in usage output', function () {

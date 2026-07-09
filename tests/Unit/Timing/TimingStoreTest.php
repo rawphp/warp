@@ -14,442 +14,464 @@ namespace RawPHP\Warp\Timing {
 }
 
 namespace {
-use RawPHP\Warp\Db\Dirs;
-use RawPHP\Warp\Timing\TimingStore;
+    use RawPHP\Warp\Db\Dirs;
+    use RawPHP\Warp\Support\Stderr;
+    use RawPHP\Warp\Timing\TimingStore;
 
-final class TimingStoreShortWrite
-{
-    private static ?int $bytes = null;
-
-    public static function enable(int $bytes): void
+    final class TimingStoreShortWrite
     {
-        self::$bytes = $bytes;
+        private static ?int $bytes = null;
+
+        public static function enable(int $bytes): void
+        {
+            self::$bytes = $bytes;
+        }
+
+        public static function disable(): void
+        {
+            self::$bytes = null;
+        }
+
+        public static function enabledFor(string $path): bool
+        {
+            return self::$bytes !== null && str_ends_with($path, '.json.tmp');
+        }
+
+        public static function write(string $path, string $data, int $flags = 0, $context = null): int|false
+        {
+            $bytes = min(self::$bytes ?? strlen($data), strlen($data) - 1);
+
+            $result = \file_put_contents($path, substr($data, 0, $bytes), $flags, $context);
+
+            return $result === false ? false : $bytes;
+        }
     }
 
-    public static function disable(): void
-    {
-        self::$bytes = null;
-    }
+    beforeEach(function () {
+        $this->dir = sys_get_temp_dir().'/warp-timings-'.bin2hex(random_bytes(4));
+        $this->store = new TimingStore($this->dir);
+    });
 
-    public static function enabledFor(string $path): bool
-    {
-        return self::$bytes !== null && str_ends_with($path, '.json.tmp');
-    }
+    afterEach(function () {
+        TimingStoreShortWrite::disable();
+        putenv('WARP_TIMINGS_DIR');
+        Dirs::delete($this->dir);
+    });
 
-    public static function write(string $path, string $data, int $flags = 0, $context = null): int|false
-    {
-        $bytes = min(self::$bytes ?? strlen($data), strlen($data) - 1);
+    it('loads empty when nothing was ever recorded, without creating directories', function () {
+        expect($this->store->load())->toBe([])
+            ->and(is_dir($this->dir))->toBeFalse();
+    });
 
-        $result = \file_put_contents($path, substr($data, 0, $bytes), $flags, $context);
+    it('writePending is a no-op for an empty batch', function () {
+        $this->store->writePending([]);
 
-        return $result === false ? false : $bytes;
-    }
-}
+        expect(is_dir($this->dir))->toBeFalse();
+    });
 
-beforeEach(function () {
-    $this->dir = sys_get_temp_dir().'/warp-timings-'.bin2hex(random_bytes(4));
-    $this->store = new TimingStore($this->dir);
-});
+    it('loads pending batches as an in-memory overlay without clearing them', function () {
+        $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
 
-afterEach(function () {
-    TimingStoreShortWrite::disable();
-    putenv('WARP_TIMINGS_DIR');
-    Dirs::delete($this->dir);
-});
+        expect(glob($this->dir.'/pending/*.json'))->toHaveCount(1);
 
-it('loads empty when nothing was ever recorded, without creating directories', function () {
-    expect($this->store->load())->toBe([])
-        ->and(is_dir($this->dir))->toBeFalse();
-});
-
-it('writePending is a no-op for an empty batch', function () {
-    $this->store->writePending([]);
-
-    expect(is_dir($this->dir))->toBeFalse();
-});
-
-it('loads pending batches as an in-memory overlay without clearing them', function () {
-    $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
-
-    expect(glob($this->dir.'/pending/*.json'))->toHaveCount(1);
-
-    $tests = $this->store->load();
-
-    expect($tests)->toBe(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]])
-        ->and(glob($this->dir.'/pending/*.json'))->toHaveCount(1)
-        ->and(is_file($this->dir.'/merge.lock'))->toBeFalse()
-        ->and(is_file($this->dir.'/timings.json'))->toBeFalse();
-});
-
-it('mergeToDisk merges pending batches into the store and clears them', function () {
-    $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
-
-    expect(glob($this->dir.'/pending/*.json'))->toHaveCount(1);
-
-    $this->store->mergeToDisk();
-
-    expect($this->store->load())->toBe(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]])
-        ->and(glob($this->dir.'/pending/*.json'))->toBe([])
-        ->and(is_file($this->dir.'/merge.lock'))->toBeTrue()
-        ->and(is_file($this->dir.'/timings.json'))->toBeTrue();
-});
-
-it('loads from a read-only directory with pending batches without writing a lock or clearing pending', function () {
-    Dirs::ensure($this->dir.'/pending');
-
-    file_put_contents($this->dir.'/timings.json', json_encode([
-        'version' => 1,
-        'tests' => [
-            'old' => ['file' => 'tests/OldTest.php', 'ms' => 100.0],
-            'stale' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0],
-        ],
-    ]));
-
-    file_put_contents($this->dir.'/pending/100-1-aabbccdd.json', json_encode([
-        'complete' => true,
-        'tests' => [
-            'fresh' => ['file' => 'tests/FooTest.php', 'ms' => 50.0],
-        ],
-    ]));
-
-    chmod($this->dir.'/pending', 0555);
-    chmod($this->dir, 0555);
-
-    try {
         $tests = $this->store->load();
-    } finally {
-        chmod($this->dir, 0755);
-        chmod($this->dir.'/pending', 0755);
-    }
 
-    expect($tests)->toBe([
-        'old' => ['file' => 'tests/OldTest.php', 'ms' => 100.0],
-        'fresh' => ['file' => 'tests/FooTest.php', 'ms' => 50.0],
-    ])
-        ->and(glob($this->dir.'/pending/*.json'))->toHaveCount(1)
-        ->and(is_file($this->dir.'/merge.lock'))->toBeFalse();
-});
+        expect($tests)->toBe(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]])
+            ->and(glob($this->dir.'/pending/*.json'))->toHaveCount(1)
+            ->and(is_file($this->dir.'/merge.lock'))->toBeFalse()
+            ->and(is_file($this->dir.'/timings.json'))->toBeFalse();
+    });
 
-it('writes pending batches atomically and leaves no temporary file behind', function () {
-    $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
+    it('mergeToDisk merges pending batches into the store and clears them', function () {
+        $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
 
-    $files = array_values(array_diff(scandir($this->dir.'/pending') ?: [], ['.', '..']));
+        expect(glob($this->dir.'/pending/*.json'))->toHaveCount(1);
 
-    expect($files)->toHaveCount(1)
-        ->and($files[0])->toMatch('/^\d{16,}-\d+-[a-f0-9]{8}\.json$/')
-        ->and($files[0])->not->toEndWith('.tmp')
-        ->and(json_decode((string) file_get_contents($this->dir.'/pending/'.$files[0]), true))->toBe([
+        $this->store->mergeToDisk();
+
+        expect($this->store->load())->toBe(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]])
+            ->and(glob($this->dir.'/pending/*.json'))->toBe([])
+            ->and(is_file($this->dir.'/merge.lock'))->toBeTrue()
+            ->and(is_file($this->dir.'/timings.json'))->toBeTrue();
+    });
+
+    it('does not expose the removed merge wrapper', function () {
+        expect(method_exists(TimingStore::class, 'merge'.'Pending'))->toBeFalse();
+    });
+
+    it('keeps stderr warning writes centralized in one support helper', function () {
+        $src = dirname(__DIR__, 3).'/src';
+        $sources = '';
+
+        foreach ([
+            $src.'/Timing/TimingStore.php',
+            $src.'/Timing/TimingExtension.php',
+            $src.'/Support/Stderr.php',
+        ] as $file) {
+            $sources .= is_file($file) ? (string) file_get_contents($file) : '';
+        }
+
+        expect(class_exists(Stderr::class))->toBeTrue()
+            ->and(substr_count($sources, 'function warn('))->toBe(0)
+            ->and(substr_count($sources, 'function write('))->toBe(1);
+    });
+
+    it('loads from a read-only directory with pending batches without writing a lock or clearing pending', function () {
+        Dirs::ensure($this->dir.'/pending');
+
+        file_put_contents($this->dir.'/timings.json', json_encode([
+            'version' => 1,
+            'tests' => [
+                'old' => ['file' => 'tests/OldTest.php', 'ms' => 100.0],
+                'stale' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0],
+            ],
+        ]));
+
+        file_put_contents($this->dir.'/pending/100-1-aabbccdd.json', json_encode([
+            'complete' => true,
+            'tests' => [
+                'fresh' => ['file' => 'tests/FooTest.php', 'ms' => 50.0],
+            ],
+        ]));
+
+        chmod($this->dir.'/pending', 0555);
+        chmod($this->dir, 0555);
+
+        try {
+            $tests = $this->store->load();
+        } finally {
+            chmod($this->dir, 0755);
+            chmod($this->dir.'/pending', 0755);
+        }
+
+        expect($tests)->toBe([
+            'old' => ['file' => 'tests/OldTest.php', 'ms' => 100.0],
+            'fresh' => ['file' => 'tests/FooTest.php', 'ms' => 50.0],
+        ])
+            ->and(glob($this->dir.'/pending/*.json'))->toHaveCount(1)
+            ->and(is_file($this->dir.'/merge.lock'))->toBeFalse();
+    });
+
+    it('writes pending batches atomically and leaves no temporary file behind', function () {
+        $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
+
+        $files = array_values(array_diff(scandir($this->dir.'/pending') ?: [], ['.', '..']));
+
+        expect($files)->toHaveCount(1)
+            ->and($files[0])->toMatch('/^\d{16,}-\d+-[a-f0-9]{8}\.json$/')
+            ->and($files[0])->not->toEndWith('.tmp')
+            ->and(json_decode((string) file_get_contents($this->dir.'/pending/'.$files[0]), true))->toBe([
+                'complete' => true,
+                'tests' => ['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]],
+            ]);
+    });
+
+    it('treats a short pending batch write as a failed write and does not publish it', function () {
+        TimingStoreShortWrite::enable(8);
+
+        expect(fn () => $this->store->writePending([
+            't1' => ['file' => 'tests/ATest.php', 'ms' => 10.5],
+        ]))->toThrow(RuntimeException::class, '[warp] cannot write pending timings batch');
+
+        $files = array_values(array_diff(scandir($this->dir.'/pending') ?: [], ['.', '..']));
+
+        expect($files)->toBe([]);
+    });
+
+    it('names pending batches with monotonically increasing timestamp prefixes', function () {
+        $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
+        usleep(1000);
+        $this->store->writePending(['t2' => ['file' => 'tests/BTest.php', 'ms' => 20.5]]);
+
+        $files = array_values(array_diff(scandir($this->dir.'/pending') ?: [], ['.', '..']));
+
+        expect($files)->toHaveCount(2);
+
+        $timestamps = array_map(
+            static fn (string $file): int => (int) strtok($file, '-'),
+            $files,
+        );
+
+        expect($timestamps[0])->toBeLessThan($timestamps[1]);
+    });
+
+    it('a rerun of a file supersedes all of that file\'s previous entries', function () {
+        $this->store->writePending([
+            't1' => ['file' => 'tests/ATest.php', 'ms' => 10.5],
+            't2' => ['file' => 'tests/ATest.php', 'ms' => 20.5],
+            't3' => ['file' => 'tests/BTest.php', 'ms' => 30.5],
+        ]);
+        $this->store->mergeToDisk();
+
+        // t2 was renamed/deleted since: the fresh run of ATest.php only has t1.
+        $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 11.5]]);
+
+        $tests = $this->store->load();
+
+        expect($tests)->toHaveKeys(['t1', 't3'])
+            ->and($tests)->not->toHaveKey('t2')
+            ->and($tests['t1']['ms'])->toBe(11.5)
+            ->and($tests['t3']['ms'])->toBe(30.5);
+    });
+
+    it('incomplete pending batches merge by test id without superseding a whole file', function () {
+        Dirs::ensure($this->dir);
+        file_put_contents($this->dir.'/timings.json', json_encode([
+            'version' => 1,
+            'tests' => [
+                'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+                'FileA::two' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+                'FileA::three' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+            ],
+        ]));
+
+        Dirs::ensure($this->dir.'/pending');
+        file_put_contents($this->dir.'/pending/100-1-aabbccdd.json', json_encode([
+            'complete' => false,
+            'tests' => [
+                'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 100.0],
+            ],
+        ]));
+
+        expect($this->store->load())->toEqual([
+            'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 100.0],
+            'FileA::two' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+            'FileA::three' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+        ]);
+    });
+
+    it('complete pending batches keep superseding all previous entries for covered files', function () {
+        Dirs::ensure($this->dir);
+        file_put_contents($this->dir.'/timings.json', json_encode([
+            'version' => 1,
+            'tests' => [
+                'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+                'FileA::two' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+                'FileA::three' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+            ],
+        ]));
+
+        Dirs::ensure($this->dir.'/pending');
+        file_put_contents($this->dir.'/pending/100-1-aabbccdd.json', json_encode([
+            'complete' => true,
+            'tests' => [
+                'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 100.0],
+            ],
+        ]));
+
+        expect($this->store->load())->toEqual([
+            'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 100.0],
+        ]);
+    });
+
+    it('mergeToDisk and load produce identical merged data for the same fixture', function () {
+        $seed = [
+            'version' => 1,
+            'tests' => [
+                'FileA::old' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+                'FileB::old' => ['file' => 'tests/FileBTest.php', 'ms' => 2000.0],
+            ],
+        ];
+        $oldBatch = [
+            'complete' => true,
+            'tests' => [
+                'FileA::fresh' => ['file' => 'tests/FileATest.php', 'ms' => 10.0],
+            ],
+        ];
+        $partialBatch = [
+            'complete' => false,
+            'tests' => [
+                'FileB::new' => ['file' => 'tests/FileBTest.php', 'ms' => 20.0],
+            ],
+        ];
+
+        $overlayDir = $this->dir.'/overlay';
+        $mergeDir = $this->dir.'/merge';
+
+        foreach ([$overlayDir, $mergeDir] as $dir) {
+            Dirs::ensure($dir.'/pending');
+            file_put_contents($dir.'/timings.json', json_encode($seed));
+            file_put_contents($dir.'/pending/100-1-aabbccdd.json', json_encode($oldBatch));
+            file_put_contents($dir.'/pending/200-1-bbccddee.json', json_encode($partialBatch));
+        }
+
+        $overlay = (new TimingStore($overlayDir))->load();
+        $mergeStore = new TimingStore($mergeDir);
+        $mergeStore->mergeToDisk();
+
+        expect($mergeStore->load())->toBe($overlay);
+    });
+
+    it('merges pending batches by numeric timestamp when older filename sorts first lexicographically', function () {
+        Dirs::ensure($this->dir.'/pending');
+        file_put_contents($this->dir.'/pending/100-99999-aaaaaaaa.json', json_encode([
+            'complete' => true,
+            'tests' => ['old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0]],
+        ]));
+        file_put_contents($this->dir.'/pending/200-1-bbbbbbbb.json', json_encode([
+            'complete' => true,
+            'tests' => ['new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0]],
+        ]));
+
+        expect($this->store->fileTotals())->toBe(['tests/FooTest.php' => 50.0]);
+    });
+
+    it('merges pending batches by numeric timestamp when older filename sorts after newer lexicographically', function () {
+        Dirs::ensure($this->dir.'/pending');
+        file_put_contents($this->dir.'/pending/9-99999-aaaaaaaa.json', json_encode([
+            'complete' => true,
+            'tests' => ['old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0]],
+        ]));
+        file_put_contents($this->dir.'/pending/10-1-bbbbbbbb.json', json_encode([
+            'complete' => true,
+            'tests' => ['new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0]],
+        ]));
+
+        expect($this->store->fileTotals())->toBe(['tests/FooTest.php' => 50.0]);
+    });
+
+    it('leaves corrupt pending files in place and warns while merging valid siblings', function () {
+        Dirs::ensure($this->dir.'/pending');
+        $badPath = $this->dir.'/pending/100-0-badbad00.json';
+        file_put_contents($badPath, 'not json');
+        file_put_contents($this->dir.'/pending/200-1-aabbccdd.json', json_encode([
             'complete' => true,
             'tests' => ['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]],
+        ]));
+
+        $script = $this->dir.'/merge.php';
+        file_put_contents($script, <<<'PHP'
+<?php
+
+require getcwd().'/vendor/autoload.php';
+
+(new RawPHP\Warp\Timing\TimingStore($argv[1]))->mergeToDisk();
+PHP);
+
+        $process = proc_open([PHP_BINARY, $script, $this->dir], [
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $pipes, getcwd());
+
+        expect($process)->not->toBeFalse();
+
+        $stderr = stream_get_contents($pipes[2]);
+
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        expect(proc_close($process))->toBe(0);
+
+        $merged = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
+
+        expect($merged['tests'] ?? [])->toHaveKey('t1')
+            ->and(is_file($badPath))->toBeTrue()
+            ->and($stderr)->toContain('100-0-badbad00.json');
+    });
+
+    it('skips old-format pending files with a warning', function () {
+        Dirs::ensure($this->dir.'/pending');
+        $oldPath = $this->dir.'/pending/12345-aaaaaaaa.json';
+        file_put_contents($oldPath, json_encode([
+            'complete' => true,
+            'tests' => ['old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0]],
+        ]));
+        file_put_contents($this->dir.'/pending/200-1-bbbbbbbb.json', json_encode([
+            'complete' => true,
+            'tests' => ['new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0]],
+        ]));
+
+        $script = $this->dir.'/merge-old-format.php';
+        file_put_contents($script, <<<'PHP'
+<?php
+
+require getcwd().'/vendor/autoload.php';
+
+(new RawPHP\Warp\Timing\TimingStore($argv[1]))->mergeToDisk();
+PHP);
+
+        $process = proc_open([PHP_BINARY, $script, $this->dir], [
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $pipes, getcwd());
+
+        expect($process)->not->toBeFalse();
+
+        $stderr = stream_get_contents($pipes[2]);
+
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        expect(proc_close($process))->toBe(0);
+
+        $merged = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
+
+        expect($merged['tests']['new']['file'] ?? null)->toBe('tests/FooTest.php')
+            ->and((float) ($merged['tests']['new']['ms'] ?? 0))->toBe(50.0)
+            ->and(is_file($oldPath))->toBeTrue()
+            ->and($stderr)->toContain('skipped old-format pending timings batch')
+            ->and($stderr)->toContain('12345-aaaaaaaa.json');
+    });
+
+    it('discovers pending batches when the store path contains glob metacharacters', function () {
+        Dirs::delete($this->dir);
+
+        $this->dir = sys_get_temp_dir().'/warp-timings-base[1]-star*-question?/timings';
+        $this->store = new TimingStore($this->dir);
+
+        $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
+
+        expect($this->store->load())->toBe(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
+    });
+
+    it('drops malformed entries from a pending batch', function () {
+        Dirs::ensure($this->dir.'/pending');
+        file_put_contents($this->dir.'/pending/100-0-aabbccdd.json', json_encode([
+            'complete' => true,
+            'tests' => [
+                'good' => ['file' => 'tests/ATest.php', 'ms' => 5.5],
+                'no-file' => ['ms' => 5.5],
+                'bad-ms' => ['file' => 'tests/BTest.php', 'ms' => 'slow'],
+            ],
+        ]));
+
+        expect(array_keys($this->store->load()))->toBe(['good']);
+    });
+
+    it('treats a merged file with an unknown version as empty', function () {
+        Dirs::ensure($this->dir);
+        file_put_contents($this->dir.'/timings.json', json_encode([
+            'version' => 99,
+            'tests' => ['t9' => ['file' => 'tests/XTest.php', 'ms' => 1.5]],
+        ]));
+
+        expect($this->store->load())->toBe([]);
+    });
+
+    it('aggregates per-file totals sorted by path', function () {
+        $totals = TimingStore::aggregate([
+            't1' => ['file' => 'tests/BTest.php', 'ms' => 1.5],
+            't2' => ['file' => 'tests/ATest.php', 'ms' => 2.5],
+            't3' => ['file' => 'tests/BTest.php', 'ms' => 2.0],
         ]);
-});
 
-it('treats a short pending batch write as a failed write and does not publish it', function () {
-    TimingStoreShortWrite::enable(8);
+        expect($totals)->toBe(['tests/ATest.php' => 2.5, 'tests/BTest.php' => 3.5]);
+    });
 
-    expect(fn () => $this->store->writePending([
-        't1' => ['file' => 'tests/ATest.php', 'ms' => 10.5],
-    ]))->toThrow(RuntimeException::class, '[warp] cannot write pending timings batch');
+    it('fileTotals merges then aggregates', function () {
+        $this->store->writePending([
+            't1' => ['file' => 'tests/ATest.php', 'ms' => 1.5],
+            't2' => ['file' => 'tests/ATest.php', 'ms' => 2.0],
+        ]);
 
-    $files = array_values(array_diff(scandir($this->dir.'/pending') ?: [], ['.', '..']));
+        expect($this->store->fileTotals())->toBe(['tests/ATest.php' => 3.5]);
+    });
 
-    expect($files)->toBe([]);
-});
+    it('fromEnv honours WARP_TIMINGS_DIR', function () {
+        putenv('WARP_TIMINGS_DIR='.$this->dir);
 
-it('names pending batches with monotonically increasing timestamp prefixes', function () {
-    $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
-    usleep(1000);
-    $this->store->writePending(['t2' => ['file' => 'tests/BTest.php', 'ms' => 20.5]]);
+        TimingStore::fromEnv()->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 1.5]]);
 
-    $files = array_values(array_diff(scandir($this->dir.'/pending') ?: [], ['.', '..']));
-
-    expect($files)->toHaveCount(2);
-
-    $timestamps = array_map(
-        static fn (string $file): int => (int) strtok($file, '-'),
-        $files,
-    );
-
-    expect($timestamps[0])->toBeLessThan($timestamps[1]);
-});
-
-it('a rerun of a file supersedes all of that file\'s previous entries', function () {
-    $this->store->writePending([
-        't1' => ['file' => 'tests/ATest.php', 'ms' => 10.5],
-        't2' => ['file' => 'tests/ATest.php', 'ms' => 20.5],
-        't3' => ['file' => 'tests/BTest.php', 'ms' => 30.5],
-    ]);
-    $this->store->mergeToDisk();
-
-    // t2 was renamed/deleted since: the fresh run of ATest.php only has t1.
-    $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 11.5]]);
-
-    $tests = $this->store->load();
-
-    expect($tests)->toHaveKeys(['t1', 't3'])
-        ->and($tests)->not->toHaveKey('t2')
-        ->and($tests['t1']['ms'])->toBe(11.5)
-        ->and($tests['t3']['ms'])->toBe(30.5);
-});
-
-it('incomplete pending batches merge by test id without superseding a whole file', function () {
-    Dirs::ensure($this->dir);
-    file_put_contents($this->dir.'/timings.json', json_encode([
-        'version' => 1,
-        'tests' => [
-            'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
-            'FileA::two' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
-            'FileA::three' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
-        ],
-    ]));
-
-    Dirs::ensure($this->dir.'/pending');
-    file_put_contents($this->dir.'/pending/100-1-aabbccdd.json', json_encode([
-        'complete' => false,
-        'tests' => [
-            'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 100.0],
-        ],
-    ]));
-
-    expect($this->store->load())->toEqual([
-        'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 100.0],
-        'FileA::two' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
-        'FileA::three' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
-    ]);
-});
-
-it('complete pending batches keep superseding all previous entries for covered files', function () {
-    Dirs::ensure($this->dir);
-    file_put_contents($this->dir.'/timings.json', json_encode([
-        'version' => 1,
-        'tests' => [
-            'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
-            'FileA::two' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
-            'FileA::three' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
-        ],
-    ]));
-
-    Dirs::ensure($this->dir.'/pending');
-    file_put_contents($this->dir.'/pending/100-1-aabbccdd.json', json_encode([
-        'complete' => true,
-        'tests' => [
-            'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 100.0],
-        ],
-    ]));
-
-    expect($this->store->load())->toEqual([
-        'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 100.0],
-    ]);
-});
-
-it('mergeToDisk and load produce identical merged data for the same fixture', function () {
-    $seed = [
-        'version' => 1,
-        'tests' => [
-            'FileA::old' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
-            'FileB::old' => ['file' => 'tests/FileBTest.php', 'ms' => 2000.0],
-        ],
-    ];
-    $oldBatch = [
-        'complete' => true,
-        'tests' => [
-            'FileA::fresh' => ['file' => 'tests/FileATest.php', 'ms' => 10.0],
-        ],
-    ];
-    $partialBatch = [
-        'complete' => false,
-        'tests' => [
-            'FileB::new' => ['file' => 'tests/FileBTest.php', 'ms' => 20.0],
-        ],
-    ];
-
-    $overlayDir = $this->dir.'/overlay';
-    $mergeDir = $this->dir.'/merge';
-
-    foreach ([$overlayDir, $mergeDir] as $dir) {
-        Dirs::ensure($dir.'/pending');
-        file_put_contents($dir.'/timings.json', json_encode($seed));
-        file_put_contents($dir.'/pending/100-1-aabbccdd.json', json_encode($oldBatch));
-        file_put_contents($dir.'/pending/200-1-bbccddee.json', json_encode($partialBatch));
-    }
-
-    $overlay = (new TimingStore($overlayDir))->load();
-    $mergeStore = new TimingStore($mergeDir);
-    $mergeStore->mergeToDisk();
-
-    expect($mergeStore->load())->toBe($overlay);
-});
-
-it('merges pending batches by numeric timestamp when older filename sorts first lexicographically', function () {
-    Dirs::ensure($this->dir.'/pending');
-    file_put_contents($this->dir.'/pending/100-99999-aaaaaaaa.json', json_encode([
-        'complete' => true,
-        'tests' => ['old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0]],
-    ]));
-    file_put_contents($this->dir.'/pending/200-1-bbbbbbbb.json', json_encode([
-        'complete' => true,
-        'tests' => ['new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0]],
-    ]));
-
-    expect($this->store->fileTotals())->toBe(['tests/FooTest.php' => 50.0]);
-});
-
-it('merges pending batches by numeric timestamp when older filename sorts after newer lexicographically', function () {
-    Dirs::ensure($this->dir.'/pending');
-    file_put_contents($this->dir.'/pending/9-99999-aaaaaaaa.json', json_encode([
-        'complete' => true,
-        'tests' => ['old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0]],
-    ]));
-    file_put_contents($this->dir.'/pending/10-1-bbbbbbbb.json', json_encode([
-        'complete' => true,
-        'tests' => ['new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0]],
-    ]));
-
-    expect($this->store->fileTotals())->toBe(['tests/FooTest.php' => 50.0]);
-});
-
-it('leaves corrupt pending files in place and warns while merging valid siblings', function () {
-    Dirs::ensure($this->dir.'/pending');
-    $badPath = $this->dir.'/pending/100-0-badbad00.json';
-    file_put_contents($badPath, 'not json');
-    file_put_contents($this->dir.'/pending/200-1-aabbccdd.json', json_encode([
-        'complete' => true,
-        'tests' => ['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]],
-    ]));
-
-    $script = $this->dir.'/merge.php';
-    file_put_contents($script, <<<'PHP'
-<?php
-
-require getcwd().'/vendor/autoload.php';
-
-(new RawPHP\Warp\Timing\TimingStore($argv[1]))->mergeToDisk();
-PHP);
-
-    $process = proc_open([PHP_BINARY, $script, $this->dir], [
-        1 => ['pipe', 'w'],
-        2 => ['pipe', 'w'],
-    ], $pipes, getcwd());
-
-    expect($process)->not->toBeFalse();
-
-    $stderr = stream_get_contents($pipes[2]);
-
-    fclose($pipes[1]);
-    fclose($pipes[2]);
-
-    expect(proc_close($process))->toBe(0);
-
-    $merged = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
-
-    expect($merged['tests'] ?? [])->toHaveKey('t1')
-        ->and(is_file($badPath))->toBeTrue()
-        ->and($stderr)->toContain('100-0-badbad00.json');
-});
-
-it('skips old-format pending files with a warning', function () {
-    Dirs::ensure($this->dir.'/pending');
-    $oldPath = $this->dir.'/pending/12345-aaaaaaaa.json';
-    file_put_contents($oldPath, json_encode([
-        'complete' => true,
-        'tests' => ['old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0]],
-    ]));
-    file_put_contents($this->dir.'/pending/200-1-bbbbbbbb.json', json_encode([
-        'complete' => true,
-        'tests' => ['new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0]],
-    ]));
-
-    $script = $this->dir.'/merge-old-format.php';
-    file_put_contents($script, <<<'PHP'
-<?php
-
-require getcwd().'/vendor/autoload.php';
-
-(new RawPHP\Warp\Timing\TimingStore($argv[1]))->mergeToDisk();
-PHP);
-
-    $process = proc_open([PHP_BINARY, $script, $this->dir], [
-        1 => ['pipe', 'w'],
-        2 => ['pipe', 'w'],
-    ], $pipes, getcwd());
-
-    expect($process)->not->toBeFalse();
-
-    $stderr = stream_get_contents($pipes[2]);
-
-    fclose($pipes[1]);
-    fclose($pipes[2]);
-
-    expect(proc_close($process))->toBe(0);
-
-    $merged = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
-
-    expect($merged['tests']['new']['file'] ?? null)->toBe('tests/FooTest.php')
-        ->and((float) ($merged['tests']['new']['ms'] ?? 0))->toBe(50.0)
-        ->and(is_file($oldPath))->toBeTrue()
-        ->and($stderr)->toContain('skipped old-format pending timings batch')
-        ->and($stderr)->toContain('12345-aaaaaaaa.json');
-});
-
-it('discovers pending batches when the store path contains glob metacharacters', function () {
-    Dirs::delete($this->dir);
-
-    $this->dir = sys_get_temp_dir().'/warp-timings-base[1]-star*-question?/timings';
-    $this->store = new TimingStore($this->dir);
-
-    $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
-
-    expect($this->store->load())->toBe(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
-});
-
-it('drops malformed entries from a pending batch', function () {
-    Dirs::ensure($this->dir.'/pending');
-    file_put_contents($this->dir.'/pending/100-0-aabbccdd.json', json_encode([
-        'complete' => true,
-        'tests' => [
-            'good' => ['file' => 'tests/ATest.php', 'ms' => 5.5],
-            'no-file' => ['ms' => 5.5],
-            'bad-ms' => ['file' => 'tests/BTest.php', 'ms' => 'slow'],
-        ],
-    ]));
-
-    expect(array_keys($this->store->load()))->toBe(['good']);
-});
-
-it('treats a merged file with an unknown version as empty', function () {
-    Dirs::ensure($this->dir);
-    file_put_contents($this->dir.'/timings.json', json_encode([
-        'version' => 99,
-        'tests' => ['t9' => ['file' => 'tests/XTest.php', 'ms' => 1.5]],
-    ]));
-
-    expect($this->store->load())->toBe([]);
-});
-
-it('aggregates per-file totals sorted by path', function () {
-    $totals = TimingStore::aggregate([
-        't1' => ['file' => 'tests/BTest.php', 'ms' => 1.5],
-        't2' => ['file' => 'tests/ATest.php', 'ms' => 2.5],
-        't3' => ['file' => 'tests/BTest.php', 'ms' => 2.0],
-    ]);
-
-    expect($totals)->toBe(['tests/ATest.php' => 2.5, 'tests/BTest.php' => 3.5]);
-});
-
-it('fileTotals merges then aggregates', function () {
-    $this->store->writePending([
-        't1' => ['file' => 'tests/ATest.php', 'ms' => 1.5],
-        't2' => ['file' => 'tests/ATest.php', 'ms' => 2.0],
-    ]);
-
-    expect($this->store->fileTotals())->toBe(['tests/ATest.php' => 3.5]);
-});
-
-it('fromEnv honours WARP_TIMINGS_DIR', function () {
-    putenv('WARP_TIMINGS_DIR='.$this->dir);
-
-    TimingStore::fromEnv()->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 1.5]]);
-
-    expect(glob($this->dir.'/pending/*.json'))->toHaveCount(1);
-});
+        expect(glob($this->dir.'/pending/*.json'))->toHaveCount(1);
+    });
 }
