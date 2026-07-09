@@ -10,7 +10,7 @@ use Throwable;
 
 final class TestFileResolver
 {
-    /** @var array<class-string, string|null> */
+    /** @var array<string, string|null> */
     private static array $resolvedByClass = [];
 
     /** @var array<class-string, string|null> */
@@ -31,9 +31,10 @@ final class TestFileResolver
     public static function resolve(string $className, string $reportedFile, string $root): ?string
     {
         $cacheable = self::cacheableClass($className);
+        $cacheKey = $root."\0".$className;
 
-        if ($cacheable && array_key_exists($className, self::$resolvedByClass)) {
-            return self::$resolvedByClass[$className];
+        if ($cacheable && array_key_exists($cacheKey, self::$resolvedByClass)) {
+            return self::$resolvedByClass[$cacheKey];
         }
 
         try {
@@ -49,7 +50,7 @@ final class TestFileResolver
         }
 
         if ($cacheable) {
-            self::$resolvedByClass[$className] = $resolved;
+            self::$resolvedByClass[$cacheKey] = $resolved;
         }
 
         return $resolved;

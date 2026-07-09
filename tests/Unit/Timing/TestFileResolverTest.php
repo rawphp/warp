@@ -39,6 +39,10 @@ final class WarpResolverMemoizedPestFixture
     public static Stringable $__filename;
 }
 
+final class WarpResolverRootAwareFixture {}
+
+final class WarpResolverSameRootMemoFixture {}
+
 beforeEach(function () {
     $this->cwd = getcwd();
     $this->root = sys_get_temp_dir().'/warp-resolver-'.bin2hex(random_bytes(4));
@@ -94,6 +98,36 @@ it('memoizes pest filename resolution per class', function () {
         ->and(TestFileResolver::resolve(WarpResolverMemoizedPestFixture::class, $reported, $this->root))->toBe('tests/Feature/ExampleTest.php')
         ->and(TestFileResolver::resolve(WarpResolverMemoizedPestFixture::class, $reported, $this->root))->toBe('tests/Feature/ExampleTest.php')
         ->and(WarpResolverFilenameSpy::$casts)->toBe(1);
+});
+
+it('memoizes resolved files per class and root pair', function () {
+    $otherRoot = sys_get_temp_dir().'/warp-resolver-other-'.bin2hex(random_bytes(4));
+    mkdir($otherRoot.'/specs', 0777, true);
+    file_put_contents($otherRoot.'/specs/OtherTest.php', '<?php');
+
+    try {
+        expect(TestFileResolver::resolve(WarpResolverRootAwareFixture::class, $this->root.'/tests/ATest.php', $this->root))
+            ->toBe('tests/ATest.php')
+            ->and(TestFileResolver::resolve(WarpResolverRootAwareFixture::class, $otherRoot.'/specs/OtherTest.php', $otherRoot))
+            ->toBe('specs/OtherTest.php');
+    } finally {
+        unlink($otherRoot.'/specs/OtherTest.php');
+        rmdir($otherRoot.'/specs');
+        rmdir($otherRoot);
+    }
+});
+
+it('reuses resolved file cache entries for the same class and root pair', function () {
+    $file = $this->root.'/tests/MemoizedTest.php';
+    file_put_contents($file, '<?php');
+
+    expect(TestFileResolver::resolve(WarpResolverSameRootMemoFixture::class, $file, $this->root))
+        ->toBe('tests/MemoizedTest.php');
+
+    unlink($file);
+
+    expect(TestFileResolver::resolve(WarpResolverSameRootMemoFixture::class, $file, $this->root))
+        ->toBe('tests/MemoizedTest.php');
 });
 
 it('returns null for eval\'d code without a pest filename', function () {
