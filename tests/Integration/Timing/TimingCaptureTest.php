@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use RawPHP\Warp\Db\Dirs;
+use RawPHP\Warp\Timing\TimingCollector;
+use RawPHP\Warp\Timing\TimingExtension;
 use RawPHP\Warp\Timing\TimingStore;
 
 it('records per-test timings with file attribution from a real pest run', function () {
@@ -34,6 +36,42 @@ it('records per-test timings with file attribution from a real pest run', functi
     expect($pending)->toHaveCount(1)
         ->and(is_file($dir.'/timings.json'))->toBeFalse()
         ->and(is_file($dir.'/merge.lock'))->toBeFalse();
+
+    Dirs::delete($dir);
+});
+
+it('shutdown backstop capture supersedes stale entries for fully observed files', function () {
+    $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+
+    Dirs::ensure($dir);
+    file_put_contents($dir.'/timings.json', json_encode([
+        'version' => 1,
+        'tests' => [
+            'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+            'FileA::staleRenamed' => ['file' => 'tests/FileATest.php', 'ms' => 5000.0],
+        ],
+    ], JSON_THROW_ON_ERROR));
+
+    $flush = new ReflectionMethod(TimingExtension::class, 'flush');
+
+    $collector = new TimingCollector;
+    $collector->started('FileA::one', 1.0);
+    $collector->finished('FileA::one', 'tests/FileATest.php', 1.25);
+
+    $store = new TimingStore($dir);
+    $flush->invoke(null, $collector, $store, false);
+    $store->mergeToDisk();
+
+    $collector = new TimingCollector;
+    $collector->started('FileA::one', 2.0);
+    $collector->finished('FileA::one', 'tests/FileATest.php', 2.5);
+
+    $flush->invoke(null, $collector, $store, false);
+    $store->mergeToDisk();
+
+    expect($store->load())->toBe([
+        'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 500.0],
+    ]);
 
     Dirs::delete($dir);
 });
