@@ -1,19 +1,13 @@
 # REQ-073: Restricted runs must flush incomplete batches
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.23132
-**Claimed at:** 2026-07-09T08:49:05Z
-**Heartbeat:** 2026-07-09T08:49:05Z
-<!-- claimed-end -->
-
 **UR:** UR-013
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed checkpoints:2 commit:94c8f67
 **Criteria approved:** agent-drafted
 **Priority:** 3
 **Size:** M
@@ -32,10 +26,10 @@ Code-review finding #1 (top-severity: silent timing-data loss through an ordinar
 
 ## Acceptance Criteria
 
-- [ ] With a method filter active (simulated restricted Configuration), the flushed pending batch carries `complete: false`; after merge, a previously-stored sibling test ID for the same file still exists with its original ms (reproduces then fixes the finding-#1 scenario).
-- [ ] With explicit path arguments as the restriction, the flushed batch likewise carries `complete: false`.
-- [ ] With only a `--testsuite` selection (no filter/group/path restriction), the flushed batch carries `complete: true` and stale-ID pruning for fully-observed files still fires (REQ-069 regression guard).
-- [ ] An unrestricted full run still flushes `complete: true` (existing behavior unchanged; existing REQ-050/REQ-069 tests pass).
+- [x] With a method filter active (simulated restricted Configuration), the flushed pending batch carries `complete: false`; after merge, a previously-stored sibling test ID for the same file still exists with its original ms (reproduces then fixes the finding-#1 scenario).
+- [x] With explicit path arguments as the restriction, the flushed batch likewise carries `complete: false`.
+- [x] With only a `--testsuite` selection (no filter/group/path restriction), the flushed batch carries `complete: true` and stale-ID pruning for fully-observed files still fires (REQ-069 regression guard).
+- [x] An unrestricted full run still flushes `complete: true` (existing behavior unchanged; existing REQ-050/REQ-069 tests pass).
 
 ## Verification Steps
 
@@ -43,3 +37,8 @@ Code-review finding #1 (top-severity: silent timing-data loss through an ordinar
 
 1. **test** `./vendor/bin/pest --filter="TimingCapture|TimingExtension|TimingStore"` — Expected: all pass, including a new case reproducing the original bug path: full-run batch merged, then a restricted-run batch merged, and the sibling test's timing survives.
 2. **test** `./vendor/bin/pest` — Expected: full suite green (completeness gates shared supersede machinery).
+
+## Outputs
+
+- src/Timing/TimingExtension.php — Computes restricted-run completeness from PHPUnit configuration and flushes `complete=false` for method/group/path restrictions.
+- tests/Integration/Timing/TimingCaptureTest.php — Adds child Pest-run regression coverage for method filters, explicit path restrictions, testsuite-only completeness, and stale-ID pruning.

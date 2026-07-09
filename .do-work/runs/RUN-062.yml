@@ -1,0 +1,23 @@
+run_id: RUN-062
+req: REQ-073
+ur: UR-013
+agent_id: "Toms-MacBook-Pro.local.23132"
+model: "sonnet"
+branch: "req/REQ-073"
+started_at: "2026-07-09T08:49:05Z"
+ended_at: "2026-07-09T09:05:11Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "estimated-sonnet"
+cost_estimate_num: 0.20
+pr_url: ""
+commands:
+  - "./vendor/bin/pest --filter=\"TimingCapture|TimingExtension|TimingStore\""
+  - "./vendor/bin/pest"
+tests:
+  - "./vendor/bin/pest --filter=\"TimingCapture|TimingExtension|TimingStore\""
+  - "./vendor/bin/pest"
+changed_files:
+  - "src/Timing/TimingExtension.php"
+  - "tests/Integration/Timing/TimingCaptureTest.php"
