@@ -194,6 +194,24 @@ XML);
         ->and($files)->not->toContain('tests/SkipMeTest.php');
 });
 
+it('warns when suffix is ignored by phpunit xml discovery', function () {
+    chdir($this->tmp);
+    file_put_contents($this->tmp.'/tests/OnlySpec.php', '<?php');
+    writeShardPhpunitConfig($this->tmp.'/phpunit.xml', <<<'XML'
+        <testsuite name="Unit">
+            <directory>tests</directory>
+        </testsuite>
+XML);
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/1', '--suffix=Spec.php', '--timings-dir='.$this->tmp.'/timings']);
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->toBe("tests/ATest.php\ntests/BTest.php\ntests/CTest.php\ntests/DTest.php\n")
+        ->and($stdout)->not->toContain('suffix')
+        ->and($stderr)->toContain('[warp] --suffix=Spec.php ignored because phpunit.xml discovery controls test file suffixes')
+        ->and($stderr)->toContain('no recorded timings');
+});
+
 it('does not pre-scan for phpunit xml before suite discovery', function () {
     $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Cli/ShardCommand.php');
 
@@ -256,16 +274,18 @@ it('bypasses suite discovery when explicit paths are provided', function () {
     chdir($this->tmp);
     Dirs::ensure($this->tmp.'/checks');
     file_put_contents($this->tmp.'/checks/HealthCheck.php', '<?php');
-    writeShardPhpunitConfig($this->tmp.'/phpunit.xml', <<<'XML'
+    writeShardPhpunitConfig($this->tmp.'/custom.xml', <<<'XML'
         <testsuite name="Checks">
             <directory suffix="Check.php">checks</directory>
         </testsuite>
 XML);
 
-    [$exit, $stdout, $stderr] = ($this->run)(['1/1', 'tests', '--configuration=phpunit.xml', '--timings-dir='.$this->tmp.'/timings']);
+    [$exit, $stdout, $stderr] = ($this->run)(['1/1', 'tests', '--configuration=custom.xml', '--timings-dir='.$this->tmp.'/timings']);
 
     expect($exit)->toBe(0)
         ->and($stdout)->toBe("tests/ATest.php\ntests/BTest.php\ntests/CTest.php\ntests/DTest.php\n")
+        ->and($stdout)->not->toContain('configuration')
+        ->and($stderr)->toContain('[warp] --configuration=custom.xml ignored because explicit test paths bypass suite discovery')
         ->and($stderr)->toContain('no recorded timings')
         ->and($stdout)->not->toContain('checks/HealthCheck.php');
 });
