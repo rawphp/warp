@@ -1,10 +1,10 @@
 # REQ-089: TimingStore fromEnv handles missing cwd
 
 **UR:** UR-015
-**Status:** backlog
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 2 verification checkpoints passed; commit:98c1804
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -21,10 +21,10 @@ Confirmed finding 9: `fromEnv()` concatenates `getcwd().'/.warp/timings'` withou
 
 ## Acceptance Criteria
 
-- [ ] When `WARP_TIMINGS_DIR` is unset and `getcwd()` is unavailable, `TimingStore::fromEnv()` falls back to `./.warp/timings` or an equivalent non-root relative path, never `/.warp/timings`.
-- [ ] A child-process regression test reproduces the unavailable-cwd case without requiring root privileges.
-- [ ] When `WARP_TIMINGS_DIR` is set to a non-empty value, `fromEnv()` still uses it exactly as before.
-- [ ] Existing shard command handling of `getcwd() ?: '.'` remains compatible with the timing-store fallback.
+- [x] When `WARP_TIMINGS_DIR` is unset and `getcwd()` is unavailable, `TimingStore::fromEnv()` falls back to `./.warp/timings` or an equivalent non-root relative path, never `/.warp/timings`.
+- [x] A child-process regression test reproduces the unavailable-cwd case without requiring root privileges.
+- [x] When `WARP_TIMINGS_DIR` is set to a non-empty value, `fromEnv()` still uses it exactly as before.
+- [x] Existing shard command handling of `getcwd() ?: '.'` remains compatible with the timing-store fallback.
 
 ## Verification Steps
 
@@ -34,3 +34,8 @@ Confirmed finding 9: `fromEnv()` concatenates `getcwd().'/.warp/timings'` withou
    - Expected: timing-store tests pass, including a child-process missing-cwd regression that does not attempt to create `/.warp/timings`.
 2. **test** `./vendor/bin/pest`
    - Expected: full suite green; explicit `WARP_TIMINGS_DIR` behavior remains unchanged.
+
+## Outputs
+
+- src/Timing/TimingStore.php — Uses `getcwd() ?: '.'` when no explicit `WARP_TIMINGS_DIR` is configured.
+- tests/Unit/Timing/TimingStoreTest.php — Adds a child-process unavailable-cwd regression and preserves explicit `WARP_TIMINGS_DIR` coverage.
