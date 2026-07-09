@@ -26,10 +26,10 @@ Confirmed finding 5: `canonicalFiles()` canonicalizes discovered files relative 
 
 ## Acceptance Criteria
 
-- [ ] Running `warp shard` from outside the app with `--configuration=/path/to/app/phpunit.xml` succeeds and emits file paths relative to the configuration directory for files under that app.
-- [ ] A phpunit suite that includes a symlinked directory outside the configuration root succeeds and emits stable absolute realpaths for those outside-root files instead of exiting 2.
-- [ ] Timing-key matching remains consistent: discovered root-relative paths still match root-relative stored timings, while outside-root symlink targets use the same absolute form across discovery and timing lookup.
-- [ ] Existing relative, dot-relative, and absolute path canonicalization tests for normal in-root paths continue to pass.
+- [x] Running `warp shard` from outside the app with `--configuration=/path/to/app/phpunit.xml` succeeds and emits file paths relative to the configuration directory for files under that app.
+- [x] A phpunit suite that includes a symlinked directory outside the configuration root succeeds and emits stable absolute realpaths for those outside-root files instead of exiting 2.
+- [x] Timing-key matching remains consistent: discovered root-relative paths still match root-relative stored timings, while outside-root symlink targets use the same absolute form across discovery and timing lookup.
+- [x] Existing relative, dot-relative, and absolute path canonicalization tests for normal in-root paths continue to pass.
 
 ## Verification Steps
 
