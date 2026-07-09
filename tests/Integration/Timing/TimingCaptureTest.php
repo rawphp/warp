@@ -29,8 +29,11 @@ it('records per-test timings with file attribution from a real pest run', functi
             ->and($entry['ms'])->toBeGreaterThanOrEqual(0.0);
     }
 
-    // load() consumed the pending batch into the merged file.
-    expect(glob($dir.'/pending/*.json'))->toBe([]);
+    $pending = glob($dir.'/pending/*.json');
+
+    expect($pending)->toHaveCount(1)
+        ->and(is_file($dir.'/timings.json'))->toBeFalse()
+        ->and(is_file($dir.'/merge.lock'))->toBeFalse();
 
     Dirs::delete($dir);
 });
