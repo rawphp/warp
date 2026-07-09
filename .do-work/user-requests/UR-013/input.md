@@ -1,8 +1,43 @@
 ---
 ur: UR-013
 received: 2026-07-09
-status: intake
+status: captured
+classification: bug-fix
+layers_in_scope: []
+layer_decisions: {}
+reqs:
+  - { id: REQ-072, layer: none, integration_confidence: n/a }
+  - { id: REQ-073, layer: none, integration_confidence: n/a }
+  - { id: REQ-074, layer: none, integration_confidence: n/a }
+  - { id: REQ-075, layer: none, integration_confidence: n/a }
+  - { id: REQ-076, layer: none, integration_confidence: n/a }
+  - { id: REQ-077, layer: none, integration_confidence: n/a }
+  - { id: REQ-078, layer: none, integration_confidence: n/a }
+  - { id: REQ-079, layer: none, integration_confidence: n/a }
+acknowledged_partials: []
 ---
+
+<!-- capture-summary-start -->
+## Capture summary (2026-07-09)
+
+| Item | Value |
+|---|---|
+| Classification | bug-fix |
+| Layers in scope | (none — bug-fix) |
+| Layer decisions | (none — bug-fix) |
+| REQs generated | 8 |
+
+| REQ | Layer | Integration confidence |
+|---|---|---|
+| REQ-072 | none | n/a |
+| REQ-073 | none | n/a |
+| REQ-074 | none | n/a |
+| REQ-075 | none | n/a |
+| REQ-076 | none | n/a |
+| REQ-077 | none | n/a |
+| REQ-078 | none | n/a |
+| REQ-079 | none | n/a |
+<!-- capture-summary-end -->
 
 # UR-013: User Request
 
