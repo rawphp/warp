@@ -1,13 +1,14 @@
 # REQ-067: Make TestFileResolver cache key root-aware
 
+
 **UR:** UR-012
-**Status:** backlog
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 1 verification checkpoints passed; commit:54f056e
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -24,12 +25,17 @@ Code-review finding #8 (PLAUSIBLE, downgraded). Latent today: the single caller 
 
 ## Acceptance Criteria
 
-- [ ] The resolver cache key incorporates `$root`, so `resolve($class, $file, $rootA)` and `resolve($class, $file, $rootB)` (same class, different roots) each compute and return the correct root-relative path rather than sharing a stale entry.
-- [ ] Repeated calls with the same (class, root) still hit the cache (memoization preserved — no extra realpath work on the hot path).
-- [ ] Existing `TestFileResolverTest` cases pass unchanged.
+- [x] The resolver cache key incorporates `$root`, so `resolve($class, $file, $rootA)` and `resolve($class, $file, $rootB)` (same class, different roots) each compute and return the correct root-relative path rather than sharing a stale entry.
+- [x] Repeated calls with the same (class, root) still hit the cache (memoization preserved — no extra realpath work on the hot path).
+- [x] Existing `TestFileResolverTest` cases pass unchanged.
 
 ## Verification Steps
 
 > Execute these after implementation to confirm the fix works at runtime. Each must pass before committing.
 
 1. **test** `./vendor/bin/pest --filter=TestFileResolver` — Expected: all pass, including a new case that resolves the same class under two distinct roots in one process and asserts each returns its own root-relative path (not the first root's cached value).
+
+## Outputs
+
+- src/Timing/TestFileResolver.php — Changed resolved-path memoization to key by root and class pair.
+- tests/Unit/Timing/TestFileResolverTest.php — Added coverage for distinct roots and preserved same-root memoization.
