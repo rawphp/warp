@@ -109,6 +109,98 @@ it('honours a custom suffix', function () {
         ->and($stdout)->toBe("tests/spec_a.php\n");
 });
 
+it('uses phpunit xml discovery when no explicit paths are provided', function () {
+    chdir($this->tmp);
+    Dirs::ensure($this->tmp.'/checks');
+    Dirs::ensure($this->tmp.'/explicit');
+    Dirs::ensure($this->tmp.'/excluded');
+    file_put_contents($this->tmp.'/checks/HealthCheck.php', '<?php');
+    file_put_contents($this->tmp.'/checks/IgnoredTest.php', '<?php');
+    file_put_contents($this->tmp.'/explicit/ManualSpec.php', '<?php');
+    file_put_contents($this->tmp.'/excluded/HiddenTest.php', '<?php');
+    file_put_contents($this->tmp.'/tests/SkipMeTest.php', '<?php');
+    writeShardPhpunitConfig($this->tmp.'/phpunit.xml', <<<'XML'
+        <testsuite name="Unit">
+            <directory>tests</directory>
+            <directory suffix="Check.php">checks</directory>
+            <file>explicit/ManualSpec.php</file>
+            <exclude>tests/SkipMeTest.php</exclude>
+            <exclude>excluded</exclude>
+        </testsuite>
+XML);
+
+    $runs = [
+        ($this->run)(['1/2', '--timings-dir='.$this->tmp.'/timings']),
+        ($this->run)(['2/2', '--timings-dir='.$this->tmp.'/timings']),
+    ];
+
+    expect(array_column($runs, 0))->toBe([0, 0]);
+
+    $files = array_values(array_filter(array_merge(
+        explode("\n", trim($runs[0][1])),
+        explode("\n", trim($runs[1][1])),
+    )));
+    sort($files);
+
+    expect($files)->toBe([
+        'checks/HealthCheck.php',
+        'explicit/ManualSpec.php',
+        'tests/ATest.php',
+        'tests/BTest.php',
+        'tests/CTest.php',
+        'tests/DTest.php',
+    ])
+        ->and(implode("\n", array_column($runs, 2)))->toContain('no recorded timings')
+        ->and($files)->not->toContain('excluded/HiddenTest.php')
+        ->and($files)->not->toContain('tests/SkipMeTest.php');
+});
+
+it('falls back to tests with a stderr note when no phpunit xml exists', function () {
+    chdir($this->tmp);
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/2', '--timings-dir='.$this->tmp.'/timings']);
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->toBe("tests/ATest.php\ntests/CTest.php\n")
+        ->and($stderr)->toContain('no phpunit.xml found')
+        ->and($stderr)->toContain('falling back to tests/Test.php');
+});
+
+it('bypasses suite discovery when explicit paths are provided', function () {
+    chdir($this->tmp);
+    Dirs::ensure($this->tmp.'/checks');
+    file_put_contents($this->tmp.'/checks/HealthCheck.php', '<?php');
+    writeShardPhpunitConfig($this->tmp.'/phpunit.xml', <<<'XML'
+        <testsuite name="Checks">
+            <directory suffix="Check.php">checks</directory>
+        </testsuite>
+XML);
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/1', 'tests', '--configuration=phpunit.xml', '--timings-dir='.$this->tmp.'/timings']);
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->toBe("tests/ATest.php\ntests/BTest.php\ntests/CTest.php\ntests/DTest.php\n")
+        ->and($stderr)->toContain('no recorded timings')
+        ->and($stdout)->not->toContain('checks/HealthCheck.php');
+});
+
+it('honours an explicit phpunit configuration file', function () {
+    chdir($this->tmp);
+    Dirs::ensure($this->tmp.'/checks');
+    file_put_contents($this->tmp.'/checks/HealthCheck.php', '<?php');
+    writeShardPhpunitConfig($this->tmp.'/custom.xml', <<<'XML'
+        <testsuite name="Checks">
+            <directory suffix="Check.php">checks</directory>
+        </testsuite>
+XML);
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/1', '--configuration=custom.xml', '--timings-dir='.$this->tmp.'/timings']);
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->toBe("checks/HealthCheck.php\n")
+        ->and($stderr)->toContain('no recorded timings');
+});
+
 it('uses WARP_TIMINGS_DIR when no timings-dir flag is provided', function () {
     chdir($this->tmp);
     $envDir = $this->tmp.'/env-timings';
@@ -193,3 +285,15 @@ it('returns 3 and prints nothing when the shard is empty', function () {
         ->and($stdout)->toBe('')
         ->and($stderr)->toContain('is empty');
 });
+
+function writeShardPhpunitConfig(string $path, string $testsuite): void
+{
+    file_put_contents($path, <<<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit>
+    <testsuites>
+{$testsuite}
+    </testsuites>
+</phpunit>
+XML);
+}

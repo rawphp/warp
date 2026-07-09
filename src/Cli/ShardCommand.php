@@ -6,6 +6,7 @@ namespace RawPHP\Warp\Cli;
 
 use InvalidArgumentException;
 use RawPHP\Warp\Shard\DurationBalancedSharder;
+use RawPHP\Warp\Shard\SuiteDiscovery;
 use RawPHP\Warp\Shard\TestFileFinder;
 use RawPHP\Warp\Support\Paths;
 use RawPHP\Warp\Timing\TimingStore;
@@ -25,6 +26,7 @@ final class ShardCommand
         $store = TimingStore::fromEnv();
         $dirLabel = 'configured timings dir';
         $suffix = 'Test.php';
+        $configuration = null;
 
         foreach ($args as $arg) {
             if (str_starts_with($arg, '--timings-dir=')) {
@@ -33,6 +35,8 @@ final class ShardCommand
                 $dirLabel = $dir;
             } elseif (str_starts_with($arg, '--suffix=')) {
                 $suffix = substr($arg, strlen('--suffix='));
+            } elseif (str_starts_with($arg, '--configuration=')) {
+                $configuration = substr($arg, strlen('--configuration='));
             } elseif ($spec === null && preg_match('#^(\d+)/(\d+)$#', $arg, $matches) === 1) {
                 $spec = [(int) $matches[1], (int) $matches[2]];
             } elseif (str_starts_with($arg, '--')) {
@@ -51,7 +55,20 @@ final class ShardCommand
         }
 
         try {
-            $files = TestFileFinder::find($paths === [] ? ['tests'] : $paths, $suffix);
+            if ($paths === []) {
+                $root = getcwd() ?: '.';
+                $configurationPath = SuiteDiscovery::configurationPath($root, $configuration);
+
+                if ($configurationPath !== null) {
+                    $files = SuiteDiscovery::discover($root, $configuration);
+                } else {
+                    fwrite($stderr, "[warp] no phpunit.xml found - falling back to tests/Test.php discovery\n");
+                    $files = TestFileFinder::find(['tests'], $suffix);
+                }
+            } else {
+                $files = TestFileFinder::find($paths, $suffix);
+            }
+
             $files = self::canonicalFiles($files, getcwd() ?: '.');
             $totals = $store->fileTotals();
 
