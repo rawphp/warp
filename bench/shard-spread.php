@@ -10,6 +10,7 @@ require __DIR__.'/../vendor/autoload.php';
 
 use RawPHP\Warp\Shard\DurationBalancedSharder;
 use RawPHP\Warp\Shard\TestFileFinder;
+use RawPHP\Warp\Support\Paths;
 use RawPHP\Warp\Timing\TimingStore;
 
 $dir = $argv[1] ?? null;
@@ -34,6 +35,23 @@ if ($files === []) {
     fwrite(STDERR, '[warp] no test files discovered under: '.implode(', ', $paths)."\n");
     fwrite(STDERR, "usage: php bench/shard-spread.php <timings-dir> <shards> [paths...]\n");
     exit(1);
+}
+
+$root = getcwd() ?: '.';
+$files = array_map(static function (string $file) use ($root): string {
+    $path = Paths::canonical($file, $root);
+
+    if ($path === null) {
+        throw new RuntimeException('[warp] test path is outside project root: '.$file);
+    }
+
+    return $path;
+}, $files);
+$files = array_values(array_unique($files));
+sort($files);
+
+if (array_intersect_key($totals, array_flip($files)) === []) {
+    fwrite(STDERR, "[warp] recorded timings match no discovered file - likely path-form or stale-artifact mismatch; sharding count-balanced\n");
 }
 
 $weights = DurationBalancedSharder::weights($files, $totals);
