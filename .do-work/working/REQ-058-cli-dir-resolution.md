@@ -1,7 +1,13 @@
 # REQ-058: Path-unit — CLI timings-dir resolution honors WARP_TIMINGS_DIR; strict flag parsing
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.21409
+**Claimed at:** 2026-07-09T02:02:18Z
+**Heartbeat:** 2026-07-09T02:02:18Z
+<!-- claimed-end -->
+
 **UR:** UR-011
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:** `WARP_TIMINGS_DIR=/some/dir ./vendor/bin/warp shard|timings|merge ...` with no `--timings-dir` flag.
