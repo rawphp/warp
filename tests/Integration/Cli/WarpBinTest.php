@@ -40,6 +40,24 @@ function shellRun(string $script, string $cwd): array
     return [proc_close($process), (string) $stdout, (string) $stderr];
 }
 
+/** @return array{0: int, 1: string, 2: string} [exit, stdout, stderr] */
+function benchShardSpreadRun(array $args, string $cwd): array
+{
+    $root = dirname(__DIR__, 3);
+
+    $process = proc_open(
+        [PHP_BINARY, $root.'/bench/shard-spread.php', ...$args],
+        [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+        $pipes,
+        $cwd,
+    );
+
+    $stdout = stream_get_contents($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+
+    return [proc_close($process), (string) $stdout, (string) $stderr];
+}
+
 /** @param list<string> $files */
 function createWarpFixtureProject(string $dir, array $files = ['ATest.php', 'BTest.php', 'CTest.php']): string
 {
@@ -71,6 +89,23 @@ function writeTimingArtifactWithPendingOverlay(string $dir): void
             'ATest::fresh' => ['file' => 'tests/ATest.php', 'ms' => 100.0],
             'BTest::fresh' => ['file' => 'tests/BTest.php', 'ms' => 1.0],
         ],
+    ], JSON_THROW_ON_ERROR));
+}
+
+/** @param array<string, float> $fileTotals */
+function writeTimingArtifactForFiles(string $dir, array $fileTotals): void
+{
+    Dirs::ensure($dir);
+
+    $tests = [];
+
+    foreach ($fileTotals as $file => $ms) {
+        $tests[$file.'::test'] = ['file' => $file, 'ms' => $ms];
+    }
+
+    file_put_contents($dir.'/timings.json', json_encode([
+        'version' => 1,
+        'tests' => $tests,
     ], JSON_THROW_ON_ERROR));
 }
 
@@ -323,4 +358,48 @@ it('merges pending timings and keeps subsequent read-only shard output byte-iden
         ->and($postExit)->toBe($preExit)
         ->and($postStdout)->toBe($preStdout)
         ->and($postStderr)->toBe($preStderr);
+});
+
+it('bench shard spread resolves root-relative timings for absolute suite paths', function () {
+    $project = createWarpFixtureProject($this->dir);
+    $timings = $project.'/.warp/timings';
+    writeTimingArtifactForFiles($timings, [
+        'tests/ATest.php' => 100.0,
+        'tests/BTest.php' => 1.0,
+        'tests/CTest.php' => 1.0,
+    ]);
+
+    [$relativeExit, $relativeStdout, $relativeStderr] = benchShardSpreadRun(
+        [$timings, '2', 'tests'],
+        $project,
+    );
+    [$absoluteExit, $absoluteStdout, $absoluteStderr] = benchShardSpreadRun(
+        [$timings, '2', $project.'/tests'],
+        $project,
+    );
+
+    expect($relativeExit)->toBe(0)
+        ->and($relativeStderr)->toBe('')
+        ->and($relativeStdout)->toContain('3 files, 102.0ms recorded, 2 shards')
+        ->and($relativeStdout)->toContain('101.0               100.0')
+        ->and($absoluteExit)->toBe(0)
+        ->and($absoluteStderr)->toBe('')
+        ->and($absoluteStdout)->toBe($relativeStdout);
+});
+
+it('bench shard spread warns when recorded timings match no discovered file', function () {
+    $project = createWarpFixtureProject($this->dir);
+    $timings = $project.'/.warp/timings';
+    writeTimingArtifactForFiles($timings, [
+        'other/ATest.php' => 100.0,
+    ]);
+
+    [$exit, $stdout, $stderr] = benchShardSpreadRun(
+        [$timings, '2', 'tests'],
+        $project,
+    );
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->toContain('3 files, 3.0ms recorded, 2 shards')
+        ->and($stderr)->toContain('recorded timings match no discovered file');
 });
