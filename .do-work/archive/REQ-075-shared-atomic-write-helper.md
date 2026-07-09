@@ -1,19 +1,13 @@
 # REQ-075: Shared atomic-write helper closes mergeToDisk short-write gap
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.23132
-**Claimed at:** 2026-07-09T09:04:15Z
-**Heartbeat:** 2026-07-09T09:04:15Z
-<!-- claimed-end -->
-
 **UR:** UR-013
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed checkpoints:2 commit:d2e5aac
 **Criteria approved:** agent-drafted
 **Priority:** 3
 **Size:** M
@@ -30,10 +24,10 @@ Code-review finding #4 plus the paired reuse observation from the brief. This is
 
 ## Acceptance Criteria
 
-- [ ] A short write in `mergeToDisk()` (simulated: byte count below payload length) does NOT publish over `timings.json`; the tmp file is cleaned up and a `RuntimeException` is raised (reproduces then fixes the finding-#4 scenario).
-- [ ] `writePending()`'s existing short-write behavior (REQ-068 tests) still passes, now routed through the shared helper — no truncated pending batch is published.
-- [ ] Exactly one implementation of the tmp-write/verify/rename sequence remains in src/ (grep confirms `writePending` and `mergeToDisk` both call the helper and contain no inline `rename(` publish of their own).
-- [ ] A successful merge still atomically replaces `timings.json` (existing merge tests pass).
+- [x] A short write in `mergeToDisk()` (simulated: byte count below payload length) does NOT publish over `timings.json`; the tmp file is cleaned up and a `RuntimeException` is raised (reproduces then fixes the finding-#4 scenario).
+- [x] `writePending()`'s existing short-write behavior (REQ-068 tests) still passes, now routed through the shared helper — no truncated pending batch is published.
+- [x] Exactly one implementation of the tmp-write/verify/rename sequence remains in src/ (grep confirms `writePending` and `mergeToDisk` both call the helper and contain no inline `rename(` publish of their own).
+- [x] A successful merge still atomically replaces `timings.json` (existing merge tests pass).
 
 ## Verification Steps
 
@@ -41,3 +35,10 @@ Code-review finding #4 plus the paired reuse observation from the brief. This is
 
 1. **test** `./vendor/bin/pest --filter="AtomicFile|TimingStore"` — Expected: all pass, including a new mergeToDisk short-write case asserting the truncated file never lands at timings.json.
 2. **test** `./vendor/bin/pest` — Expected: full suite green (shared write path under SnapshotStore/CLI consumers).
+
+## Outputs
+
+- src/Support/AtomicFile.php — Shared atomic file writer with tmp write, full-byte verification, rename publish, tmp cleanup, and `RuntimeException` failure messages.
+- src/Timing/TimingStore.php — Routes pending-batch and merged-timings writes through `AtomicFile`.
+- tests/Unit/Support/AtomicFileTest.php — Covers successful atomic publish and short-write cleanup without replacing the target file.
+- tests/Unit/Timing/TimingStoreTest.php — Adds `mergeToDisk()` short-write regression coverage and routes existing short-write simulation through the shared helper.
