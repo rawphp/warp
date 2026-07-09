@@ -1,0 +1,25 @@
+run_id: RUN-074
+req: REQ-090
+ur: UR-015
+agent_id: "Toms-MacBook-Pro.local.82488"
+model: "sonnet"
+branch: "req/REQ-090"
+started_at: "2026-07-09T20:37:07Z"
+ended_at: "2026-07-09T20:58:53Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "tier-weighted estimate"
+cost_estimate_num: 0.25
+pr_url: ""
+commands:
+  - "./vendor/bin/pest --filter=\"WarpBin|shard spread|bench\""
+  - "bash bench/shard-spread.sh \"$(pwd)\" 2 tests/Unit/WarpModeTest.php"
+  - "./vendor/bin/pest"
+tests:
+  - "./vendor/bin/pest --filter=\"WarpBin|shard spread|bench\""
+  - "bash bench/shard-spread.sh \"$(pwd)\" 2 tests/Unit/WarpModeTest.php"
+  - "./vendor/bin/pest"
+changed_files:
+  - "bench/shard-spread.sh"
+  - "tests/Integration/Cli/WarpBinTest.php"

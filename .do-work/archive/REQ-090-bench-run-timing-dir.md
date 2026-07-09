@@ -1,15 +1,10 @@
 # REQ-090: Bench shard spread uses fresh timing dirs
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.82488
-**Claimed at:** 2026-07-09T20:37:07Z
-**Heartbeat:** 2026-07-09T20:49:00Z
-<!-- claimed-end -->
 **UR:** UR-015
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:f6c55a3
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** M
@@ -41,3 +36,8 @@ Confirmed finding 10: the script continues after Pest failure if any `*.json` ex
    - Expected: the script records fresh timings for this invocation and runs `bench/shard-spread.php` against that fresh timing directory.
 3. **test** `./vendor/bin/pest`
    - Expected: full suite green; existing bench and shard CLI behavior remains compatible.
+
+## Outputs
+
+- bench/shard-spread.sh — Uses a fresh absolute run-specific timing directory for each bench invocation.
+- tests/Integration/Cli/WarpBinTest.php — Adds shell-level bench regressions for stale artifacts, fresh artifacts, and preserved timing history.
