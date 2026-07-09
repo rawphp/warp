@@ -1,7 +1,13 @@
 # REQ-054: Path-unit — canonical path keys: identical shard plans for any path spelling
 
+<!-- claimed-start -->
+**Claimed by:** codex-main
+**Claimed at:** 2026-07-09T02:44:23Z
+**Heartbeat:** 2026-07-09T02:44:23Z
+<!-- claimed-end -->
+
 **UR:** UR-011
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:** `./vendor/bin/warp shard k/n <paths>` invoked with any spelling of the same test tree — `tests`, `./tests`, or an absolute path — on any machine holding the same timings artifact.

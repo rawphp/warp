@@ -1,7 +1,13 @@
 # REQ-062: Path-unit — README documents the corrected CLI contract
 
+<!-- claimed-start -->
+**Claimed by:** codex-main
+**Claimed at:** 2026-07-09T02:44:23Z
+**Heartbeat:** 2026-07-09T02:44:23Z
+<!-- claimed-end -->
+
 **UR:** UR-011
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** docs
 **Entry point:** A user follows README.md's "Timing-based sharding" / CI recipe sections to wire warp into a CI matrix.

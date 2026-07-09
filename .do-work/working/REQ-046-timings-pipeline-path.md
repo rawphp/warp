@@ -1,7 +1,13 @@
 # REQ-046: Path-unit — crash/race-safe timings pipeline with read-only consumers
 
+<!-- claimed-start -->
+**Claimed by:** codex-main
+**Claimed at:** 2026-07-09T02:44:23Z
+**Heartbeat:** 2026-07-09T02:44:23Z
+<!-- claimed-end -->
+
 **UR:** UR-011
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:** `WARP_TIMINGS=1 ./vendor/bin/pest` records timings; any machine (including one restoring a read-only `.warp/timings` CI artifact) then runs `./vendor/bin/warp shard k/n` or `warp timings`; `warp merge` compacts pending batches to disk.
