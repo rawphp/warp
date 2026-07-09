@@ -55,6 +55,11 @@ final class TimingCollector
         return $this->flushed;
     }
 
+    public function hasInFlight(): bool
+    {
+        return $this->startedAt !== [];
+    }
+
     /** Idempotent: the ExecutionFinished subscriber and the shutdown backstop may both call this. */
     public function flush(TimingStore $store, bool $complete = true): void
     {
