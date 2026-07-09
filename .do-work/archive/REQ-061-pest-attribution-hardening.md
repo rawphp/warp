@@ -1,19 +1,13 @@
 # REQ-061: Path-unit — Pest file-attribution hardening: safe reflection, memoization, loud drop warning
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.21409
-**Claimed at:** 2026-07-09T02:00:41Z
-**Heartbeat:** 2026-07-09T02:00:41Z
-<!-- claimed-end -->
-
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:** `WARP_TIMINGS=1 ./vendor/bin/pest` on a suite containing Pest tests — including a hostile case: a PHPUnit-style test class declaring its own `$__filename` property.
 **Terminal state:** The run never crashes from attribution; every unattributable test increments a counter instead of being silently dropped; a nonzero count prints one stderr warning at flush time so a Pest-internals change is noticed immediately.
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 3 verification checkpoints passed commit:2747868
 **Criteria approved:** agent-drafted
 **Priority:** 1
 **Size:** M
@@ -34,10 +28,10 @@ Over-cap findings A1 + crash-PLAUSIBLE + E1. `$__filename` is an undocumented Pe
 
 ## Acceptance Criteria
 
-- [ ] A test class declaring `private string $__filename;` (and another with an uninitialized `public static string $__filename;`) passes through `resolve()` without any Error — it falls back to the reported file.
-- [ ] `resolve()` results are memoized per class: a spy/counter proves the reflection path runs once for N tests of the same class.
-- [ ] When attribution returns null for M tests, flush emits exactly one stderr warning containing the count M; zero unattributed tests emit no warning.
-- [ ] Attributed behaviour for normal Pest and PHPUnit classes is unchanged (existing resolver tests pass).
+- [x] A test class declaring `private string $__filename;` (and another with an uninitialized `public static string $__filename;`) passes through `resolve()` without any Error — it falls back to the reported file.
+- [x] `resolve()` results are memoized per class: a spy/counter proves the reflection path runs once for N tests of the same class.
+- [x] When attribution returns null for M tests, flush emits exactly one stderr warning containing the count M; zero unattributed tests emit no warning.
+- [x] Attributed behaviour for normal Pest and PHPUnit classes is unchanged (existing resolver tests pass).
 
 ## Verification Steps
 
@@ -57,3 +51,11 @@ Over-cap findings A1 + crash-PLAUSIBLE + E1. `$__filename` is an undocumented Pe
 **Data dependencies:** Pest's generated `$__filename` static (vendor/pestphp internal), PHPUnit's reported test file, and the collector's batch payload (REQ-050's format carries the tests; the unattributed count is process-state, not persisted).
 
 **Service dependencies:** `TimingCollector`/`TimingExtension` flush path as reshaped by REQ-050; canonical keys from REQ-055 (both touch TestFileResolver — hard dependencies serialize the footprint).
+
+## Outputs
+
+- `src/Timing/TestFileResolver.php` — Hardened Pest filename reflection with safe public/static/initialized checks, defensive fallback, memoization, and precomputed root handling.
+- `src/Timing/TimingCollector.php` — Counted unattributed tests instead of silently dropping them.
+- `src/Timing/TimingExtension.php` — Emitted one stderr warning at flush when unattributed timing drops occurred.
+- `tests/Unit/Timing/TestFileResolverTest.php` — Covered hostile filename properties and resolver memoization.
+- `tests/Unit/Timing/TimingCollectorTest.php` — Covered unattributed warning count and zero-warning behavior.
