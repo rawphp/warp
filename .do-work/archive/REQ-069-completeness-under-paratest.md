@@ -1,13 +1,14 @@
 # REQ-069: Ensure batch completeness under paratest/parallel workers
 
+
 **UR:** UR-012
-**Status:** backlog
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 2 verification checkpoints passed commit:21b6409
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** M
@@ -24,10 +25,10 @@ Code-review finding #3 (CONFIRMED mechanism, realism caveat). Reconcile with UR-
 
 ## Acceptance Criteria
 
-- [ ] Under a simulated parallel run (workers flush `complete=false`; main process `ExecutionFinished` with an empty collector), a file that was fully observed still has its stale prior test IDs superseded/pruned in `TimingStore::apply()`.
-- [ ] REQ-050's guarantee is preserved: a genuinely partial crash-flush batch does NOT supersede complete data (verify against the archived REQ; existing REQ-050 tests still pass).
-- [ ] A deleted/renamed test's stale `ms` no longer accumulates across repeated parallel runs (demonstrated by a test that runs the merge twice and asserts stale IDs are gone).
-- [ ] The reconciliation with REQ-050 is noted in the commit body.
+- [x] Under a simulated parallel run (workers flush `complete=false`; main process `ExecutionFinished` with an empty collector), a file that was fully observed still has its stale prior test IDs superseded/pruned in `TimingStore::apply()`.
+- [x] REQ-050's guarantee is preserved: a genuinely partial crash-flush batch does NOT supersede complete data (verify against the archived REQ; existing REQ-050 tests still pass).
+- [x] A deleted/renamed test's stale `ms` no longer accumulates across repeated parallel runs (demonstrated by a test that runs the merge twice and asserts stale IDs are gone).
+- [x] The reconciliation with REQ-050 is noted in the commit body.
 
 ## Verification Steps
 
@@ -35,3 +36,8 @@ Code-review finding #3 (CONFIRMED mechanism, realism caveat). Reconcile with UR-
 
 1. **test** `./vendor/bin/pest --filter="TimingStore|TimingCapture|TimingExtension"` — Expected: all pass, including a new parallel-completeness case asserting supersede fires for fully-observed files and does NOT fire for partial crash-flush batches.
 2. **test** `./vendor/bin/pest` — Expected: full suite green (this REQ touches shared merge machinery; confirm no cross-module regression).
+
+## Outputs
+
+- src/Timing/TimingExtension.php — Normal shutdown backstop flushes are complete unless PHP is shutting down after a fatal error.
+- tests/Integration/Timing/TimingCaptureTest.php — Added regression coverage for shutdown-style worker flushes pruning stale renamed test IDs across repeated merges.
