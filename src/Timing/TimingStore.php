@@ -63,7 +63,7 @@ final class TimingStore
                 return 0;
             }
 
-            [$tests, $mergedPending] = $this->mergedWithPending($pending);
+            [$tests, $mergedPending] = $this->mergedWithPending($pending, true);
 
             AtomicFile::write(
                 $this->dir.'/timings.json',
@@ -73,8 +73,8 @@ final class TimingStore
             );
 
             foreach ($mergedPending as $path) {
-                if (! unlink($path)) {
-                    throw new RuntimeException('[warp] cannot delete merged pending timings batch at '.$path);
+                if (! @unlink($path)) {
+                    Stderr::write('[warp] cannot delete merged pending timings batch at '.$path.PHP_EOL);
                 }
             }
 
@@ -156,7 +156,7 @@ final class TimingStore
      * @param  list<string>  $pending
      * @return array{0: array<string, array{file: string, ms: float}>, 1: list<string>}
      */
-    private function mergedWithPending(array $pending): array
+    private function mergedWithPending(array $pending, bool $cleanupJunk = false): array
     {
         $tests = $this->readMerged();
         $fileIndex = self::indexByFile($tests);
@@ -168,13 +168,25 @@ final class TimingStore
             if (json_last_error() !== JSON_ERROR_NONE) {
                 Stderr::write('[warp] skipped undecodable pending timings batch: '.$path.PHP_EOL);
 
+                if ($cleanupJunk) {
+                    $mergedPending[] = $path;
+                }
+
                 continue;
             }
 
-            if (is_array($batch)) {
-                $tests = self::apply($tests, $fileIndex, $batch);
-                $mergedPending[] = $path;
+            if (! is_array($batch)) {
+                Stderr::write('[warp] skipped invalid pending timings batch: '.$path.PHP_EOL);
+
+                if ($cleanupJunk) {
+                    $mergedPending[] = $path;
+                }
+
+                continue;
             }
+
+            $tests = self::apply($tests, $fileIndex, $batch);
+            $mergedPending[] = $path;
         }
 
         return [$tests, $mergedPending];

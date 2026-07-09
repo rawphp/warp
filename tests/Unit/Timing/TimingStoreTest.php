@@ -375,10 +375,150 @@ namespace {
         expect($this->store->fileTotals())->toBe(['tests/FooTest.php' => 50.0]);
     });
 
-    it('leaves corrupt pending files in place and warns while merging valid siblings', function () {
+    it('warns and continues when one merged pending batch cannot be deleted', function () {
+        Dirs::ensure($this->dir.'/pending');
+        $stuckPath = $this->dir.'/pending/100-0-badbad00.json';
+        $deletedPath = $this->dir.'/pending/200-1-aabbccdd.json';
+        file_put_contents($stuckPath, json_encode([
+            'complete' => true,
+            'tests' => ['stuck' => ['file' => 'tests/StuckTest.php', 'ms' => 10.0]],
+        ]));
+        file_put_contents($deletedPath, json_encode([
+            'complete' => true,
+            'tests' => ['deleted' => ['file' => 'tests/DeletedTest.php', 'ms' => 20.0]],
+        ]));
+
+        $script = $this->dir.'/merge-unlink-failure.php';
+        file_put_contents($script, <<<'PHP'
+<?php
+
+namespace RawPHP\Warp\Timing {
+    function unlink(string $path, $context = null): bool
+    {
+        if (basename($path) === $GLOBALS['argv'][2]) {
+            return false;
+        }
+
+        return \unlink($path, $context);
+    }
+}
+
+namespace {
+    require getcwd().'/vendor/autoload.php';
+
+    $count = (new RawPHP\Warp\Timing\TimingStore($argv[1]))->mergeToDisk();
+    fwrite(STDOUT, "merged={$count}\n");
+}
+PHP);
+
+        $process = proc_open([PHP_BINARY, $script, $this->dir, basename($stuckPath)], [
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $pipes, getcwd());
+
+        expect($process)->not->toBeFalse();
+
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        expect(proc_close($process))->toBe(0);
+
+        $merged = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
+
+        expect($stdout)->toContain('merged=2')
+            ->and($stderr)->toContain('[warp] cannot delete merged pending timings batch')
+            ->and($stderr)->toContain(basename($stuckPath))
+            ->and($merged['tests'] ?? [])->toHaveKeys(['stuck', 'deleted'])
+            ->and(is_file($stuckPath))->toBeTrue()
+            ->and(is_file($deletedPath))->toBeFalse();
+    });
+
+    it('re-applies a surviving old pending batch before newer pending data on a later merge', function () {
+        Dirs::ensure($this->dir.'/pending');
+        $stuckPath = $this->dir.'/pending/100-0-badbad00.json';
+        file_put_contents($stuckPath, json_encode([
+            'complete' => true,
+            'tests' => ['old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0]],
+        ]));
+
+        $script = $this->dir.'/merge-unlink-failure.php';
+        file_put_contents($script, <<<'PHP'
+<?php
+
+namespace RawPHP\Warp\Timing {
+    function unlink(string $path, $context = null): bool
+    {
+        if (basename($path) === $GLOBALS['argv'][2]) {
+            return false;
+        }
+
+        return \unlink($path, $context);
+    }
+}
+
+namespace {
+    require getcwd().'/vendor/autoload.php';
+
+    $count = (new RawPHP\Warp\Timing\TimingStore($argv[1]))->mergeToDisk();
+    fwrite(STDOUT, "merged={$count}\n");
+}
+PHP);
+
+        $first = proc_open([PHP_BINARY, $script, $this->dir, basename($stuckPath)], [
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $firstPipes, getcwd());
+
+        expect($first)->not->toBeFalse();
+
+        stream_get_contents($firstPipes[1]);
+        stream_get_contents($firstPipes[2]);
+        fclose($firstPipes[1]);
+        fclose($firstPipes[2]);
+
+        expect(proc_close($first))->toBe(0)
+            ->and(is_file($stuckPath))->toBeTrue();
+
+        $newPath = $this->dir.'/pending/200-1-aabbccdd.json';
+        file_put_contents($newPath, json_encode([
+            'complete' => true,
+            'tests' => ['new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0]],
+        ]));
+
+        $second = proc_open([PHP_BINARY, $script, $this->dir, basename($stuckPath)], [
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $secondPipes, getcwd());
+
+        expect($second)->not->toBeFalse();
+
+        $stdout = stream_get_contents($secondPipes[1]);
+        $stderr = stream_get_contents($secondPipes[2]);
+        fclose($secondPipes[1]);
+        fclose($secondPipes[2]);
+
+        expect(proc_close($second))->toBe(0);
+
+        $merged = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
+
+        expect($stdout)->toContain('merged=2')
+            ->and($stderr)->toContain(basename($stuckPath))
+            ->and($merged['tests'] ?? [])->toHaveKey('new')
+            ->and($merged['tests'] ?? [])->not->toHaveKey('old')
+            ->and((float) $merged['tests']['new']['ms'])->toBe(50.0)
+            ->and(is_file($stuckPath))->toBeTrue()
+            ->and(is_file($newPath))->toBeFalse();
+    });
+
+    it('deletes corrupt and scalar pending files during merge after warning', function () {
         Dirs::ensure($this->dir.'/pending');
         $badPath = $this->dir.'/pending/100-0-badbad00.json';
+        $scalarPath = $this->dir.'/pending/150-0-cafebabe.json';
         file_put_contents($badPath, 'not json');
+        file_put_contents($scalarPath, json_encode('not a batch'));
         file_put_contents($this->dir.'/pending/200-1-aabbccdd.json', json_encode([
             'complete' => true,
             'tests' => ['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]],
@@ -410,8 +550,52 @@ PHP);
         $merged = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
 
         expect($merged['tests'] ?? [])->toHaveKey('t1')
-            ->and(is_file($badPath))->toBeTrue()
-            ->and($stderr)->toContain('100-0-badbad00.json');
+            ->and(is_file($badPath))->toBeFalse()
+            ->and(is_file($scalarPath))->toBeFalse()
+            ->and($stderr)->toContain('skipped undecodable pending timings batch')
+            ->and($stderr)->toContain('100-0-badbad00.json')
+            ->and($stderr)->toContain('skipped invalid pending timings batch')
+            ->and($stderr)->toContain('150-0-cafebabe.json');
+    });
+
+    it('keeps load read-only when pending files are corrupt or scalar', function () {
+        Dirs::ensure($this->dir.'/pending');
+        $badPath = $this->dir.'/pending/100-0-badbad00.json';
+        $scalarPath = $this->dir.'/pending/150-0-cafebabe.json';
+        file_put_contents($badPath, 'not json');
+        file_put_contents($scalarPath, json_encode('not a batch'));
+
+        $script = $this->dir.'/load-junk.php';
+        file_put_contents($script, <<<'PHP'
+<?php
+
+require getcwd().'/vendor/autoload.php';
+
+(new RawPHP\Warp\Timing\TimingStore($argv[1]))->load();
+PHP);
+
+        $process = proc_open([PHP_BINARY, $script, $this->dir], [
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $pipes, getcwd());
+
+        expect($process)->not->toBeFalse();
+
+        $stderr = stream_get_contents($pipes[2]);
+
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        expect(proc_close($process))->toBe(0);
+
+        expect(is_file($badPath))->toBeTrue()
+            ->and(is_file($scalarPath))->toBeTrue()
+            ->and(is_file($this->dir.'/timings.json'))->toBeFalse()
+            ->and(is_file($this->dir.'/merge.lock'))->toBeFalse()
+            ->and($stderr)->toContain('skipped undecodable pending timings batch')
+            ->and($stderr)->toContain('100-0-badbad00.json')
+            ->and($stderr)->toContain('skipped invalid pending timings batch')
+            ->and($stderr)->toContain('150-0-cafebabe.json');
     });
 
     it('skips old-format pending files with a warning', function () {

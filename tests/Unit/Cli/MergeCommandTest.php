@@ -61,6 +61,54 @@ it('returns 2 with a warp-prefixed error when the merge lock cannot be opened', 
         ->and($stderr)->not->toContain('Stack trace');
 });
 
+it('cleans junk pending batches once and does not warn again on the next merge', function () {
+    Dirs::ensure($this->tmp.'/pending');
+    file_put_contents($this->tmp.'/pending/100-0-badbad00.json', 'not json');
+    file_put_contents($this->tmp.'/pending/150-0-cafebabe.json', json_encode('not a batch'));
+    file_put_contents($this->tmp.'/pending/200-1-aabbccdd.json', json_encode([
+        'complete' => true,
+        'tests' => ['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.0]],
+    ]));
+
+    $script = $this->tmp.'/merge-command.php';
+    file_put_contents($script, <<<'PHP'
+<?php
+
+require getcwd().'/vendor/autoload.php';
+
+exit(RawPHP\Warp\Cli\MergeCommand::run(['--timings-dir='.$argv[1]], STDOUT, STDERR));
+PHP);
+
+    $run = function () use ($script): array {
+        $process = proc_open([PHP_BINARY, $script, $this->tmp], [
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $pipes, getcwd());
+
+        expect($process)->not->toBeFalse();
+
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        return [proc_close($process), $stdout, $stderr];
+    };
+
+    [$firstExit, $firstStdout, $firstStderr] = $run();
+    [$secondExit, $secondStdout, $secondStderr] = $run();
+
+    expect($firstExit)->toBe(0)
+        ->and($firstStdout)->toContain('merged 3 pending timing batches')
+        ->and($firstStderr)->toContain('skipped undecodable pending timings batch')
+        ->and($firstStderr)->toContain('skipped invalid pending timings batch')
+        ->and(glob($this->tmp.'/pending/*.json'))->toBe([])
+        ->and($secondExit)->toBe(0)
+        ->and($secondStdout)->toContain('nothing to merge')
+        ->and($secondStderr)->toBe('');
+});
+
 it('uses WARP_TIMINGS_DIR when no timings-dir flag is provided', function () {
     putenv('WARP_TIMINGS_DIR='.$this->tmp);
 
