@@ -1,19 +1,13 @@
 # REQ-077: Bench must canonicalize file paths before weight lookup
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.23132
-**Claimed at:** 2026-07-09T09:41:25Z
-**Heartbeat:** 2026-07-09T09:41:25Z
-<!-- claimed-end -->
-
 **UR:** UR-013
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed checkpoints:2 commit:b593657
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -30,9 +24,9 @@ Code-review finding #6. The bench script is the S3 gate evidence path (`bench/sh
 
 ## Acceptance Criteria
 
-- [ ] Running the bench with an absolute suite path against a timings store keyed root-relative resolves recorded weights (not fallback) — the LPT column differs from the count-based column when recorded durations are skewed (reproduces then fixes the finding-#6 scenario).
-- [ ] Running the bench with a relative suite path from the app root produces identical output to before the change (no regression on the documented usage).
-- [ ] When recorded timings match zero discovered files after canonicalization, the bench prints a mismatch warning to stderr instead of silently reporting an equal spread.
+- [x] Running the bench with an absolute suite path against a timings store keyed root-relative resolves recorded weights (not fallback) — the LPT column differs from the count-based column when recorded durations are skewed (reproduces then fixes the finding-#6 scenario).
+- [x] Running the bench with a relative suite path from the app root produces identical output to before the change (no regression on the documented usage).
+- [x] When recorded timings match zero discovered files after canonicalization, the bench prints a mismatch warning to stderr instead of silently reporting an equal spread.
 
 ## Verification Steps
 
@@ -40,3 +34,8 @@ Code-review finding #6. The bench script is the S3 gate evidence path (`bench/sh
 
 1. **runtime** From a temp fixture app dir with a seeded `.warp/timings/timings.json` (root-relative keys, skewed durations): `php bench/shard-spread.php .warp/timings 2 "$(pwd)/tests"` — Expected: LPT column reflects the seeded skew (not an equal 1.0-weight round-robin); handoff finder→weights resolves recorded values.
 2. **test** `./vendor/bin/pest` — Expected: full suite green.
+
+## Outputs
+
+- bench/shard-spread.php — Canonicalizes discovered bench files with `Paths::canonical` before sharding and warns on zero timing matches.
+- tests/Integration/Cli/WarpBinTest.php — Adds bench regression coverage for absolute suite paths, relative output parity, and zero-match warnings.

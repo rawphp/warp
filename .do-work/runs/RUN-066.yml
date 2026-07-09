@@ -1,0 +1,23 @@
+run_id: RUN-066
+req: REQ-077
+ur: UR-013
+agent_id: "Toms-MacBook-Pro.local.23132"
+model: "sonnet"
+branch: "req/REQ-077"
+started_at: "2026-07-09T09:41:25Z"
+ended_at: "2026-07-09T09:55:37Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "estimated-sonnet"
+cost_estimate_num: 0.20
+pr_url: ""
+commands:
+  - "php bench/shard-spread.php .warp/timings 2 \"$(pwd)/tests\""
+  - "./vendor/bin/pest"
+tests:
+  - "php bench/shard-spread.php .warp/timings 2 \"$(pwd)/tests\""
+  - "./vendor/bin/pest"
+changed_files:
+  - "bench/shard-spread.php"
+  - "tests/Integration/Cli/WarpBinTest.php"
