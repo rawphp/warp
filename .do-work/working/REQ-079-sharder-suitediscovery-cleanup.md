@@ -1,7 +1,13 @@
 # REQ-079: Remove dead sharder path; typed missing-config exception
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.23132
+**Claimed at:** 2026-07-09T10:05:30Z
+**Heartbeat:** 2026-07-09T10:05:30Z
+<!-- claimed-end -->
+
 **UR:** UR-013
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
