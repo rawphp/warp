@@ -71,11 +71,15 @@ final class ShardCommand
         }
 
         try {
-            if ($paths === []) {
-                $root = getcwd() ?: '.';
+            $root = getcwd() ?: '.';
+            $canonicalRoot = $root;
+            $allowOutsideRoot = false;
 
+            if ($paths === []) {
                 try {
                     $files = SuiteDiscovery::discover($root, $configuration);
+                    $canonicalRoot = self::suiteRoot($root, $configuration);
+                    $allowOutsideRoot = true;
                 } catch (MissingConfigurationException $exception) {
                     if ($configuration !== null) {
                         throw $exception;
@@ -88,7 +92,7 @@ final class ShardCommand
                 $files = TestFileFinder::find($paths, $suffix);
             }
 
-            $files = self::canonicalFiles($files, getcwd() ?: '.');
+            $files = self::canonicalFiles($files, $canonicalRoot, $allowOutsideRoot);
 
             if ($files === []) {
                 fwrite($stderr, "[warp] no test files discovered - nothing to shard\n");
@@ -126,12 +130,12 @@ final class ShardCommand
      * @param  list<string>  $files
      * @return list<string>
      */
-    private static function canonicalFiles(array $files, string $root): array
+    private static function canonicalFiles(array $files, string $root, bool $allowOutsideRoot = false): array
     {
         $canonical = [];
 
         foreach ($files as $file) {
-            $path = Paths::canonical($file, $root);
+            $path = Paths::canonical($file, $root, $allowOutsideRoot);
 
             if ($path === null) {
                 throw new RuntimeException('[warp] test path is outside project root: '.$file);
@@ -144,5 +148,30 @@ final class ShardCommand
         sort($canonical);
 
         return $canonical;
+    }
+
+    private static function suiteRoot(string $root, ?string $configuration): string
+    {
+        if ($configuration === null) {
+            return $root;
+        }
+
+        $path = self::absolutePath($root, $configuration);
+        $realpath = realpath($path);
+
+        return dirname($realpath === false ? $path : $realpath);
+    }
+
+    private static function absolutePath(string $root, string $path): string
+    {
+        if (str_starts_with($path, DIRECTORY_SEPARATOR)) {
+            return $path;
+        }
+
+        if (preg_match('#^[A-Za-z]:[\\\\/]#', $path) === 1) {
+            return $path;
+        }
+
+        return rtrim($root, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$path;
     }
 }
