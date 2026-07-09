@@ -1,7 +1,12 @@
 # REQ-087: Shard warns for ignored options
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.82488
+**Claimed at:** 2026-07-09T20:51:46Z
+**Heartbeat:** 2026-07-09T20:51:46Z
+<!-- claimed-end -->
 **UR:** UR-015
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** none
 **Closure proof:**

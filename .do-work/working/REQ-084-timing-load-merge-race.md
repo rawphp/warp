@@ -3,7 +3,7 @@
 <!-- claimed-start -->
 **Claimed by:** Toms-MacBook-Pro.local.82488
 **Claimed at:** 2026-07-09T20:37:07Z
-**Heartbeat:** 2026-07-09T20:50:10Z
+**Heartbeat:** 2026-07-09T20:51:28Z
 <!-- claimed-end -->
 **UR:** UR-015
 **Status:** in-progress
@@ -26,10 +26,10 @@ Confirmed finding 4: `load()` reads `timings.json` and pending batches without c
 
 ## Acceptance Criteria
 
-- [ ] A regression test simulates `load()`/`fileTotals()` racing with `mergeToDisk()` and proves a pending batch is either included from the pre-merge view or from the published `timings.json`, never silently omitted.
-- [ ] A pending file that disappears during a read is not reported as an undecodable junk batch and does not reduce the computed file totals.
-- [ ] `load()` and `fileTotals()` remain read-only: they do not delete pending files, do not clean junk batches, and do not publish `timings.json`.
-- [ ] Existing explicit `mergeToDisk()` cleanup semantics from REQ-076 still hold: junk deletion and unlink warnings remain merge-only behavior.
+- [x] A regression test simulates `load()`/`fileTotals()` racing with `mergeToDisk()` and proves a pending batch is either included from the pre-merge view or from the published `timings.json`, never silently omitted.
+- [x] A pending file that disappears during a read is not reported as an undecodable junk batch and does not reduce the computed file totals.
+- [x] `load()` and `fileTotals()` remain read-only: they do not delete pending files, do not clean junk batches, and do not publish `timings.json`.
+- [x] Existing explicit `mergeToDisk()` cleanup semantics from REQ-076 still hold: junk deletion and unlink warnings remain merge-only behavior.
 
 ## Verification Steps
 
