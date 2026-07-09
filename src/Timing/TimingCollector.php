@@ -62,7 +62,7 @@ final class TimingCollector
             return;
         }
 
-        $this->flushed = true;
         $store->writePending($this->tests, $complete);
+        $this->flushed = true;
     }
 }
