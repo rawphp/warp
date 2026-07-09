@@ -1,0 +1,33 @@
+run_id: RUN-048
+req: REQ-060
+ur: UR-011
+agent_id: "codex-main"
+model: "gpt-5"
+branch: "s3"
+started_at: "2026-07-09T02:28:03Z"
+ended_at: "2026-07-09T02:43:20Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "active block cost at ledger write: $8.09"
+cost_estimate_num: 8.09
+pr_url: ""
+commands:
+  - "./vendor/bin/pest tests/Unit/Shard/SuiteDiscoveryTest.php tests/Unit/Cli/ShardCommandTest.php"
+  - "php bin/warp shard 1/1 && ./vendor/bin/pest $(php bin/warp shard 1/1)"
+  - "./vendor/bin/pest"
+  - "composer lint"
+  - "./vendor/bin/pint src/Shard/SuiteDiscovery.php src/Cli/ShardCommand.php tests/Unit/Shard/SuiteDiscoveryTest.php tests/Unit/Cli/ShardCommandTest.php"
+  - "./vendor/bin/pint --test src/Shard/SuiteDiscovery.php src/Cli/ShardCommand.php tests/Unit/Shard/SuiteDiscoveryTest.php tests/Unit/Cli/ShardCommandTest.php"
+tests:
+  - "focused: ./vendor/bin/pest tests/Unit/Shard/SuiteDiscoveryTest.php tests/Unit/Cli/ShardCommandTest.php => 19 passed, 55 assertions"
+  - "runtime: php bin/warp shard 1/1 && ./vendor/bin/pest $(php bin/warp shard 1/1) => 240 passed, 627 assertions"
+  - "full: ./vendor/bin/pest => 240 passed, 627 assertions"
+  - "pint: ./vendor/bin/pint --test touched files => passed"
+  - "policy: check-policy => clear"
+  - "review: independent subagent => passed"
+changed_files:
+  - "src/Cli/ShardCommand.php"
+  - "src/Shard/SuiteDiscovery.php"
+  - "tests/Unit/Cli/ShardCommandTest.php"
+  - "tests/Unit/Shard/SuiteDiscoveryTest.php"
