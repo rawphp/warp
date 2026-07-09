@@ -1,19 +1,13 @@
 # REQ-053: Integration tests — read-only artifact flow and exit-code contract
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.21409
-**Claimed at:** 2026-07-09T02:00:41Z
-**Heartbeat:** 2026-07-09T02:00:41Z
-<!-- claimed-end -->
-
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** integration
 **Entry point:**
 **Terminal state:**
 **Parent:** REQ-046
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 2 verification checkpoints passed commit:fb6594f
 **Criteria approved:** agent-drafted
 **Priority:** 1
 **Size:** M
@@ -35,10 +29,10 @@ Review findings #2 and #3: the documented CI pattern silently skipped a shard's 
 
 ## Acceptance Criteria
 
-- [ ] A read-only (0555) timings dir with pending batches: `warp shard` exits 0 and its plan reflects pending data; the dir's mtime/content is unchanged after the run.
-- [ ] Exit codes 0, 3, and 2 are each produced and asserted via real `bin/warp` invocations.
-- [ ] The corrected guard pattern, executed via `sh -e -c`, runs the test command on exit 0, skips on exit 3 with overall success, and fails the script on exit 2.
-- [ ] Post-`warp merge`, `pending/` is empty and shard output is byte-identical to the pre-merge overlay plan.
+- [x] A read-only (0555) timings dir with pending batches: `warp shard` exits 0 and its plan reflects pending data; the dir's mtime/content is unchanged after the run.
+- [x] Exit codes 0, 3, and 2 are each produced and asserted via real `bin/warp` invocations.
+- [x] The corrected guard pattern, executed via `sh -e -c`, runs the test command on exit 0, skips on exit 3 with overall success, and fails the script on exit 2.
+- [x] Post-`warp merge`, `pending/` is empty and shard output is byte-identical to the pre-merge overlay plan.
 
 ## Verification Steps
 
@@ -56,3 +50,7 @@ Review findings #2 and #3: the documented CI pattern silently skipped a shard's 
 **Data dependencies:** Temp timings dirs (timings.json, pending/*.json) constructed per-test; no shared fixtures.
 
 **Service dependencies:** Exercises `ShardCommand`, `TimingsCommand`, `MergeCommand`, and `TimingStore` (REQ-047…REQ-052) as a black box.
+
+## Outputs
+
+- `tests/Integration/Cli/WarpBinTest.php` — Added real `bin/warp` integration coverage for read-only pending overlays, shard exit codes, `sh -e` guard semantics, and merge compaction preserving shard output.
