@@ -1,13 +1,14 @@
 # REQ-065: Reject empty --suffix in shard discovery
 
+
 **UR:** UR-012
-**Status:** backlog
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:4cc3f55
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -24,9 +25,9 @@ Code-review finding #5 (CONFIRMED). The default suffix is the non-empty `'Test.p
 
 ## Acceptance Criteria
 
-- [ ] `warp shard 1/2 tests --suffix=` (empty suffix) exits non-zero and writes a clear error to stderr (e.g. `[warp] --suffix must not be empty`) instead of collecting every file.
-- [ ] `TestFileFinder::find()` rejects or is guarded against an empty `$suffix` so it cannot return non-matching files; a non-empty default (`Test.php`) and explicit non-empty suffixes behave exactly as before.
-- [ ] Existing shard discovery with the default suffix and with a valid explicit suffix is unchanged (regression-covered by existing tests).
+- [x] `warp shard 1/2 tests --suffix=` (empty suffix) exits non-zero and writes a clear error to stderr (e.g. `[warp] --suffix must not be empty`) instead of collecting every file.
+- [x] `TestFileFinder::find()` rejects or is guarded against an empty `$suffix` so it cannot return non-matching files; a non-empty default (`Test.php`) and explicit non-empty suffixes behave exactly as before.
+- [x] Existing shard discovery with the default suffix and with a valid explicit suffix is unchanged (regression-covered by existing tests).
 
 ## Verification Steps
 
@@ -34,3 +35,10 @@ Code-review finding #5 (CONFIRMED). The default suffix is the non-empty `'Test.p
 
 1. **test** `./vendor/bin/pest --filter="ShardCommand|TestFileFinder"` — Expected: all pass, including new cases asserting empty-suffix is rejected (CLI non-zero exit + finder guard) and valid suffixes still resolve the expected files.
 2. **runtime** Run `php bin/warp shard 1/2 tests --suffix=` in a scratch fixture tree containing a non-test file. Expected: non-zero exit, stderr error about empty suffix, and no non-test files emitted on stdout.
+
+## Outputs
+
+- src/Cli/ShardCommand.php — Rejects --suffix= with a clear stderr error and non-zero exit.
+- src/Shard/TestFileFinder.php — Throws when called programmatically with an empty suffix.
+- tests/Unit/Cli/ShardCommandTest.php — Covers CLI empty-suffix rejection while preserving valid suffix behavior.
+- tests/Unit/Shard/TestFileFinderTest.php — Covers TestFileFinder empty-suffix guard.
