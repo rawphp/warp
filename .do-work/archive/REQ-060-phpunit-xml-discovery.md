@@ -3,17 +3,17 @@
 <!-- claimed-start -->
 **Claimed by:** codex-main
 **Claimed at:** 2026-07-09T02:28:03Z
-**Heartbeat:** 2026-07-09T02:28:03Z
+**Heartbeat:** 2026-07-09T02:37:43Z
 <!-- claimed-end -->
 
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:** `./vendor/bin/warp shard k/n` with no explicit paths, in a project whose phpunit.xml declares testsuites (multiple roots, custom suffixes, `<file>` entries, `<exclude>` blocks).
 **Terminal state:** The shard file universe equals exactly the set of files PHPUnit/Pest would run: excluded files are never sharded, custom-suffix and out-of-tree suite files are always assigned to exactly one shard; explicit path arguments still override discovery.
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 3 verification checkpoints passed commit:c2bba39
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** L
@@ -36,11 +36,11 @@ Review finding #9: any project whose testsuites differ from the hardcoded guess 
 
 ## Acceptance Criteria
 
-- [ ] Fixture phpunit.xml with two `<directory>` roots (one with `suffix="Check.php"`), one `<file>` entry, and an `<exclude>` block: `SuiteDiscovery` returns exactly the files PHPUnit would run (excluded file absent, custom-suffix and `<file>` entries present).
-- [ ] `warp shard` with no paths in a fixture project shards exactly the SuiteDiscovery universe; an excluded file appears in no shard; every suite file appears in exactly one shard across k=1..n.
-- [ ] `warp shard` with no paths and no phpunit.xml falls back to the `tests`/`Test.php` heuristic and prints a stderr note.
-- [ ] Explicit paths (`warp shard 1/2 tests/Unit`) bypass suite discovery.
-- [ ] `--configuration=custom.xml` is honored.
+- [x] Fixture phpunit.xml with two `<directory>` roots (one with `suffix="Check.php"`), one `<file>` entry, and an `<exclude>` block: `SuiteDiscovery` returns exactly the files PHPUnit would run (excluded file absent, custom-suffix and `<file>` entries present).
+- [x] `warp shard` with no paths in a fixture project shards exactly the SuiteDiscovery universe; an excluded file appears in no shard; every suite file appears in exactly one shard across k=1..n.
+- [x] `warp shard` with no paths and no phpunit.xml falls back to the `tests`/`Test.php` heuristic and prints a stderr note.
+- [x] Explicit paths (`warp shard 1/2 tests/Unit`) bypass suite discovery.
+- [x] `--configuration=custom.xml` is honored.
 
 ## Verification Steps
 
@@ -60,3 +60,10 @@ Review finding #9: any project whose testsuites differ from the hardcoded guess 
 **Data dependencies:** Reads phpunit.xml / phpunit.xml.dist at the project root (this repo's phpunit.xml registers the timing extension and declares the tests suite).
 
 **Service dependencies:** PHPUnit's XmlConfiguration loader (already a dependency — `TimingExtension::bootstrap()` receives a parsed Configuration, src/Timing/TimingExtension.php:30-31); `TestFileFinder` (src/Shard/TestFileFinder.php) remains for explicit paths; canonical keys from REQ-055.
+
+## Outputs
+
+- `src/Shard/SuiteDiscovery.php` — Added phpunit.xml/phpunit.xml.dist suite discovery via PHPUnit's XML configuration loader, honoring suite directories, suffixes, files, excludes, PHP-version gates, and wildcard directory semantics.
+- `src/Cli/ShardCommand.php` — Routed pathless shard discovery through SuiteDiscovery when configuration exists, added `--configuration=`, preserved explicit-path bypass, and kept fallback `tests/Test.php` discovery with a stderr note.
+- `tests/Unit/Shard/SuiteDiscoveryTest.php` — Covered multi-root suite discovery with custom suffixes, file entries, excludes, and configuration path resolution.
+- `tests/Unit/Cli/ShardCommandTest.php` — Covered pathless suite-driven sharding, fallback discovery, explicit-path bypass, and custom configuration behavior.
