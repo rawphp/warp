@@ -1,0 +1,27 @@
+run_id: RUN-042
+req: REQ-056
+ur: UR-011
+agent_id: "Toms-MacBook-Pro.local.21409"
+model: "inherited"
+branch: "s3"
+started_at: "2026-07-09T01:54:13Z"
+ended_at: "2026-07-09T02:00:02Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "tier-weighted estimate"
+cost_estimate_num: 0.10
+pr_url: ""
+commands:
+  - "./vendor/bin/pest tests/Unit/Shard/DurationBalancedSharderTest.php"
+  - "php -l src/Shard/DurationBalancedSharder.php && php -l tests/Unit/Shard/DurationBalancedSharderTest.php"
+  - "./vendor/bin/pint --test src/Shard/DurationBalancedSharder.php tests/Unit/Shard/DurationBalancedSharderTest.php"
+  - "./vendor/bin/pest"
+tests:
+  - "./vendor/bin/pest tests/Unit/Shard/DurationBalancedSharderTest.php: 13 passed, 37 assertions"
+  - "php -l changed files: no syntax errors"
+  - "./vendor/bin/pint --test changed files: passed"
+  - "./vendor/bin/pest: 215 passed, 526 assertions"
+changed_files:
+  - "src/Shard/DurationBalancedSharder.php"
+  - "tests/Unit/Shard/DurationBalancedSharderTest.php"
