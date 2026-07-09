@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RawPHP\Warp\Timing;
 
+use Closure;
 use PHPUnit\Event\Code\TestMethod;
 use PHPUnit\Event\Event;
 use PHPUnit\Event\Test\Finished;
@@ -29,6 +30,9 @@ final class TimingExtension implements Extension
         $collector = new TimingCollector;
         $store = TimingStore::fromEnv();
         $root = (string) getcwd();
+        $flush = static function (bool $complete) use ($collector, $store): void {
+            self::flush($collector, $store, $complete);
+        };
 
         $facade->registerSubscriber(new class($collector) implements PreparationStartedSubscriber
         {
@@ -64,22 +68,19 @@ final class TimingExtension implements Extension
             }
         });
 
-        $facade->registerSubscriber(new class($collector, $store) implements ExecutionFinishedSubscriber
+        $facade->registerSubscriber(new class($flush) implements ExecutionFinishedSubscriber
         {
-            public function __construct(
-                private readonly TimingCollector $collector,
-                private readonly TimingStore $store,
-            ) {}
+            public function __construct(private readonly Closure $flush) {}
 
             public function notify(ExecutionFinished $event): void
             {
-                $this->collector->flush($this->store, complete: true);
+                ($this->flush)(true);
             }
         });
 
         // Backstop: paratest workers and fatally-interrupted runs may never
         // see ExecutionFinished; flush() is idempotent so both paths are safe.
-        register_shutdown_function(static fn () => $collector->flush($store, complete: false));
+        register_shutdown_function(static fn () => $flush(false));
     }
 
     /** Telemetry wall-clock as float seconds, monotonic within a run. */
@@ -88,5 +89,31 @@ final class TimingExtension implements Extension
         $time = $event->telemetryInfo()->time();
 
         return $time->seconds() + $time->nanoseconds() / 1_000_000_000;
+    }
+
+    private static function flush(TimingCollector $collector, TimingStore $store, bool $complete): void
+    {
+        if ($collector->hasFlushed()) {
+            return;
+        }
+
+        $collector->flush($store, complete: $complete);
+
+        $unattributed = $collector->unattributedCount();
+
+        if ($unattributed > 0) {
+            self::warn("[warp] {$unattributed} test(s) could not be attributed to a file; their timings were not recorded".PHP_EOL);
+        }
+    }
+
+    private static function warn(string $message): void
+    {
+        if (defined('STDERR')) {
+            fwrite(STDERR, $message);
+
+            return;
+        }
+
+        file_put_contents('php://stderr', $message);
     }
 }

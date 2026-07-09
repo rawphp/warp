@@ -12,6 +12,8 @@ final class TimingCollector
     /** @var array<string, array{file: string, ms: float}> */
     private array $tests = [];
 
+    private int $unattributed = 0;
+
     private bool $flushed = false;
 
     public function started(string $id, float $seconds): void
@@ -24,7 +26,13 @@ final class TimingCollector
         $start = $this->startedAt[$id] ?? null;
         unset($this->startedAt[$id]);
 
-        if ($start === null || $file === null) {
+        if ($start === null) {
+            return;
+        }
+
+        if ($file === null) {
+            $this->unattributed++;
+
             return;
         }
 
@@ -35,6 +43,16 @@ final class TimingCollector
     public function all(): array
     {
         return $this->tests;
+    }
+
+    public function unattributedCount(): int
+    {
+        return $this->unattributed;
+    }
+
+    public function hasFlushed(): bool
+    {
+        return $this->flushed;
     }
 
     /** Idempotent: the ExecutionFinished subscriber and the shutdown backstop may both call this. */
