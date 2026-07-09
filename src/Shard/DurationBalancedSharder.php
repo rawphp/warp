@@ -6,8 +6,6 @@ namespace RawPHP\Warp\Shard;
 
 use InvalidArgumentException;
 
-use const PHP_FLOAT_EPSILON;
-
 final class DurationBalancedSharder
 {
     /**
@@ -34,7 +32,7 @@ final class DurationBalancedSharder
 
         foreach ($order as $file) {
             $lightest = (int) array_search((float) min($loads), $loads, true);
-            $loads[$lightest] += $weights[$file] === 0.0 ? PHP_FLOAT_EPSILON : $weights[$file];
+            $loads[$lightest] += $weights[$file];
             $bins[$lightest][] = $file;
         }
 
