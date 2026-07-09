@@ -24,12 +24,14 @@ final class ShardCommand
         $spec = null;
         $paths = [];
         $suffix = 'Test.php';
+        $suffixOption = null;
         $configuration = null;
 
         try {
-            $timings = TimingStoreArgumentParser::parse($args, function (string $arg) use (&$spec, &$paths, &$suffix, &$configuration): bool {
+            $timings = TimingStoreArgumentParser::parse($args, function (string $arg) use (&$spec, &$paths, &$suffix, &$suffixOption, &$configuration): bool {
                 if (str_starts_with($arg, '--suffix=')) {
                     $suffix = substr($arg, strlen('--suffix='));
+                    $suffixOption = $suffix;
 
                     if ($suffix === '') {
                         throw new InvalidArgumentException('[warp] --suffix must not be empty');
@@ -78,6 +80,9 @@ final class ShardCommand
             if ($paths === []) {
                 try {
                     $files = SuiteDiscovery::discover($root, $configuration);
+                    if ($suffixOption !== null) {
+                        fwrite($stderr, "[warp] --suffix={$suffixOption} ignored because phpunit.xml discovery controls test file suffixes\n");
+                    }
                     $canonicalRoot = self::suiteRoot($root, $configuration);
                     $allowOutsideRoot = true;
                 } catch (MissingConfigurationException $exception) {
@@ -89,6 +94,9 @@ final class ShardCommand
                     $files = TestFileFinder::find(['tests'], $suffix);
                 }
             } else {
+                if ($configuration !== null) {
+                    fwrite($stderr, "[warp] --configuration={$configuration} ignored because explicit test paths bypass suite discovery\n");
+                }
                 $files = TestFileFinder::find($paths, $suffix);
             }
 
