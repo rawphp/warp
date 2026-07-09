@@ -10,6 +10,35 @@ final class WarpResolverPestFixture
     public static string $__filename = '';
 }
 
+final class WarpResolverPrivateFilenameFixture
+{
+    private string $__filename;
+}
+
+final class WarpResolverUninitializedStaticFilenameFixture
+{
+    public static string $__filename;
+}
+
+final class WarpResolverFilenameSpy
+{
+    public static int $casts = 0;
+
+    public function __construct(private readonly string $path) {}
+
+    public function __toString(): string
+    {
+        self::$casts++;
+
+        return $this->path;
+    }
+}
+
+final class WarpResolverMemoizedPestFixture
+{
+    public static Stringable $__filename;
+}
+
 beforeEach(function () {
     $this->cwd = getcwd();
     $this->root = sys_get_temp_dir().'/warp-resolver-'.bin2hex(random_bytes(4));
@@ -47,6 +76,24 @@ it('prefers the pest-generated filename over the eval\'d report', function () {
 
     expect(TestFileResolver::resolve(WarpResolverPestFixture::class, $reported, $this->root))
         ->toBe('tests/Feature/ExampleTest.php');
+});
+
+it('falls back to the reported file for hostile userland filename properties', function () {
+    expect(TestFileResolver::resolve(WarpResolverPrivateFilenameFixture::class, $this->root.'/tests/Unit/ClassicTest.php', $this->root))
+        ->toBe('tests/Unit/ClassicTest.php')
+        ->and(TestFileResolver::resolve(WarpResolverUninitializedStaticFilenameFixture::class, $this->root.'/tests/ATest.php', $this->root))
+        ->toBe('tests/ATest.php');
+});
+
+it('memoizes pest filename resolution per class', function () {
+    $reported = "/proj/vendor/pestphp/pest/src/Factories/TestCaseFactory.php(175) : eval()'d code";
+    WarpResolverFilenameSpy::$casts = 0;
+    WarpResolverMemoizedPestFixture::$__filename = new WarpResolverFilenameSpy($this->root.'/tests/Feature/ExampleTest.php');
+
+    expect(TestFileResolver::resolve(WarpResolverMemoizedPestFixture::class, $reported, $this->root))->toBe('tests/Feature/ExampleTest.php')
+        ->and(TestFileResolver::resolve(WarpResolverMemoizedPestFixture::class, $reported, $this->root))->toBe('tests/Feature/ExampleTest.php')
+        ->and(TestFileResolver::resolve(WarpResolverMemoizedPestFixture::class, $reported, $this->root))->toBe('tests/Feature/ExampleTest.php')
+        ->and(WarpResolverFilenameSpy::$casts)->toBe(1);
 });
 
 it('returns null for eval\'d code without a pest filename', function () {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Timing\TimingCollector;
+use RawPHP\Warp\Timing\TimingExtension;
 use RawPHP\Warp\Timing\TimingStore;
 
 it('records the prepare->finish delta in milliseconds', function () {
@@ -44,6 +45,19 @@ it('ignores tests whose file could not be attributed', function () {
     $collector->finished('t::anon', null, 2.0);
 
     expect($collector->all())->toBe([]);
+});
+
+it('counts tests whose file could not be attributed', function () {
+    $collector = new TimingCollector;
+
+    $collector->started('t::one', 1.0);
+    $collector->started('t::two', 1.0);
+    $collector->finished('t::one', null, 2.0);
+    $collector->finished('t::two', null, 3.0);
+    $collector->finished('t::ghost', null, 4.0);
+
+    expect($collector->all())->toBe([])
+        ->and($collector->unattributedCount())->toBe(2);
 });
 
 it('flush writes a single pending batch and only once', function () {
@@ -111,3 +125,88 @@ it('flush with nothing recorded writes nothing', function () {
 
     expect(is_dir($dir))->toBeFalse();
 });
+
+it('emits one stderr warning when unattributed tests are flushed', function () {
+    $result = runTimingExtensionFlushScript(<<<'PHP'
+        $collector = new TimingCollector;
+        $collector->started('t::one', 1.0);
+        $collector->started('t::two', 1.0);
+        $collector->finished('t::one', null, 2.0);
+        $collector->finished('t::two', null, 3.0);
+        $store = new TimingStore($dir);
+        $flush = new ReflectionMethod(TimingExtension::class, 'flush');
+        $flush->setAccessible(true);
+        $flush->invoke(null, $collector, $store, true);
+        $flush->invoke(null, $collector, $store, true);
+        PHP);
+
+    expect($result['exit'])->toBe(0)
+        ->and($result['stderr'])->toBe("[warp] 2 test(s) could not be attributed to a file; their timings were not recorded\n");
+});
+
+it('does not warn when all flushed tests were attributed', function () {
+    $result = runTimingExtensionFlushScript(<<<'PHP'
+        $collector = new TimingCollector;
+        $collector->started('t::one', 1.0);
+        $collector->finished('t::one', 'tests/OneTest.php', 2.0);
+        $store = new TimingStore($dir);
+        $flush = new ReflectionMethod(TimingExtension::class, 'flush');
+        $flush->setAccessible(true);
+        $flush->invoke(null, $collector, $store, true);
+        PHP);
+
+    expect($result['exit'])->toBe(0)
+        ->and($result['stderr'])->toBe('');
+});
+
+/**
+ * @return array{exit: int, stdout: string, stderr: string}
+ */
+function runTimingExtensionFlushScript(string $body): array
+{
+    $script = <<<'PHP'
+        <?php
+
+        require 'vendor/autoload.php';
+
+        use RawPHP\Warp\Db\Dirs;
+        use RawPHP\Warp\Timing\TimingCollector;
+        use RawPHP\Warp\Timing\TimingExtension;
+        use RawPHP\Warp\Timing\TimingStore;
+
+        $dir = sys_get_temp_dir().'/warp-extension-flush-'.bin2hex(random_bytes(4));
+
+        try {
+        PHP
+        .$body.
+        <<<'PHP'
+        } finally {
+            Dirs::delete($dir);
+        }
+        PHP;
+
+    $process = proc_open([PHP_BINARY], [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
+    ], $pipes, getcwd());
+
+    if (! is_resource($process)) {
+        throw new RuntimeException('Could not start PHP subprocess.');
+    }
+
+    fwrite($pipes[0], $script);
+    fclose($pipes[0]);
+
+    $stdout = stream_get_contents($pipes[1]);
+    fclose($pipes[1]);
+
+    $stderr = stream_get_contents($pipes[2]);
+    fclose($pipes[2]);
+
+    return [
+        'exit' => proc_close($process),
+        'stdout' => $stdout === false ? '' : $stdout,
+        'stderr' => $stderr === false ? '' : $stderr,
+    ];
+}
