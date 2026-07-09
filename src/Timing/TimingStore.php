@@ -163,7 +163,16 @@ final class TimingStore
         $mergedPending = [];
 
         foreach ($pending as $path) {
-            $batch = json_decode((string) file_get_contents($path), true);
+            $contents = file_get_contents($path);
+
+            if ($contents === false && (! $cleanupJunk || ! is_file($path))) {
+                $tests = $this->readMerged();
+                $fileIndex = self::indexByFile($tests);
+
+                continue;
+            }
+
+            $batch = json_decode((string) $contents, true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
                 Stderr::write('[warp] skipped undecodable pending timings batch: '.$path.PHP_EOL);

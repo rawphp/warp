@@ -3,6 +3,21 @@
 declare(strict_types=1);
 
 namespace RawPHP\Warp\Timing {
+    if (! function_exists(__NAMESPACE__.'\\file_get_contents')) {
+        function file_get_contents($filename, $use_include_path = false, $context = null, $offset = 0, $length = null): string|false
+        {
+            if (\TimingStorePendingReadRace::enabledFor($filename)) {
+                return \TimingStorePendingReadRace::read($filename);
+            }
+
+            if ($length === null) {
+                return \file_get_contents($filename, $use_include_path, $context, $offset);
+            }
+
+            return \file_get_contents($filename, $use_include_path, $context, $offset, $length);
+        }
+    }
+
     if (! function_exists(__NAMESPACE__.'\\file_put_contents')) {
         function file_put_contents($filename, $data, $flags = 0, $context = null): int|false
         {
@@ -32,6 +47,57 @@ namespace {
     use RawPHP\Warp\Db\Dirs;
     use RawPHP\Warp\Support\Stderr;
     use RawPHP\Warp\Timing\TimingStore;
+
+    if (! class_exists(TimingStorePendingReadRace::class, false)) {
+        final class TimingStorePendingReadRace
+        {
+            private static ?string $dir = null;
+
+            private static ?string $path = null;
+
+            private static bool $triggered = false;
+
+            public static function enable(string $dir, string $path): void
+            {
+                self::$dir = $dir;
+                self::$path = $path;
+                self::$triggered = false;
+            }
+
+            public static function disable(): void
+            {
+                self::$dir = null;
+                self::$path = null;
+                self::$triggered = false;
+            }
+
+            public static function triggered(): bool
+            {
+                return self::$triggered;
+            }
+
+            public static function enabledFor(string $path): bool
+            {
+                return self::$dir !== null
+                    && self::$path === $path
+                    && ! self::$triggered;
+            }
+
+            public static function read(string $path): string|false
+            {
+                self::$triggered = true;
+
+                $batch = json_decode((string) \file_get_contents($path), true);
+                \file_put_contents(self::$dir.'/timings.json', json_encode([
+                    'version' => 1,
+                    'tests' => is_array($batch) && is_array($batch['tests'] ?? null) ? $batch['tests'] : [],
+                ], JSON_THROW_ON_ERROR));
+                \unlink($path);
+
+                return false;
+            }
+        }
+    }
 
     if (! class_exists(AtomicWriteShortWrite::class, false)) {
         final class AtomicWriteShortWrite
@@ -76,6 +142,7 @@ namespace {
 
     afterEach(function () {
         AtomicWriteShortWrite::disable();
+        TimingStorePendingReadRace::disable();
         putenv('WARP_TIMINGS_DIR');
         Dirs::delete($this->dir);
     });
@@ -373,6 +440,85 @@ namespace {
         ]));
 
         expect($this->store->fileTotals())->toBe(['tests/FooTest.php' => 50.0]);
+    });
+
+    it('keeps file totals when a pending batch is merged while it is being read', function () {
+        Dirs::ensure($this->dir.'/pending');
+        $pending = $this->dir.'/pending/100-1-aabbccdd.json';
+        file_put_contents($pending, json_encode([
+            'complete' => true,
+            'tests' => ['race' => ['file' => 'tests/RaceTest.php', 'ms' => 42.0]],
+        ]));
+
+        TimingStorePendingReadRace::enable($this->dir, $pending);
+
+        $totals = $this->store->fileTotals();
+
+        expect(TimingStorePendingReadRace::triggered())->toBeTrue()
+            ->and($totals)->toBe(['tests/RaceTest.php' => 42.0])
+            ->and(glob($this->dir.'/pending/*.json'))->toBe([])
+            ->and(is_file($this->dir.'/timings.json'))->toBeTrue();
+    });
+
+    it('does not report a disappeared pending batch as undecodable junk during read', function () {
+        Dirs::ensure($this->dir.'/pending');
+        $pending = $this->dir.'/pending/100-1-aabbccdd.json';
+        file_put_contents($pending, json_encode([
+            'complete' => true,
+            'tests' => ['race' => ['file' => 'tests/RaceTest.php', 'ms' => 42.0]],
+        ]));
+
+        $script = $this->dir.'/load-after-merge-race.php';
+        file_put_contents($script, <<<'PHP'
+<?php
+
+namespace RawPHP\Warp\Timing {
+    function file_get_contents($filename, $use_include_path = false, $context = null, $offset = 0, $length = null): string|false
+    {
+        if ($filename === $GLOBALS['argv'][2] && empty($GLOBALS['triggered'])) {
+            $GLOBALS['triggered'] = true;
+            $batch = json_decode((string) \file_get_contents($filename), true);
+            \file_put_contents($GLOBALS['argv'][1].'/timings.json', json_encode([
+                'version' => 1,
+                'tests' => is_array($batch) && is_array($batch['tests'] ?? null) ? $batch['tests'] : [],
+            ], JSON_THROW_ON_ERROR));
+            \unlink($filename);
+
+            return false;
+        }
+
+        if ($length === null) {
+            return \file_get_contents($filename, $use_include_path, $context, $offset);
+        }
+
+        return \file_get_contents($filename, $use_include_path, $context, $offset, $length);
+    }
+}
+
+namespace {
+    require getcwd().'/vendor/autoload.php';
+
+    $totals = (new RawPHP\Warp\Timing\TimingStore($argv[1]))->fileTotals();
+    fwrite(STDOUT, json_encode($totals, JSON_THROW_ON_ERROR));
+}
+PHP);
+
+        $process = proc_open([PHP_BINARY, $script, $this->dir, $pending], [
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $pipes, getcwd());
+
+        expect($process)->not->toBeFalse();
+
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        expect(proc_close($process))->toBe(0)
+            ->and(json_decode($stdout, true))->toBe(['tests/RaceTest.php' => 42])
+            ->and($stderr)->not->toContain('skipped undecodable pending timings batch');
     });
 
     it('warns and continues when one merged pending batch cannot be deleted', function () {
