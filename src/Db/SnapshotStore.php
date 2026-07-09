@@ -6,6 +6,7 @@ namespace RawPHP\Warp\Db;
 
 use Closure;
 use RawPHP\Warp\Support\FileLock;
+use RuntimeException;
 
 final class SnapshotStore
 {
