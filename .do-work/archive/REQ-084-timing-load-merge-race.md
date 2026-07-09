@@ -1,15 +1,10 @@
 # REQ-084: Timing reads do not drop batches during merge
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.82488
-**Claimed at:** 2026-07-09T20:37:07Z
-**Heartbeat:** 2026-07-09T20:51:28Z
-<!-- claimed-end -->
 **UR:** UR-015
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:6e3dc86
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** M
@@ -39,3 +34,8 @@ Confirmed finding 4: `load()` reads `timings.json` and pending batches without c
    - Expected: timing-store tests pass, including a deterministic race simulation where file totals include the racing batch and read-only overlay behavior is unchanged.
 2. **test** `./vendor/bin/pest`
    - Expected: full suite green; shard/timings read paths and merge cleanup paths remain compatible.
+
+## Outputs
+
+- src/Timing/TimingStore.php — Reloads the published timings view when a read-only pending batch read loses a merge race.
+- tests/Unit/Timing/TimingStoreTest.php — Adds deterministic regression coverage for pending-read/merge races and no undecodable warning on disappeared pending files.
