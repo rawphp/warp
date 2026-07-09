@@ -166,6 +166,12 @@ XML);
         ->and($files)->not->toContain('tests/SkipMeTest.php');
 });
 
+it('does not pre-scan for phpunit xml before suite discovery', function () {
+    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Cli/ShardCommand.php');
+
+    expect($source)->not->toContain('SuiteDiscovery::configurationPath');
+});
+
 it('falls back to tests with a stderr note when no phpunit xml exists', function () {
     chdir($this->tmp);
 

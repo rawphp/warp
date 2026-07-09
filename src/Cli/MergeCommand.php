@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace RawPHP\Warp\Cli;
 
 use InvalidArgumentException;
-use RawPHP\Warp\Timing\TimingStore;
 use RuntimeException;
 
 final class MergeCommand
@@ -17,24 +16,9 @@ final class MergeCommand
      */
     public static function run(array $args, $stdout, $stderr): int
     {
-        $store = TimingStore::fromEnv();
-
-        foreach ($args as $arg) {
-            if (str_starts_with($arg, '--timings-dir=')) {
-                $store = new TimingStore(substr($arg, strlen('--timings-dir=')));
-            } elseif (str_starts_with($arg, '--')) {
-                fwrite($stderr, "[warp] unknown option: {$arg}\n");
-
-                return 2;
-            } else {
-                fwrite($stderr, "[warp] unknown argument: {$arg}\n");
-
-                return 2;
-            }
-        }
-
         try {
-            $merged = $store->mergeToDisk();
+            $timings = TimingStoreArgumentParser::parse($args, static fn (string $arg): bool => false);
+            $merged = $timings->store->mergeToDisk();
         } catch (InvalidArgumentException|RuntimeException $exception) {
             fwrite($stderr, $exception->getMessage()."\n");
 

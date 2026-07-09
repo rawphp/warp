@@ -17,24 +17,9 @@ final class TimingsCommand
      */
     public static function run(array $args, $stdout, $stderr): int
     {
-        $store = TimingStore::fromEnv();
-
-        foreach ($args as $arg) {
-            if (str_starts_with($arg, '--timings-dir=')) {
-                $store = new TimingStore(substr($arg, strlen('--timings-dir=')));
-            } elseif (str_starts_with($arg, '--')) {
-                fwrite($stderr, "[warp] unknown option: {$arg}\n");
-
-                return 2;
-            } else {
-                fwrite($stderr, "[warp] unknown argument: {$arg}\n");
-
-                return 2;
-            }
-        }
-
         try {
-            $tests = $store->load();
+            $timings = TimingStoreArgumentParser::parse($args, static fn (string $arg): bool => false);
+            $tests = $timings->store->load();
         } catch (InvalidArgumentException|RuntimeException $exception) {
             fwrite($stderr, $exception->getMessage()."\n");
 
