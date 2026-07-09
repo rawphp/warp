@@ -1,16 +1,10 @@
 # REQ-081: Early-stopped timing runs flush incomplete
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.82488
-**Claimed at:** 2026-07-09T20:36:26Z
-**Heartbeat:** 2026-07-09T20:47:28Z
-<!-- claimed-end -->
 **UR:** UR-015
-**Status:** stopped
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
-**Reason:** review-failed
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 2 verification checkpoints passed; commit:c70a660
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** M
@@ -41,6 +35,7 @@ Confirmed finding 1: `hasRestrictedSelection()` only inspects static selection r
 2. **test** `./vendor/bin/pest`
    - Expected: full suite green; completeness behavior remains compatible with prior timing-store and shutdown-backstop tests.
 
-## Review blocker
+## Outputs
 
-Independent review failed: AC3 is not satisfied because configured stop-on-* runs are treated as incomplete even when the selected run completes successfully. A successful plain `--testsuite` or unrestricted run with `stopOnFailure=true` would now keep stale sibling timings instead of pruning them.
+- src/Timing/TimingExtension.php — Tracks selected versus finished test counts so actual stop-on early exits flush incomplete while fully observed stop-on runs flush complete.
+- tests/Integration/Timing/TimingCaptureTest.php — Adds child-process regressions for successful stopOnFailure, actual stopOnFailure, stopOnDefect, and stopOnError timing completeness.
