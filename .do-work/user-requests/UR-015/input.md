@@ -46,3 +46,38 @@ Run intake on the confirmed bugs.
 
 11. **src/Support/FileLock.php:14** (confirmed in review but cut from the top-10 report as lowest severity) — FileLock uses @fopen, suppressing the PHP warning that carried the OS reason (e.g. Permission denied); the thrown RuntimeException carries only the path with no error_get_last() detail, so the underlying cause of lock-open failures is lost.
     Failure scenario: Snapshot root exists but the lock file is unwritable (root-owned .lock left behind, read-only mount): the OS reason is silently swallowed and only the generic '[warp] cannot open file lock at ...' message remains, making the failure harder to debug. Appending error_get_last()['message'] to the exception would recover it.
+
+## Clarifications
+
+**Q:** The brief includes finding 11 as "confirmed" even though it was cut from the top-10 report; should all 11 confirmed findings be in scope?
+**A:** All 11 confirmed findings are in scope, including FileLock diagnostics. *(inferred, confirmed)*
+
+**Q:** Finding 3 says incompatible installs should fail at install time; should Warp support older PHPUnit majors or constrain installation to the runtime dependency set it already uses?
+**A:** Prefer constraining install compatibility to the actual runtime dependency set, not supporting older PHPUnit majors, because runtime code uses current PHPUnit/Pest internals while `composer.json` only requires PHP today. *(inferred, confirmed)*
+
+**Q:** Finding 1 overlaps prior timing-completeness work; should existing completeness semantics be preserved?
+**A:** Preserve existing timing semantics: method/group/path restrictions are incomplete, plain `--testsuite` remains complete, and early-stop handling should extend that model rather than replace it. *(inferred, confirmed)*
+
+**Q:** Finding 4 concerns `warp merge` racing `warp shard`; should capture preserve the prior read-only shard/timings decision?
+**A:** Preserve the read-only `warp shard/timings` decision: disk cleanup stays under explicit `warp merge`; shard-time reads should not delete pending files. *(inferred, confirmed)*
+
+**Q:** Finding 7 says shard options are silently ignored; where should diagnostics go when stdout is the shard-file channel?
+**A:** Diagnostics for ignored shard options should go to stderr, keeping stdout as the machine-readable shard-file list. *(inferred, confirmed)*
+
+**Q:** The brief calls finding 2 "a telemetry-only problem." Should timing capture failures be non-fatal for every `TimingExtension` flush path?
+**A:** Yes. `TimingExtension` flush failures are non-fatal for all test-run flush paths: warn once, suppress retry/fatal shutdown behavior, and do not fail an otherwise green suite.
+
+**Q:** Finding 1 covers `stopOnFailure/stopOnDefect/stopOnError`. Should the fix treat any early-stopped run as incomplete, even when PHPUnit still fires `ExecutionFinished`?
+**A:** Yes. Any early stop is incomplete: if configured stop conditions terminate before the full selected run completes, flush `complete=false`.
+
+**Q:** Finding 3 says incompatible installs should fail at install time. Which public compatibility contract should capture use?
+**A:** Require PHPUnit 11.1+ by adding a runtime Composer constraint matching the internals Warp uses today.
+
+**Q:** Finding 5 says `canonicalFiles()` fails for `--configuration=/repo/app/phpunit.xml` run from outside `/repo/app` and for symlinked test directories outside the project root. What should the canonical output form be for files outside `getcwd()`?
+**A:** When `--configuration` is provided, treat the config directory as the shard root. Discovered suite files under that root should use root-relative keys, and symlink targets outside the root should be allowed with stable absolute realpaths.
+
+**Q:** Finding 10 says `bench/shard-spread.sh` masks crashed Pest runs when stale `.warp/timings/*.json` files exist. Should the bench script isolate each invocation's timings in a fresh run-specific directory?
+**A:** Yes. Use a fresh run-specific timing directory per invocation, and only continue on Pest failure if that run produced artifacts.
+
+**Q:** The brief says these are "confirmed bugs" from the S3 branch review. For fixes with runtime scenarios, should capture require integration-style reproduction tests in addition to unit tests?
+**A:** Yes, for scenario-heavy bugs. Add child-process or CLI/integration proof for early-stop, read-only timing dir, config-root discovery, ignored options, and bench artifact isolation.
