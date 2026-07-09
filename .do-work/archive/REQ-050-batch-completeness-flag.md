@@ -1,19 +1,13 @@
 # REQ-050: Batch completeness flag — partial crash-flush batches must not supersede complete data
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.21409
-**Claimed at:** 2026-07-08T23:51:41Z
-**Heartbeat:** 2026-07-08T23:51:41Z
-<!-- claimed-end -->
-
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
 **Terminal state:**
 **Parent:** REQ-046
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 2 verification checkpoints passed commit:554c285
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** M
@@ -35,10 +29,10 @@ Review finding #4: a recording run that fatals mid-file flushes a partial batch 
 
 ## Acceptance Criteria
 
-- [ ] Normal-completion flush produces `complete: true` batches; the shutdown backstop path produces `complete: false` batches (unit-testable by invoking the collector/extension flush paths directly).
-- [ ] A test seeds timings.json with 3 entries for FileA (total 3000ms), merges an incomplete batch containing 1 FileA test at 100ms, and asserts the other 2 entries survive (per-test merge, no whole-file supersede).
-- [ ] The same scenario with `complete: true` asserts the old supersede-by-file behaviour still holds.
-- [ ] `apply()` no longer runs `array_filter` over the full test map per batch; merging N batches touching disjoint files does not rescan unrelated entries (structure/complexity change verified by reading the implementation; behavioural equivalence by the existing merge tests).
+- [x] Normal-completion flush produces `complete: true` batches; the shutdown backstop path produces `complete: false` batches (unit-testable by invoking the collector/extension flush paths directly).
+- [x] A test seeds timings.json with 3 entries for FileA (total 3000ms), merges an incomplete batch containing 1 FileA test at 100ms, and asserts the other 2 entries survive (per-test merge, no whole-file supersede).
+- [x] The same scenario with `complete: true` asserts the old supersede-by-file behaviour still holds.
+- [x] `apply()` no longer runs `array_filter` over the full test map per batch; merging N batches touching disjoint files does not rescan unrelated entries (structure/complexity change verified by reading the implementation; behavioural equivalence by the existing merge tests).
 
 ## Verification Steps
 
@@ -56,3 +50,11 @@ Review finding #4: a recording run that fatals mid-file flushes a partial batch 
 **Data dependencies:** Pending-batch JSON payload shape (clean break: adds the `complete` flag) and `timings.json` entries keyed by test id with `file` fields.
 
 **Service dependencies:** Builds on REQ-049's timestamped batch files in src/Timing/TimingStore.php (hard dependency).
+
+## Outputs
+
+- src/Timing/TimingStore.php — Pending payloads now include complete/tests, and merge uses an indexed complete-vs-incomplete apply path.
+- src/Timing/TimingCollector.php — Collector flush accepts a completeness flag and forwards it to pending batch writes.
+- src/Timing/TimingExtension.php — Normal runner completion flushes complete batches; shutdown backstop flushes incomplete batches.
+- tests/Unit/Timing/TimingStoreTest.php — Added coverage for complete payloads, incomplete per-test merges, and complete whole-file supersession.
+- tests/Unit/Timing/TimingCollectorTest.php — Added coverage for complete and incomplete collector flush payloads.
