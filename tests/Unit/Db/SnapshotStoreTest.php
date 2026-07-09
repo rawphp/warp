@@ -56,6 +56,19 @@ it('promotes a staging dir atomically into the keyed slot', function () {
         ->and(file_exists($staging))->toBeFalse();
 });
 
+it('throws a catchable runtime exception when promotion fails', function () {
+    $staging = $this->store->stagingPath($this->key);
+
+    set_error_handler(static fn (): bool => true);
+
+    try {
+        expect(fn () => $this->store->promote($staging, $this->key))
+            ->toThrow(RuntimeException::class, '[warp] failed to promote snapshot '.$staging);
+    } finally {
+        restore_error_handler();
+    }
+});
+
 it('prunes all but the most recently used snapshots, skipping staging dirs', function () {
     foreach (['1111111111111111', '2222222222222222', '3333333333333333'] as $i => $name) {
         Dirs::ensure($this->root.'/'.$name.'/datadir');
