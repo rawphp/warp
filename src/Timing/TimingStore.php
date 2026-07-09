@@ -23,7 +23,7 @@ final class TimingStore
     {
         $dir = getenv('WARP_TIMINGS_DIR');
 
-        return new self($dir !== false && $dir !== '' ? $dir : getcwd().'/.warp/timings');
+        return new self($dir !== false && $dir !== '' ? $dir : (getcwd() ?: '.').'/.warp/timings');
     }
 
     /**
