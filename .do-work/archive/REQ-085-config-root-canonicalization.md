@@ -1,15 +1,10 @@
 # REQ-085: Shard canonicalization follows config root
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.82488
-**Claimed at:** 2026-07-09T20:37:07Z
-**Heartbeat:** 2026-07-09T20:47:24Z
-<!-- claimed-end -->
 **UR:** UR-015
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:ef23791
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** M
@@ -39,3 +34,11 @@ Confirmed finding 5: `canonicalFiles()` canonicalizes discovered files relative 
    - Expected: CLI/path tests pass, including config-root discovery from another cwd and symlinked outside-root suite coverage.
 2. **test** `./vendor/bin/pest`
    - Expected: full suite green; normal root-relative timing keys and shard output remain stable.
+
+## Outputs
+
+- src/Cli/ShardCommand.php — Uses suite/config root for suite-discovered shard canonicalization and allows outside-root realpaths.
+- src/Support/Paths.php — Adds optional outside-root canonicalization returning stable absolute realpaths.
+- src/Timing/TestFileResolver.php — Uses outside-root canonicalization so timing keys match symlinked external suite files.
+- tests/Unit/Cli/ShardCommandTest.php — Covers config-root discovery from another cwd and symlinked outside-root suite output.
+- tests/Unit/Timing/TestFileResolverTest.php — Covers timing resolver absolute realpaths for existing outside-root files.

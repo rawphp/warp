@@ -3,7 +3,7 @@
 <!-- claimed-start -->
 **Claimed by:** Toms-MacBook-Pro.local.82488
 **Claimed at:** 2026-07-09T20:46:54Z
-**Heartbeat:** 2026-07-09T20:48:28Z
+**Heartbeat:** 2026-07-09T20:50:15Z
 <!-- claimed-end -->
 **UR:** UR-015
 **Status:** in-progress
@@ -26,10 +26,10 @@ Confirmed finding 11: `FileLock::withLock()` uses `@fopen()` and throws a generi
 
 ## Acceptance Criteria
 
-- [ ] When `fopen()` fails, `FileLock::withLock()` throws a `[warp]`-prefixed RuntimeException that includes the lock path and the underlying warning reason from `error_get_last()` when available.
-- [ ] The callback is not invoked when opening the lock file fails.
-- [ ] Existing flock-failure behavior is unchanged: lock acquisition failures still close the handle and throw the acquire-lock exception.
-- [ ] Tests cover both an open failure with available warning detail and the existing flock-failure path.
+- [x] When `fopen()` fails, `FileLock::withLock()` throws a `[warp]`-prefixed RuntimeException that includes the lock path and the underlying warning reason from `error_get_last()` when available.
+- [x] The callback is not invoked when opening the lock file fails.
+- [x] Existing flock-failure behavior is unchanged: lock acquisition failures still close the handle and throw the acquire-lock exception.
+- [x] Tests cover both an open failure with available warning detail and the existing flock-failure path.
 
 ## Verification Steps
 
