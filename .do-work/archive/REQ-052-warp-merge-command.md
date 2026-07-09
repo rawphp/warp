@@ -1,23 +1,17 @@
 # REQ-052: `warp merge` command + uniform CLI error handling
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.21409
-**Claimed at:** 2026-07-09T01:42:25Z
-**Heartbeat:** 2026-07-09T01:42:25Z
-<!-- claimed-end -->
-
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
 **Terminal state:**
 **Parent:** REQ-046
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 3 verification checkpoints passed commit:bff2a65
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** M
-**Files:** src/Cli/WarpCli.php, src/Cli/MergeCommand.php, src/Cli/TimingsCommand.php, tests/Unit/Cli/MergeCommandTest.php, tests/Unit/Cli/TimingsCommandTest.php
+**Files:** src/Cli/WarpCli.php, src/Cli/MergeCommand.php, src/Cli/TimingsCommand.php, src/Timing/TimingStore.php, tests/Unit/Cli/MergeCommandTest.php, tests/Unit/Cli/TimingsCommandTest.php
 **Depends on:** REQ-051
 
 ## Task
@@ -32,10 +26,10 @@ Review findings #3 (clarified contract: explicit merge step) and #10 (TimingsCom
 
 ## Acceptance Criteria
 
-- [ ] `warp merge` merges pending batches to disk (pending files gone, timings.json updated) and prints a batch count; running it again immediately exits 0 reporting nothing to merge.
-- [ ] `warp merge` against an unwritable timings dir exits 2 with a `[warp]`-prefixed stderr message — no stack trace.
-- [ ] `warp timings` against a store whose `timings.json` is unreadable/corrupt exits 2 with a `[warp]`-prefixed stderr message — no stack trace, no exit 255.
-- [ ] `warp` usage output lists the `merge` subcommand.
+- [x] `warp merge` merges pending batches to disk (pending files gone, timings.json updated) and prints a batch count; running it again immediately exits 0 reporting nothing to merge.
+- [x] `warp merge` against an unwritable timings dir exits 2 with a `[warp]`-prefixed stderr message — no stack trace.
+- [x] `warp timings` against a store whose `timings.json` is unreadable/corrupt exits 2 with a `[warp]`-prefixed stderr message — no stack trace, no exit 255.
+- [x] `warp` usage output lists the `merge` subcommand.
 
 ## Verification Steps
 
@@ -55,3 +49,12 @@ Review findings #3 (clarified contract: explicit merge step) and #10 (TimingsCom
 **Data dependencies:** Timings dir (`timings.json`, `pending/*.json`, `merge.lock`) via `TimingStore::mergeToDisk()`.
 
 **Service dependencies:** `TimingStore` (REQ-051) and `Support\FileLock` (REQ-047); mirrors the option parsing and error-exit conventions of src/Cli/ShardCommand.php and src/Cli/TimingsCommand.php.
+
+## Outputs
+
+- `src/Cli/MergeCommand.php` — Added `warp merge` with `--timings-dir`, batch-count/no-op output, and clean `[warp]` exit-2 error handling.
+- `src/Cli/WarpCli.php` — Registered `merge` dispatch and listed it in usage output.
+- `src/Cli/TimingsCommand.php` — Wrapped timing-store access in the same clean exception handling pattern as `ShardCommand`.
+- `src/Timing/TimingStore.php` — Made `mergeToDisk()` return the merged pending batch count and throw explicit `[warp]` read/decode/write/publish/delete errors.
+- `tests/Unit/Cli/MergeCommandTest.php` — Covered merge success, repeated no-op, lock failure clean exit, unknown args, and usage listing.
+- `tests/Unit/Cli/TimingsCommandTest.php` — Covered corrupt `timings.json` clean exit without a stack trace.
