@@ -6,6 +6,7 @@ namespace RawPHP\Warp\Cli;
 
 use InvalidArgumentException;
 use RawPHP\Warp\Shard\DurationBalancedSharder;
+use RawPHP\Warp\Shard\MissingConfigurationException;
 use RawPHP\Warp\Shard\SuiteDiscovery;
 use RawPHP\Warp\Shard\TestFileFinder;
 use RawPHP\Warp\Support\Paths;
@@ -75,8 +76,8 @@ final class ShardCommand
 
                 try {
                     $files = SuiteDiscovery::discover($root, $configuration);
-                } catch (RuntimeException $exception) {
-                    if ($configuration !== null || $exception->getMessage() !== '[warp] no phpunit.xml found at project root') {
+                } catch (MissingConfigurationException $exception) {
+                    if ($configuration !== null) {
                         throw $exception;
                     }
 

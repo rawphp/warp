@@ -47,6 +47,22 @@ it('degrades to count-balanced round-robin with no timings at all', function () 
         ->and(DurationBalancedSharder::assign($files, [], 2, 2))->toBe(['tests/BTest.php', 'tests/DTest.php']);
 });
 
+it('keeps no-timings fallback distribution stable when file count is not divisible by shards', function () {
+    $files = [
+        'tests/ATest.php',
+        'tests/BTest.php',
+        'tests/CTest.php',
+        'tests/DTest.php',
+        'tests/ETest.php',
+    ];
+
+    expect(DurationBalancedSharder::plan($files, [], 3))->toBe([
+        ['tests/ATest.php', 'tests/DTest.php'],
+        ['tests/BTest.php', 'tests/ETest.php'],
+        ['tests/CTest.php'],
+    ]);
+});
+
 it('degrades to count-balanced round-robin when every timing weight is zero', function () {
     $files = [
         'tests/ATest.php',
