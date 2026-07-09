@@ -1,19 +1,13 @@
 # REQ-051: Read-only load — consumers overlay pending in memory; explicit mergeToDisk()
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.21409
-**Claimed at:** 2026-07-09T00:03:26Z
-**Heartbeat:** 2026-07-09T01:31:21Z
-<!-- claimed-end -->
-
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
 **Terminal state:**
 **Parent:** REQ-046
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 3 verification checkpoints passed commit:c880971
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** M
@@ -34,11 +28,11 @@ Review finding #3: `warp shard` performs destructive writes on its read path on 
 
 ## Acceptance Criteria
 
-- [ ] `load()` on a store directory that is entirely read-only (chmod 0555, containing both `timings.json` and unmerged `pending/*.json`) succeeds and returns the overlaid merged view — no exception, no writes, no lock file created.
-- [ ] `load()` leaves `pending/*.json` files in place (asserted after load).
-- [ ] `mergeToDisk()` rewrites `timings.json` with the merged view, deletes merged pending files, and serializes concurrent callers via `FileLock::withLock()`; the inline fopen/flock code in TimingStore is deleted.
-- [ ] In-memory overlay and `mergeToDisk()` produce identical merged data for the same inputs (property asserted by a test running both against the same fixture).
-- [ ] `tests/Integration/Timing/TimingCaptureTest.php` no longer asserts that `load()` consumes pending batches; it asserts the captured pending batch remains available after the read-only load overlay.
+- [x] `load()` on a store directory that is entirely read-only (chmod 0555, containing both `timings.json` and unmerged `pending/*.json`) succeeds and returns the overlaid merged view — no exception, no writes, no lock file created.
+- [x] `load()` leaves `pending/*.json` files in place (asserted after load).
+- [x] `mergeToDisk()` rewrites `timings.json` with the merged view, deletes merged pending files, and serializes concurrent callers via `FileLock::withLock()`; the inline fopen/flock code in TimingStore is deleted.
+- [x] In-memory overlay and `mergeToDisk()` produce identical merged data for the same inputs (property asserted by a test running both against the same fixture).
+- [x] `tests/Integration/Timing/TimingCaptureTest.php` no longer asserts that `load()` consumes pending batches; it asserts the captured pending batch remains available after the read-only load overlay.
 
 ## Verification Steps
 
@@ -58,3 +52,9 @@ Review finding #3: `warp shard` performs destructive writes on its read path on 
 **Data dependencies:** `timings.json` and `pending/*.json` under the store dir; `merge.lock` now touched only by `mergeToDisk()`.
 
 **Service dependencies:** Consumes `Support\FileLock` from REQ-047; builds on REQ-050's apply semantics (hard dependencies).
+
+## Outputs
+
+- `src/Timing/TimingStore.php` — Split read-only load overlay from explicit mergeToDisk durable merge using FileLock.
+- `tests/Unit/Timing/TimingStoreTest.php` — Added and updated unit coverage for read-only load, mergeToDisk, read-only directories, and overlay/merge equivalence.
+- `tests/Integration/Timing/TimingCaptureTest.php` — Updated real Pest timing capture integration test to assert pending batches remain after load overlay.
