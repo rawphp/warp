@@ -1,19 +1,13 @@
 # REQ-074: In-flight discriminator for shutdown-backstop completeness
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.23132
-**Claimed at:** 2026-07-09T09:13:10Z
-**Heartbeat:** 2026-07-09T09:13:10Z
-<!-- claimed-end -->
-
 **UR:** UR-013
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed checkpoints:2 commit:6e9f7d1
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** M
@@ -32,10 +26,10 @@ Code-review finding #2. CRITICAL: the current behavior IS the accepted REQ-069 f
 
 ## Acceptance Criteria
 
-- [ ] A shutdown-backstop flush with an in-flight test (started, never finished — simulating `exit()` mid-test) writes `complete: false`; after merge, previously-stored timings for the interrupted file's other tests survive (reproduces then fixes the finding-#2 scenario).
-- [ ] A shutdown-backstop flush with no in-flight test and no fatal error (paratest worker natural end) still writes `complete: true`, and stale-ID pruning for fully-observed files still fires across repeated merges (REQ-069 regression guard — existing tests pass).
-- [ ] A shutdown-backstop flush after a fatal error still writes `complete: false` (existing REQ-050 crash semantics unchanged).
-- [ ] The `|| ! self::shutdownHadFatalError()` term in `TimingExtension::flush()` is removed; the completeness decision is made once at the backstop/subscriber call sites.
+- [x] A shutdown-backstop flush with an in-flight test (started, never finished — simulating `exit()` mid-test) writes `complete: false`; after merge, previously-stored timings for the interrupted file's other tests survive (reproduces then fixes the finding-#2 scenario).
+- [x] A shutdown-backstop flush with no in-flight test and no fatal error (paratest worker natural end) still writes `complete: true`, and stale-ID pruning for fully-observed files still fires across repeated merges (REQ-069 regression guard — existing tests pass).
+- [x] A shutdown-backstop flush after a fatal error still writes `complete: false` (existing REQ-050 crash semantics unchanged).
+- [x] The `|| ! self::shutdownHadFatalError()` term in `TimingExtension::flush()` is removed; the completeness decision is made once at the backstop/subscriber call sites.
 
 ## Verification Steps
 
@@ -43,3 +37,10 @@ Code-review finding #2. CRITICAL: the current behavior IS the accepted REQ-069 f
 
 1. **test** `./vendor/bin/pest --filter="TimingCollector|TimingCapture|TimingExtension"` — Expected: all pass, including new in-flight-discriminator cases for the exit()-mid-test and natural-worker-end paths.
 2. **test** `./vendor/bin/pest` — Expected: full suite green (touches the same supersede machinery as REQ-069/REQ-073).
+
+## Outputs
+
+- src/Timing/TimingCollector.php — Adds `hasInFlight()` to expose unfinished started tests.
+- src/Timing/TimingExtension.php — Uses a shutdown-backstop completeness discriminator for restricted, fatal, and in-flight shutdowns.
+- tests/Unit/Timing/TimingCollectorTest.php — Covers collector in-flight state transitions.
+- tests/Integration/Timing/TimingCaptureTest.php — Covers in-flight incomplete shutdown flushes, natural complete shutdown flushes, and fatal shutdown incompleteness.

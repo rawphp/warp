@@ -1,0 +1,27 @@
+run_id: RUN-064
+req: REQ-074
+ur: UR-013
+agent_id: "Toms-MacBook-Pro.local.23132"
+model: "sonnet"
+branch: "req/REQ-074"
+started_at: "2026-07-09T09:13:10Z"
+ended_at: "2026-07-09T09:28:26Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "estimated-sonnet"
+cost_estimate_num: 0.20
+pr_url: ""
+commands:
+  - "./vendor/bin/pest --filter=\"TimingCollector|TimingCapture|TimingExtension\""
+  - "./vendor/bin/pest"
+  - "rg -n \"\|\| ! self::shutdownHadFatalError|shutdownBackstopComplete|hasInFlight\" src/Timing/TimingCollector.php src/Timing/TimingExtension.php tests/Unit/Timing/TimingCollectorTest.php tests/Integration/Timing/TimingCaptureTest.php"
+tests:
+  - "./vendor/bin/pest --filter=\"TimingCollector|TimingCapture|TimingExtension\""
+  - "./vendor/bin/pest"
+  - "rg -n \"\|\| ! self::shutdownHadFatalError|shutdownBackstopComplete|hasInFlight\" src/Timing/TimingCollector.php src/Timing/TimingExtension.php tests/Unit/Timing/TimingCollectorTest.php tests/Integration/Timing/TimingCaptureTest.php"
+changed_files:
+  - "src/Timing/TimingCollector.php"
+  - "src/Timing/TimingExtension.php"
+  - "tests/Integration/Timing/TimingCaptureTest.php"
+  - "tests/Unit/Timing/TimingCollectorTest.php"
