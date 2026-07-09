@@ -7,13 +7,13 @@
 <!-- claimed-end -->
 
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:** `./vendor/bin/warp shard k/n <paths>` invoked with any spelling of the same test tree — `tests`, `./tests`, or an absolute path — on any machine holding the same timings artifact.
 **Terminal state:** All spellings produce byte-identical, duration-balanced shard plans; when recorded timings exist but no discovered file matches them, a loud stderr warning names the mismatch instead of silently degrading to count-balanced packing.
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed verification checkpoint passed after child REQs REQ-055 through REQ-057 were integrated; full suite green (240 tests, 627 assertions) commit:db5961d
 **Criteria approved:** agent-drafted
 **Priority:** 1
 **Size:** S
@@ -30,8 +30,8 @@ Review finding #1 (the most severe): timing keys are cwd-relative while discover
 
 ## Acceptance Criteria
 
-- [ ] All child REQs (REQ-055, REQ-056, REQ-057) are committed.
-- [ ] `warp shard 1/4 tests`, `warp shard 1/4 ./tests`, and `warp shard 1/4 "$PWD/tests"` against the same recorded timings produce byte-identical stdout (asserted by a REQ-055 test).
+- [x] All child REQs (REQ-055, REQ-056, REQ-057) are committed.
+- [x] `warp shard 1/4 tests`, `warp shard 1/4 ./tests`, and `warp shard 1/4 "$PWD/tests"` against the same recorded timings produce byte-identical stdout (asserted by a REQ-055 test).
 
 ## Verification Steps
 
@@ -39,3 +39,7 @@ Review finding #1 (the most severe): timing keys are cwd-relative while discover
 
 1. **test** `./vendor/bin/pest`
    - Expected: full suite green, including the path-spelling equivalence tests from REQ-055.
+
+## Outputs
+
+- No code outputs — closure REQ for the canonical-path sharding path after REQ-055 through REQ-057 landed.

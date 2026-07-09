@@ -7,13 +7,13 @@
 <!-- claimed-end -->
 
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:** `WARP_TIMINGS=1 ./vendor/bin/pest` records timings; any machine (including one restoring a read-only `.warp/timings` CI artifact) then runs `./vendor/bin/warp shard k/n` or `warp timings`; `warp merge` compacts pending batches to disk.
 **Terminal state:** Recorded timings survive worker crashes, concurrent merges, multi-run accumulation, and glob-hostile paths; `warp shard`/`warp timings` never write to the timings dir and succeed on a read-only artifact; `warp merge` is the only disk-merging operation.
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed verification checkpoint passed after child REQs REQ-047 through REQ-053 were integrated; full suite green (240 tests, 627 assertions) commit:db5961d
 **Criteria approved:** agent-drafted
 **Priority:** 1
 **Size:** S
@@ -30,8 +30,8 @@ Review findings #3, #4, #5, #7, #8, #10 and over-cap finding C3 all live in the 
 
 ## Acceptance Criteria
 
-- [ ] All child REQs (REQ-047 … REQ-053) are committed.
-- [ ] `./vendor/bin/pest` passes 100% including the new integration tests from REQ-053.
+- [x] All child REQs (REQ-047 … REQ-053) are committed.
+- [x] `./vendor/bin/pest` passes 100% including the new integration tests from REQ-053.
 
 ## Verification Steps
 
@@ -39,3 +39,7 @@ Review findings #3, #4, #5, #7, #8, #10 and over-cap finding C3 all live in the 
 
 1. **test** `./vendor/bin/pest`
    - Expected: full suite green, including `tests/Integration/Cli/WarpBinTest.php` read-only-artifact and exit-code-contract cases.
+
+## Outputs
+
+- No code outputs — closure REQ for the timings pipeline path after REQ-047 through REQ-053 landed.
