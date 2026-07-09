@@ -166,6 +166,99 @@ it('marks stop-on-failure captures incomplete so unrun sibling timings survive',
     }
 });
 
+it('keeps successful stop-on-failure testsuite captures complete so stale ids are pruned', function () {
+    $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+    $fixture = writeTimingPassingStopOnFixture();
+    $config = writeTimingEarlyStopPhpunitConfig($fixture, suiteName: 'PassingStopOnFixture');
+    $fixtureKey = 'tests/Integration/Timing/PassingStopOnFixtureTest.php';
+
+    try {
+        seedTimings($dir, [
+            'Seeded::staleStopOn' => ['file' => $fixtureKey, 'ms' => 1357.0],
+        ]);
+
+        runPestWithTimings($dir, ['--configuration='.$config, '--testsuite=PassingStopOnFixture']);
+
+        expect(pendingCompletenessFlags($dir))->toBe([true]);
+
+        $store = new TimingStore($dir);
+        $store->mergeToDisk();
+
+        $tests = $store->load();
+
+        expect($tests)->not->toHaveKey('Seeded::staleStopOn');
+    } finally {
+        @unlink($config);
+        @unlink($config.'.php');
+        @unlink($fixture);
+        Dirs::delete($dir);
+    }
+});
+
+it('marks stop-on-defect captures incomplete when a defect stops the run', function () {
+    $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+    $fixture = writeTimingEarlyStopFixture();
+    $config = writeTimingEarlyStopPhpunitConfig($fixture, 'stopOnDefect');
+    $fixtureKey = 'tests/Integration/Timing/EarlyStopFixtureTest.php';
+
+    try {
+        seedTimings($dir, [
+            'Seeded::unrunSibling' => ['file' => $fixtureKey, 'ms' => 2468.0],
+        ]);
+
+        $result = runPestWithTimingsExpectingFailure($dir, ['--configuration='.$config, '--testsuite=EarlyStopFixture']);
+
+        expect($result['exit'])->toBe(1)
+            ->and(implode(PHP_EOL, $result['output']))->toContain('fails and stops early')
+            ->and(pendingCompletenessFlags($dir))->toBe([false]);
+
+        $store = new TimingStore($dir);
+        $store->mergeToDisk();
+
+        $tests = $store->load();
+
+        expect($tests)->toHaveKey('Seeded::unrunSibling')
+            ->and($tests['Seeded::unrunSibling']['ms'])->toBe(2468.0);
+    } finally {
+        @unlink($config);
+        @unlink($config.'.php');
+        @unlink($fixture);
+        Dirs::delete($dir);
+    }
+});
+
+it('marks stop-on-error captures incomplete when an error stops the run', function () {
+    $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+    $fixture = writeTimingEarlyStopFixture('error');
+    $config = writeTimingEarlyStopPhpunitConfig($fixture, 'stopOnError');
+    $fixtureKey = 'tests/Integration/Timing/EarlyStopFixtureTest.php';
+
+    try {
+        seedTimings($dir, [
+            'Seeded::unrunSibling' => ['file' => $fixtureKey, 'ms' => 2468.0],
+        ]);
+
+        $result = runPestWithTimingsExpectingFailure($dir, ['--configuration='.$config, '--testsuite=EarlyStopFixture']);
+
+        expect($result['exit'])->toBe(2)
+            ->and(implode(PHP_EOL, $result['output']))->toContain('errors and stops early')
+            ->and(pendingCompletenessFlags($dir))->toBe([false]);
+
+        $store = new TimingStore($dir);
+        $store->mergeToDisk();
+
+        $tests = $store->load();
+
+        expect($tests)->toHaveKey('Seeded::unrunSibling')
+            ->and($tests['Seeded::unrunSibling']['ms'])->toBe(2468.0);
+    } finally {
+        @unlink($config);
+        @unlink($config.'.php');
+        @unlink($fixture);
+        Dirs::delete($dir);
+    }
+});
+
 it('shutdown backstop capture supersedes stale entries for fully observed files', function () {
     $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
 
@@ -312,9 +405,29 @@ XML,
     return $path;
 }
 
-function writeTimingEarlyStopFixture(): string
+function writeTimingEarlyStopFixture(string $mode = 'failure'): string
 {
     $path = dirname(__DIR__).'/Timing/EarlyStopFixtureTest.php';
+
+    if ($mode === 'error') {
+        file_put_contents($path, <<<'PHP'
+<?php
+
+it('passes before early stop', function () {
+    expect(true)->toBeTrue();
+});
+
+it('errors and stops early', function () {
+    throw new RuntimeException('stop-on-error fixture');
+});
+
+it('does not run after early stop', function () {
+    expect(true)->toBeTrue();
+});
+PHP);
+
+        return $path;
+    }
 
     file_put_contents($path, <<<'PHP'
 <?php
@@ -335,16 +448,38 @@ PHP);
     return $path;
 }
 
-function writeTimingEarlyStopPhpunitConfig(string $fixture): string
+function writeTimingPassingStopOnFixture(): string
 {
+    $path = dirname(__DIR__).'/Timing/PassingStopOnFixtureTest.php';
+
+    file_put_contents($path, <<<'PHP'
+<?php
+
+it('passes first stop-on fixture timing', function () {
+    expect(true)->toBeTrue();
+});
+
+it('passes second stop-on fixture timing', function () {
+    expect(true)->toBeTrue();
+});
+PHP);
+
+    return $path;
+}
+
+function writeTimingEarlyStopPhpunitConfig(
+    string $fixture,
+    string $stopAttribute = 'stopOnFailure',
+    string $suiteName = 'EarlyStopFixture',
+): string {
     $path = sys_get_temp_dir().'/warp-phpunit-'.bin2hex(random_bytes(4)).'.xml';
     $bootstrap = writeTimingRestrictionBootstrap($path.'.php');
 
     file_put_contents($path, sprintf(<<<'XML'
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit bootstrap="%s" colors="true" stopOnFailure="true">
+<phpunit bootstrap="%s" colors="true" %s="true">
     <testsuites>
-        <testsuite name="EarlyStopFixture">
+        <testsuite name="%s">
             <file>%s</file>
         </testsuite>
     </testsuites>
@@ -354,6 +489,8 @@ function writeTimingEarlyStopPhpunitConfig(string $fixture): string
 </phpunit>
 XML,
         htmlspecialchars($bootstrap, ENT_XML1),
+        htmlspecialchars($stopAttribute, ENT_XML1),
+        htmlspecialchars($suiteName, ENT_XML1),
         htmlspecialchars($fixture, ENT_XML1),
     ));
 
@@ -427,7 +564,7 @@ PHP,
 function pendingCompletenessFlags(string $dir): array
 {
     return array_map(
-        static fn (array $payload): bool|null => $payload['complete'] ?? null,
+        static fn (array $payload): ?bool => $payload['complete'] ?? null,
         pendingPayloads($dir),
     );
 }

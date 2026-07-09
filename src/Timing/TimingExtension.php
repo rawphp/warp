@@ -13,6 +13,8 @@ use PHPUnit\Event\Test\PreparationStarted;
 use PHPUnit\Event\Test\PreparationStartedSubscriber;
 use PHPUnit\Event\TestRunner\ExecutionFinished;
 use PHPUnit\Event\TestRunner\ExecutionFinishedSubscriber;
+use PHPUnit\Event\TestRunner\ExecutionStarted;
+use PHPUnit\Event\TestRunner\ExecutionStartedSubscriber;
 use PHPUnit\Runner\Extension\Extension;
 use PHPUnit\Runner\Extension\Facade;
 use PHPUnit\Runner\Extension\ParameterCollection;
@@ -31,10 +33,51 @@ final class TimingExtension implements Extension
         $collector = new TimingCollector;
         $store = TimingStore::fromEnv();
         $root = (string) getcwd();
-        $completeRun = ! self::hasIncompleteRunConfiguration($configuration);
+        $completeSelection = ! self::hasIncompleteSelectionConfiguration($configuration);
+        $runCompleteness = new class(self::hasStopOnConfiguration($configuration))
+        {
+            private int $selectedTests = 0;
+
+            private int $finishedTests = 0;
+
+            public function __construct(private readonly bool $stopOnConfigured) {}
+
+            public function executionStarted(ExecutionStarted $event): void
+            {
+                $this->selectedTests = $event->testSuite()->count();
+            }
+
+            public function testFinished(): void
+            {
+                $this->finishedTests++;
+            }
+
+            public function complete(bool $completeSelection): bool
+            {
+                if (! $completeSelection) {
+                    return false;
+                }
+
+                if (! $this->stopOnConfigured) {
+                    return true;
+                }
+
+                return $this->selectedTests === 0 || $this->finishedTests >= $this->selectedTests;
+            }
+        };
         $flush = static function (bool $complete) use ($collector, $store): void {
             self::flush($collector, $store, $complete);
         };
+
+        $facade->registerSubscriber(new class($runCompleteness) implements ExecutionStartedSubscriber
+        {
+            public function __construct(private readonly object $runCompleteness) {}
+
+            public function notify(ExecutionStarted $event): void
+            {
+                $this->runCompleteness->executionStarted($event);
+            }
+        });
 
         $facade->registerSubscriber(new class($collector) implements PreparationStartedSubscriber
         {
@@ -46,11 +89,12 @@ final class TimingExtension implements Extension
             }
         });
 
-        $facade->registerSubscriber(new class($collector, $root) implements FinishedSubscriber
+        $facade->registerSubscriber(new class($collector, $root, $runCompleteness) implements FinishedSubscriber
         {
             public function __construct(
                 private readonly TimingCollector $collector,
                 private readonly string $root,
+                private readonly object $runCompleteness,
             ) {}
 
             public function notify(Finished $event): void
@@ -67,26 +111,32 @@ final class TimingExtension implements Extension
                     TestFileResolver::resolve($test->className(), $test->file(), $this->root),
                     TimingExtension::seconds($event),
                 );
+                $this->runCompleteness->testFinished();
             }
         });
 
-        $facade->registerSubscriber(new class($flush, $completeRun) implements ExecutionFinishedSubscriber
+        $facade->registerSubscriber(new class($flush, $runCompleteness, $completeSelection) implements ExecutionFinishedSubscriber
         {
             public function __construct(
                 private readonly Closure $flush,
-                private readonly bool $completeRun,
+                private readonly object $runCompleteness,
+                private readonly bool $completeSelection,
             ) {}
 
             public function notify(ExecutionFinished $event): void
             {
-                ($this->flush)($this->completeRun);
+                ($this->flush)($this->runCompleteness->complete($this->completeSelection));
             }
         });
 
         // Backstop: paratest workers and interrupted runs may never see
         // ExecutionFinished; restricted, fatal, or in-flight shutdowns stay incomplete.
         register_shutdown_function(static fn () => $flush(
-            self::shutdownBackstopComplete($collector, $completeRun, self::shutdownHadFatalError())
+            self::shutdownBackstopComplete(
+                $collector,
+                $runCompleteness->complete($completeSelection),
+                self::shutdownHadFatalError(),
+            )
         ));
     }
 
@@ -113,14 +163,18 @@ final class TimingExtension implements Extension
         }
     }
 
-    private static function hasIncompleteRunConfiguration(Configuration $configuration): bool
+    private static function hasIncompleteSelectionConfiguration(Configuration $configuration): bool
     {
         return $configuration->hasFilter()
             || $configuration->hasExcludeFilter()
             || $configuration->hasGroups()
             || $configuration->hasExcludeGroups()
-            || $configuration->hasCliArguments()
-            || $configuration->stopOnDefect()
+            || $configuration->hasCliArguments();
+    }
+
+    private static function hasStopOnConfiguration(Configuration $configuration): bool
+    {
+        return $configuration->stopOnDefect()
             || $configuration->stopOnError()
             || $configuration->stopOnFailure();
     }
