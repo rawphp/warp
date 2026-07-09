@@ -1,0 +1,35 @@
+run_id: RUN-041
+req: REQ-052
+ur: UR-011
+agent_id: "Toms-MacBook-Pro.local.21409"
+model: "inherited"
+branch: "s3"
+started_at: "2026-07-09T01:42:25Z"
+ended_at: "2026-07-09T01:53:39Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "tier-weighted estimate"
+cost_estimate_num: 0.15
+pr_url: ""
+commands:
+  - "./vendor/bin/pest tests/Unit/Cli/MergeCommandTest.php tests/Unit/Cli/TimingsCommandTest.php"
+  - "php bin/warp merge --timings-dir=<dir> && php bin/warp merge --timings-dir=<dir>"
+  - "./vendor/bin/pest tests/Unit/Cli/MergeCommandTest.php tests/Unit/Cli/TimingsCommandTest.php tests/Unit/Timing/TimingStoreTest.php"
+  - "php -l src/Timing/TimingStore.php && php -l src/Cli/MergeCommand.php && php -l src/Cli/TimingsCommand.php && php -l src/Cli/WarpCli.php"
+  - "./vendor/bin/pest"
+  - "./vendor/bin/pint --test src/Cli/MergeCommand.php src/Cli/TimingsCommand.php src/Cli/WarpCli.php src/Timing/TimingStore.php tests/Unit/Cli/MergeCommandTest.php tests/Unit/Cli/TimingsCommandTest.php"
+tests:
+  - "./vendor/bin/pest tests/Unit/Cli/MergeCommandTest.php tests/Unit/Cli/TimingsCommandTest.php: 8 passed, 30 assertions"
+  - "runtime php bin/warp merge twice: first reported 1 pending timing batch, second reported nothing to merge, pending empty, timings.json had 2 tests"
+  - "./vendor/bin/pest tests/Unit/Cli/MergeCommandTest.php tests/Unit/Cli/TimingsCommandTest.php tests/Unit/Timing/TimingStoreTest.php: 29 passed, 80 assertions"
+  - "php -l changed source files: no syntax errors"
+  - "./vendor/bin/pest: 212 passed, 509 assertions"
+  - "./vendor/bin/pint --test changed PHP files: passed"
+changed_files:
+  - "src/Cli/MergeCommand.php"
+  - "src/Cli/WarpCli.php"
+  - "src/Cli/TimingsCommand.php"
+  - "src/Timing/TimingStore.php"
+  - "tests/Unit/Cli/MergeCommandTest.php"
+  - "tests/Unit/Cli/TimingsCommandTest.php"
