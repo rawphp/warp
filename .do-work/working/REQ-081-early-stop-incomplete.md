@@ -3,7 +3,7 @@
 <!-- claimed-start -->
 **Claimed by:** Toms-MacBook-Pro.local.82488
 **Claimed at:** 2026-07-09T20:36:26Z
-**Heartbeat:** 2026-07-09T20:45:52Z
+**Heartbeat:** 2026-07-09T20:47:28Z
 <!-- claimed-end -->
 **UR:** UR-015
 **Status:** in-progress
@@ -26,10 +26,10 @@ Confirmed finding 1: `hasRestrictedSelection()` only inspects static selection r
 
 ## Acceptance Criteria
 
-- [ ] A child Pest/PHPUnit fixture with `stopOnFailure="true"` records only the tests that ran before the first failure, writes a pending batch with `complete: false`, and exits with the expected failing test status.
-- [ ] After merging an early-stopped batch over a seeded full-file timing store, sibling test IDs that did not run remain present with their previous `ms` values.
-- [ ] Existing restricted-run behavior still holds: method/group/path restrictions flush `complete=false`, while plain `--testsuite` and unrestricted successful runs flush `complete=true`.
-- [ ] Shutdown backstop behavior from REQ-074 is not weakened: an in-flight or fatal shutdown still does not supersede sibling timings.
+- [x] A child Pest/PHPUnit fixture with `stopOnFailure="true"` records only the tests that ran before the first failure, writes a pending batch with `complete: false`, and exits with the expected failing test status.
+- [x] After merging an early-stopped batch over a seeded full-file timing store, sibling test IDs that did not run remain present with their previous `ms` values.
+- [x] Existing restricted-run behavior still holds: method/group/path restrictions flush `complete=false`, while plain `--testsuite` and unrestricted successful runs flush `complete=true`.
+- [x] Shutdown backstop behavior from REQ-074 is not weakened: an in-flight or fatal shutdown still does not supersede sibling timings.
 
 ## Verification Steps
 

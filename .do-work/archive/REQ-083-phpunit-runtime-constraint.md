@@ -1,15 +1,10 @@
 # REQ-083: Declare PHPUnit runtime compatibility
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.82488
-**Claimed at:** 2026-07-09T20:37:07Z
-**Heartbeat:** 2026-07-09T20:43:44Z
-<!-- claimed-end -->
 **UR:** UR-015
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed checkpoints:3 commit:a3a0f23
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -41,3 +36,9 @@ Confirmed finding 3: runtime `src/` code depends on PHPUnit internals such as Te
    - Expected: Composer reports a valid package definition with the new runtime PHPUnit constraint.
 3. **test** `./vendor/bin/pest`
    - Expected: full suite green under the locked dependency set.
+
+## Outputs
+
+- composer.json — Adds phpunit/phpunit as a runtime requirement with ^11.1 || ^12.0.
+- composer.lock — Locks the resolved dependency set including phpunit/phpunit 12.5.30.
+- tests/Unit/ComposerConstraintTest.php — Adds focused Composer constraint assertions for runtime PHPUnit compatibility.

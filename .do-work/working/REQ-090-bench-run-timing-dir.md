@@ -26,10 +26,10 @@ Confirmed finding 10: the script continues after Pest failure if any `*.json` ex
 
 ## Acceptance Criteria
 
-- [ ] Each `bench/shard-spread.sh` invocation writes `WARP_TIMINGS_DIR` to a fresh run-specific directory.
-- [ ] If Pest exits non-zero and the fresh run directory contains no timing artifact, the script exits with Pest's non-zero status even when stale `.warp/timings/*.json` files exist elsewhere in the app.
-- [ ] If Pest exits non-zero after producing timing artifacts in the fresh run directory, the script preserves the existing "continue with warning" behavior.
-- [ ] The script does not delete or overwrite pre-existing `.warp/timings` artifacts in the target app.
+- [x] Each `bench/shard-spread.sh` invocation writes `WARP_TIMINGS_DIR` to a fresh run-specific directory.
+- [x] If Pest exits non-zero and the fresh run directory contains no timing artifact, the script exits with Pest's non-zero status even when stale `.warp/timings/*.json` files exist elsewhere in the app.
+- [x] If Pest exits non-zero after producing timing artifacts in the fresh run directory, the script preserves the existing "continue with warning" behavior.
+- [x] The script does not delete or overwrite pre-existing `.warp/timings` artifacts in the target app.
 
 ## Verification Steps
 
