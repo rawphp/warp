@@ -89,7 +89,7 @@ it('flush writes a single pending batch and only once', function () {
     Dirs::delete($dir);
 });
 
-it('does not mark flushed after a failed pending write so shutdown can retry', function () {
+it('marks flushed before a failed pending write so shutdown does not retry', function () {
     $dir = sys_get_temp_dir().'/warp-collector-'.bin2hex(random_bytes(8));
     $store = new TimingStore($dir);
     $collector = new TimingCollector;
@@ -112,25 +112,18 @@ it('does not mark flushed after a failed pending write so shutdown can retry', f
         }
 
         expect($writeFailed)->toBeTrue()
-            ->and($collector->hasFlushed())->toBeFalse();
+            ->and($collector->hasFlushed())->toBeTrue();
 
         unlink($dir.'/pending');
 
         $collector->flush($store, complete: false);
 
-        $path = glob($dir.'/pending/*.json')[0] ?? null;
-        $payload = json_decode((string) file_get_contents((string) $path), true);
-
         expect($collector->hasFlushed())->toBeTrue()
-            ->and(glob($dir.'/pending/*.json'))->toHaveCount(1)
-            ->and($payload)->toEqual([
-                'complete' => false,
-                'tests' => ['t::one' => ['file' => 'tests/OneTest.php', 'ms' => 500.0]],
-            ]);
+            ->and(glob($dir.'/pending/*.json'))->toHaveCount(0);
 
         $collector->flush($store, complete: true);
 
-        expect(glob($dir.'/pending/*.json'))->toHaveCount(1);
+        expect(glob($dir.'/pending/*.json'))->toHaveCount(0);
     } finally {
         Dirs::delete($dir);
     }

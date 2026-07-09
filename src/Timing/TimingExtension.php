@@ -21,6 +21,7 @@ use PHPUnit\Runner\Extension\ParameterCollection;
 use PHPUnit\TextUI\Configuration\Configuration;
 use RawPHP\Warp\Support\Stderr;
 use RawPHP\Warp\WarpMode;
+use Throwable;
 
 final class TimingExtension implements Extension
 {
@@ -154,7 +155,13 @@ final class TimingExtension implements Extension
             return;
         }
 
-        $collector->flush($store, complete: $complete);
+        try {
+            $collector->flush($store, complete: $complete);
+        } catch (Throwable $exception) {
+            Stderr::write('[warp] timing flush failed: '.$exception->getMessage().PHP_EOL);
+
+            return;
+        }
 
         $unattributed = $collector->unattributedCount();
 
