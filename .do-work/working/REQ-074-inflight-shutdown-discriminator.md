@@ -1,7 +1,13 @@
 # REQ-074: In-flight discriminator for shutdown-backstop completeness
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.23132
+**Claimed at:** 2026-07-09T09:13:10Z
+**Heartbeat:** 2026-07-09T09:13:10Z
+<!-- claimed-end -->
+
 **UR:** UR-013
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
