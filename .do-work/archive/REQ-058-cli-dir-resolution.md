@@ -1,19 +1,13 @@
 # REQ-058: Path-unit — CLI timings-dir resolution honors WARP_TIMINGS_DIR; strict flag parsing
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.21409
-**Claimed at:** 2026-07-09T02:02:18Z
-**Heartbeat:** 2026-07-09T02:02:18Z
-<!-- claimed-end -->
-
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:** `WARP_TIMINGS_DIR=/some/dir ./vendor/bin/warp shard|timings|merge ...` with no `--timings-dir` flag.
 **Terminal state:** All three subcommands read/merge the exact directory the recording extension wrote to (env var honored, one canonical resolver); unknown `--flags` are rejected loudly by every subcommand instead of being swallowed as paths.
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all verification checkpoints passed commit:4b3ad1d
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** M
@@ -31,10 +25,10 @@ Review finding #6 and over-cap C1: recording (via `TimingExtension` → `fromEnv
 
 ## Acceptance Criteria
 
-- [ ] With `WARP_TIMINGS_DIR` set and no `--timings-dir` flag, `warp shard`, `warp timings`, and `warp merge` all operate on the env-specified directory (tests set the env var and assert the store contents are found).
-- [ ] `--timings-dir=<dir>` overrides the env var in all three subcommands.
-- [ ] The string literal `.warp/timings` appears in exactly one place in src/ (`TimingStore::fromEnv()`), verified by grep.
-- [ ] `warp shard 1/8 --timigs-dir=/x` exits 2 with stderr `[warp] unknown option: --timigs-dir=/x` (not a "no such test path" error); the same unknown-option behaviour holds for `timings` and `merge`.
+- [x] With `WARP_TIMINGS_DIR` set and no `--timings-dir` flag, `warp shard`, `warp timings`, and `warp merge` all operate on the env-specified directory (tests set the env var and assert the store contents are found).
+- [x] `--timings-dir=<dir>` overrides the env var in all three subcommands.
+- [x] The string literal `.warp/timings` appears in exactly one place in src/ (`TimingStore::fromEnv()`), verified by grep.
+- [x] `warp shard 1/8 --timigs-dir=/x` exits 2 with stderr `[warp] unknown option: --timigs-dir=/x` (not a "no such test path" error); the same unknown-option behaviour holds for `timings` and `merge`.
 
 ## Verification Steps
 
@@ -56,3 +50,12 @@ Review finding #6 and over-cap C1: recording (via `TimingExtension` → `fromEnv
 **Data dependencies:** `WARP_TIMINGS_DIR` env var and the timings dir contents via `TimingStore::fromEnv()` (src/Timing/TimingStore.php:17-22).
 
 **Service dependencies:** `TimingStore::fromEnv()` becomes the single resolver; depends on REQ-052 (MergeCommand exists) and REQ-055 (ShardCommand edits serialized by file footprint).
+
+## Outputs
+
+- `src/Cli/ShardCommand.php` — Defaulted timing reads through `TimingStore::fromEnv()`, kept `--timings-dir` override, and rejected unknown `--options`.
+- `src/Cli/TimingsCommand.php` — Applied the same env default, explicit override, and strict option parsing.
+- `src/Cli/MergeCommand.php` — Applied the same env default, explicit override, and strict option parsing.
+- `tests/Unit/Cli/ShardCommandTest.php` — Added env resolution, override, and unknown-option coverage.
+- `tests/Unit/Cli/TimingsCommandTest.php` — Added env resolution, override, unknown-argument, and unknown-option coverage.
+- `tests/Unit/Cli/MergeCommandTest.php` — Added env resolution, override, unknown-argument, and unknown-option coverage.

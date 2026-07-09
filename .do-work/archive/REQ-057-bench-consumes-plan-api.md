@@ -1,23 +1,17 @@
 # REQ-057: Bench consumes sharder plan API; guard zero discovered files
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.21409
-**Claimed at:** 2026-07-09T02:00:41Z
-**Heartbeat:** 2026-07-09T02:00:41Z
-<!-- claimed-end -->
-
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** bench
 **Entry point:**
 **Terminal state:**
 **Parent:** REQ-054
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 3 verification checkpoints passed commit:12fe3e7
 **Criteria approved:** agent-drafted
 **Priority:** 1
 **Size:** S
-**Files:** bench/shard-spread.php, bench/shard-spread.sh
+**Files:** bench/shard-spread.php
 **Depends on:** REQ-056
 
 ## Task
@@ -31,9 +25,9 @@ Over-cap findings: the bench re-implements the sharder's private fallback policy
 
 ## Acceptance Criteria
 
-- [ ] `bench/shard-spread.php` contains no local weight/fallback computation — weights and loads come from the sharder's public API.
-- [ ] Running the bench against a paths argument containing no `*Test.php` files prints a clear message and exits 1 (no ValueError, no stack trace).
-- [ ] Bench output for a fixture timings dir is consistent with `warp shard` plans for the same inputs (same bin membership).
+- [x] `bench/shard-spread.php` contains no local weight/fallback computation — weights and loads come from the sharder's public API.
+- [x] Running the bench against a paths argument containing no `*Test.php` files prints a clear message and exits 1 (no ValueError, no stack trace).
+- [x] Bench output for a fixture timings dir is consistent with `warp shard` plans for the same inputs (same bin membership).
 
 ## Verification Steps
 
@@ -53,3 +47,7 @@ Over-cap findings: the bench re-implements the sharder's private fallback policy
 **Data dependencies:** Reads a timings dir via `TimingStore` and discovers files via `TestFileFinder` (src/Shard/TestFileFinder.php).
 
 **Service dependencies:** `DurationBalancedSharder::plan()` from REQ-056 (hard dependency).
+
+## Outputs
+
+- `bench/shard-spread.php` — Reused `DurationBalancedSharder::weights()`, `plan()`, and `loads()`; removed duplicated fallback policy; added zero-discovery diagnostic exit 1.
