@@ -256,6 +256,16 @@ it('lets timings-dir override WARP_TIMINGS_DIR', function () {
         ->and($stderr)->toBe('');
 });
 
+it('rejects an empty timings-dir', function () {
+    chdir($this->tmp);
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/2', 'tests', '--timings-dir=']);
+
+    expect($exit)->toBe(2)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toContain('[warp] --timings-dir must not be empty');
+});
+
 it('returns 2 with usage when the shard spec is missing', function () {
     [$exit, $stdout, $stderr] = ($this->run)([$this->tmp.'/tests']);
 
