@@ -849,4 +849,46 @@ PHP);
 
         expect(glob($this->dir.'/pending/*.json'))->toHaveCount(1);
     });
+
+    it('fromEnv falls back to a relative timings dir when cwd is unavailable', function () {
+        $root = dirname(__DIR__, 3);
+        $script = sys_get_temp_dir().'/warp-missing-cwd-'.bin2hex(random_bytes(4)).'.php';
+
+        file_put_contents($script, sprintf(<<<'PHP'
+<?php
+
+require %s;
+
+use RawPHP\Warp\Timing\TimingStore;
+
+$cwd = sys_get_temp_dir().'/warp-deleted-cwd-'.bin2hex(random_bytes(4));
+mkdir($cwd);
+chdir($cwd);
+rmdir($cwd);
+putenv('WARP_TIMINGS_DIR');
+$store = TimingStore::fromEnv();
+$dir = (new ReflectionProperty(TimingStore::class, 'dir'))->getValue($store);
+
+if ($dir === '/.warp/timings') {
+    fwrite(STDERR, 'unexpected root timings dir');
+    exit(2);
+}
+
+if ($dir !== './.warp/timings') {
+    fwrite(STDERR, 'unexpected timings dir: '.$dir);
+    exit(3);
+}
+PHP,
+            var_export($root.'/vendor/autoload.php', true),
+        ));
+
+        try {
+            exec('php '.escapeshellarg($script).' 2>&1', $output, $exit);
+
+            expect($exit)->toBe(0, implode(PHP_EOL, $output))
+                ->and(is_dir('/.warp/timings'))->toBeFalse();
+        } finally {
+            @unlink($script);
+        }
+    });
 }
