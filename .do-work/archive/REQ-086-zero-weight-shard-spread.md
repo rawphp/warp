@@ -1,15 +1,10 @@
 # REQ-086: Zero-weight files spread deterministically
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.82488
-**Claimed at:** 2026-07-09T20:37:07Z
-**Heartbeat:** 2026-07-09T20:37:07Z
-<!-- claimed-end -->
 **UR:** UR-015
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 2 verification checkpoints passed; commit:0fdaf80
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -26,10 +21,10 @@ Confirmed finding 6: LPT assignment only increases bin load by the file's weight
 
 ## Acceptance Criteria
 
-- [ ] When every discovered file has a recorded `0.0` total, `DurationBalancedSharder::plan()` distributes files deterministically across available shards instead of placing all files into shard 1.
-- [ ] Mixed positive and zero weights still produce deterministic, disjoint shards that cover every file exactly once.
-- [ ] `assign()` no longer returns empty shards when there are at least as many files as shards solely because all recorded weights are zero.
-- [ ] Existing no-timings count-balanced fallback behavior remains unchanged.
+- [x] When every discovered file has a recorded `0.0` total, `DurationBalancedSharder::plan()` distributes files deterministically across available shards instead of placing all files into shard 1.
+- [x] Mixed positive and zero weights still produce deterministic, disjoint shards that cover every file exactly once.
+- [x] `assign()` no longer returns empty shards when there are at least as many files as shards solely because all recorded weights are zero.
+- [x] Existing no-timings count-balanced fallback behavior remains unchanged.
 
 ## Verification Steps
 
@@ -39,3 +34,8 @@ Confirmed finding 6: LPT assignment only increases bin load by the file's weight
    - Expected: sharder tests pass, including all-zero and mixed-zero timing regression cases with deterministic expected plans.
 2. **test** `./vendor/bin/pest`
    - Expected: full suite green; shard planning remains deterministic across repeated calls.
+
+## Outputs
+
+- src/Shard/DurationBalancedSharder.php — Adds deterministic equal-load tie-breaking by bin file count before shard index.
+- tests/Unit/Shard/DurationBalancedSharderTest.php — Adds all-zero and mixed-zero regression coverage while preserving no-timings fallback expectations.

@@ -3,7 +3,7 @@
 <!-- claimed-start -->
 **Claimed by:** Toms-MacBook-Pro.local.82488
 **Claimed at:** 2026-07-09T20:37:07Z
-**Heartbeat:** 2026-07-09T20:37:07Z
+**Heartbeat:** 2026-07-09T20:43:44Z
 <!-- claimed-end -->
 **UR:** UR-015
 **Status:** in-progress
@@ -26,10 +26,10 @@ Confirmed finding 3: runtime `src/` code depends on PHPUnit internals such as Te
 
 ## Acceptance Criteria
 
-- [ ] `composer.json` runtime `require` includes `phpunit/phpunit` with a constraint that rejects PHPUnit 10 and allows PHPUnit 11.1+ compatible supported majors.
-- [ ] `composer.lock` is refreshed consistently with the new runtime requirement and the existing dev dependency stack.
-- [ ] A focused test or static assertion proves the package constraint rejects PHPUnit 10-era installs and is not only present in `require-dev`.
-- [ ] Composer validation succeeds without weakening the existing PHP `^8.4` requirement or package metadata.
+- [x] `composer.json` runtime `require` includes `phpunit/phpunit` with a constraint that rejects PHPUnit 10 and allows PHPUnit 11.1+ compatible supported majors.
+- [x] `composer.lock` is refreshed consistently with the new runtime requirement and the existing dev dependency stack.
+- [x] A focused test or static assertion proves the package constraint rejects PHPUnit 10-era installs and is not only present in `require-dev`.
+- [x] Composer validation succeeds without weakening the existing PHP `^8.4` requirement or package metadata.
 
 ## Verification Steps
 
