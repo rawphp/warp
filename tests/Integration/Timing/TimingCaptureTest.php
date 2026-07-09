@@ -40,6 +40,88 @@ it('records per-test timings with file attribution from a real pest run', functi
     Dirs::delete($dir);
 });
 
+it('does not supersede sibling timings from method-filtered captures', function () {
+    $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+    $fixture = writeTimingRestrictionFixture();
+    $fixtureKey = 'tests/Integration/Timing/RestrictionFixtureTest.php';
+
+    try {
+        seedTimings($dir, [
+            'Seeded::sibling' => ['file' => $fixtureKey, 'ms' => 1234.0],
+        ]);
+
+        runPestWithTimings($dir, [$fixture, '--filter=records first restriction fixture timing']);
+
+        expect(pendingCompletenessFlags($dir))->toBe([false]);
+
+        $store = new TimingStore($dir);
+        $store->mergeToDisk();
+
+        $tests = $store->load();
+
+        expect($tests)->toHaveKey('Seeded::sibling')
+            ->and($tests['Seeded::sibling']['ms'])->toBe(1234.0);
+    } finally {
+        @unlink($fixture);
+        Dirs::delete($dir);
+    }
+});
+
+it('marks explicit path captures incomplete so sibling timings survive', function () {
+    $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+    $fixture = writeTimingRestrictionFixture();
+    $fixtureKey = 'tests/Integration/Timing/RestrictionFixtureTest.php';
+
+    try {
+        seedTimings($dir, [
+            'Seeded::sibling' => ['file' => $fixtureKey, 'ms' => 4321.0],
+        ]);
+
+        runPestWithTimings($dir, [$fixture]);
+
+        expect(pendingCompletenessFlags($dir))->toBe([false]);
+
+        $store = new TimingStore($dir);
+        $store->mergeToDisk();
+
+        $tests = $store->load();
+
+        expect($tests)->toHaveKey('Seeded::sibling')
+            ->and($tests['Seeded::sibling']['ms'])->toBe(4321.0);
+    } finally {
+        @unlink($fixture);
+        Dirs::delete($dir);
+    }
+});
+
+it('keeps testsuite-only captures complete so stale ids are pruned', function () {
+    $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+    $fixture = writeTimingRestrictionFixture();
+    $config = writeTimingRestrictionPhpunitConfig($fixture);
+    $fixtureKey = 'tests/Integration/Timing/RestrictionFixtureTest.php';
+
+    try {
+        seedTimings($dir, [
+            'Seeded::stale' => ['file' => $fixtureKey, 'ms' => 9999.0],
+        ]);
+
+        runPestWithTimings($dir, ['--configuration='.$config, '--testsuite=RestrictionFixture']);
+
+        expect(pendingCompletenessFlags($dir))->toBe([true]);
+
+        $store = new TimingStore($dir);
+        $store->mergeToDisk();
+
+        $tests = $store->load();
+
+        expect($tests)->not->toHaveKey('Seeded::stale');
+    } finally {
+        @unlink($config);
+        @unlink($fixture);
+        Dirs::delete($dir);
+    }
+});
+
 it('shutdown backstop capture supersedes stale entries for fully observed files', function () {
     $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
 
@@ -59,14 +141,14 @@ it('shutdown backstop capture supersedes stale entries for fully observed files'
     $collector->finished('FileA::one', 'tests/FileATest.php', 1.25);
 
     $store = new TimingStore($dir);
-    $flush->invoke(null, $collector, $store, false);
+    $flush->invoke(null, $collector, $store, true);
     $store->mergeToDisk();
 
     $collector = new TimingCollector;
     $collector->started('FileA::one', 2.0);
     $collector->finished('FileA::one', 'tests/FileATest.php', 2.5);
 
-    $flush->invoke(null, $collector, $store, false);
+    $flush->invoke(null, $collector, $store, true);
     $store->mergeToDisk();
 
     expect($store->load())->toBe([
@@ -90,3 +172,115 @@ it('leaves no trace when WARP_TIMINGS is off', function () {
 
     expect(is_dir($dir))->toBeFalse();
 });
+
+/**
+ * @param  array<string, array{file: string, ms: float}>  $tests
+ */
+function seedTimings(string $dir, array $tests): void
+{
+    Dirs::ensure($dir);
+    file_put_contents($dir.'/timings.json', json_encode([
+        'version' => 1,
+        'tests' => $tests,
+    ], JSON_THROW_ON_ERROR));
+}
+
+function writeTimingRestrictionFixture(): string
+{
+    $path = dirname(__DIR__).'/Timing/RestrictionFixtureTest.php';
+
+    file_put_contents($path, <<<'PHP'
+<?php
+
+it('records first restriction fixture timing', function () {
+    expect(true)->toBeTrue();
+});
+
+it('records second restriction fixture timing', function () {
+    expect(true)->toBeTrue();
+});
+PHP);
+
+    return $path;
+}
+
+function writeTimingRestrictionPhpunitConfig(string $fixture): string
+{
+    $root = dirname(__DIR__, 3);
+    $path = sys_get_temp_dir().'/warp-phpunit-'.bin2hex(random_bytes(4)).'.xml';
+
+    file_put_contents($path, sprintf(<<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="%s/vendor/autoload.php" colors="true">
+    <testsuites>
+        <testsuite name="RestrictionFixture">
+            <file>%s</file>
+        </testsuite>
+    </testsuites>
+    <extensions>
+        <bootstrap class="RawPHP\Warp\Timing\TimingExtension"/>
+    </extensions>
+</phpunit>
+XML,
+        htmlspecialchars($root, ENT_XML1),
+        htmlspecialchars($fixture, ENT_XML1),
+    ));
+
+    return $path;
+}
+
+/**
+ * @param  list<string>  $arguments
+ */
+function runPestWithTimings(string $dir, array $arguments): void
+{
+    $root = dirname(__DIR__, 3);
+    $bootstrap = writeTimingRestrictionBootstrap();
+
+    try {
+        $command = sprintf(
+            'cd %s && WARP_MODE=0 WARP_DB=0 WARP_TIMINGS=1 WARP_TIMINGS_DIR=%s ./vendor/bin/pest --bootstrap=%s %s 2>&1',
+            escapeshellarg($root),
+            escapeshellarg($dir),
+            escapeshellarg($bootstrap),
+            implode(' ', array_map('escapeshellarg', $arguments)),
+        );
+
+        exec($command, $output, $exit);
+
+        test()->assertSame(0, $exit, implode(PHP_EOL, $output));
+    } finally {
+        @unlink($bootstrap);
+    }
+}
+
+function writeTimingRestrictionBootstrap(): string
+{
+    $root = dirname(__DIR__, 3);
+    $path = sys_get_temp_dir().'/warp-bootstrap-'.bin2hex(random_bytes(4)).'.php';
+
+    file_put_contents($path, sprintf(<<<'PHP'
+<?php
+
+$loader = require %s;
+$loader->addPsr4('RawPHP\\Warp\\', %s, true);
+PHP,
+        var_export($root.'/vendor/autoload.php', true),
+        var_export($root.'/src', true),
+    ));
+
+    return $path;
+}
+
+/** @return list<bool> */
+function pendingCompletenessFlags(string $dir): array
+{
+    $flags = [];
+
+    foreach (glob($dir.'/pending/*.json') ?: [] as $path) {
+        $payload = json_decode((string) file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
+        $flags[] = $payload['complete'] ?? null;
+    }
+
+    return $flags;
+}
