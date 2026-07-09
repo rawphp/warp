@@ -40,9 +40,12 @@ final class TimingStore
         $path = $this->dir.'/pending/'.self::nextPendingTimestamp().'-'.getmypid().'-'.bin2hex(random_bytes(4)).'.json';
         $tmp = $path.'.tmp';
 
-        $payload = ['complete' => $complete, 'tests' => $tests];
+        $encoded = json_encode(['complete' => $complete, 'tests' => $tests], JSON_THROW_ON_ERROR);
+        $bytes = file_put_contents($tmp, $encoded);
 
-        if (file_put_contents($tmp, json_encode($payload, JSON_THROW_ON_ERROR)) === false) {
+        if ($bytes === false || $bytes < strlen($encoded)) {
+            @unlink($tmp);
+
             throw new RuntimeException('[warp] cannot write pending timings batch to '.$tmp);
         }
 
