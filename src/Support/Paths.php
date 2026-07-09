@@ -6,7 +6,7 @@ namespace RawPHP\Warp\Support;
 
 final class Paths
 {
-    public static function canonical(string $path, string $root): ?string
+    public static function canonical(string $path, string $root, bool $allowOutside = false): ?string
     {
         $realRoot = realpath($root);
         $realPath = realpath($path);
@@ -25,7 +25,7 @@ final class Paths
         $prefix = rtrim($root, '/').'/';
 
         if (! str_starts_with($path, $prefix)) {
-            return null;
+            return $allowOutside ? $path : null;
         }
 
         $relative = substr($path, strlen($prefix));

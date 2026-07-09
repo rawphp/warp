@@ -287,6 +287,57 @@ XML);
         ->and($stderr)->toContain('no recorded timings');
 });
 
+it('canonicalizes explicit configuration suites relative to the configuration directory', function () {
+    $app = $this->tmp.'/app';
+    $runner = $this->tmp.'/runner';
+    Dirs::ensure($app.'/tests');
+    Dirs::ensure($runner);
+    file_put_contents($app.'/tests/AppTest.php', '<?php');
+    writeShardPhpunitConfig($app.'/phpunit.xml', <<<'XML'
+        <testsuite name="App">
+            <directory>tests</directory>
+        </testsuite>
+XML);
+
+    chdir($runner);
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/1', '--configuration='.$app.'/phpunit.xml', '--timings-dir='.$this->tmp.'/timings']);
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->toBe("tests/AppTest.php\n")
+        ->and($stderr)->toContain('no recorded timings')
+        ->and($stderr)->not->toContain('outside project root');
+});
+
+it('emits absolute realpaths for symlinked suite files outside the configuration root', function () {
+    chdir($this->tmp);
+    $external = sys_get_temp_dir().'/warp-shardcmd-external-'.bin2hex(random_bytes(4));
+    Dirs::ensure($external);
+    file_put_contents($external.'/SharedTest.php', '<?php');
+    symlink($external, $this->tmp.'/tests/Shared');
+    writeShardPhpunitConfig($this->tmp.'/phpunit.xml', <<<'XML'
+        <testsuite name="Symlinked">
+            <directory>tests/Shared</directory>
+        </testsuite>
+XML);
+    $sharedRealpath = (string) realpath($external.'/SharedTest.php');
+
+    (new TimingStore($this->tmp.'/timings'))->writePending([
+        'shared' => ['file' => $sharedRealpath, 'ms' => 100.0],
+    ]);
+
+    try {
+        [$exit, $stdout, $stderr] = ($this->run)(['1/1', '--timings-dir='.$this->tmp.'/timings']);
+
+        expect($exit)->toBe(0)
+            ->and($stdout)->toBe($sharedRealpath."\n")
+            ->and($stderr)->not->toContain('outside project root')
+            ->and($stderr)->not->toContain('recorded timings match no discovered file');
+    } finally {
+        Dirs::delete($external);
+    }
+});
+
 it('uses WARP_TIMINGS_DIR when no timings-dir flag is provided', function () {
     chdir($this->tmp);
     $envDir = $this->tmp.'/env-timings';

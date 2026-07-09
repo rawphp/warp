@@ -106,6 +106,6 @@ final class TestFileResolver
 
     private static function canonical(string $path, string $root): ?string
     {
-        return Paths::canonical($path, $root);
+        return Paths::canonical($path, $root, allowOutside: true);
     }
 }
