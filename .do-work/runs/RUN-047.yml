@@ -1,0 +1,24 @@
+run_id: RUN-047
+req: REQ-053
+ur: UR-011
+agent_id: "Toms-MacBook-Pro.local.21409"
+model: "inherited"
+branch: "req/REQ-053"
+started_at: "2026-07-09T02:00:41Z"
+ended_at: "2026-07-09T02:23:59Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "tier-weighted estimate"
+cost_estimate_num: 0.15
+pr_url: ""
+commands:
+  - "./vendor/bin/pest tests/Integration/Cli/WarpBinTest.php"
+  - "./vendor/bin/pest"
+  - "php -l tests/Integration/Cli/WarpBinTest.php"
+tests:
+  - "./vendor/bin/pest tests/Integration/Cli/WarpBinTest.php: 7 tests, 46 assertions"
+  - "./vendor/bin/pest: 219 tests, 563 assertions"
+  - "reviewer syntax check: no syntax errors"
+changed_files:
+  - "tests/Integration/Cli/WarpBinTest.php"
