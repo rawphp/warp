@@ -20,6 +20,10 @@ final class TestFileFinder
      */
     public static function find(array $paths, string $suffix = 'Test.php'): array
     {
+        if ($suffix === '') {
+            throw new RuntimeException('[warp] test file suffix must not be empty');
+        }
+
         $files = [];
 
         foreach ($paths as $path) {

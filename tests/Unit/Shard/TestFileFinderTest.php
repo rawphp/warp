@@ -49,6 +49,10 @@ it('honours a custom suffix', function () {
     ]);
 });
 
+it('rejects an empty suffix', function () {
+    TestFileFinder::find([$this->tmp.'/tests/Unit'], '');
+})->throws(RuntimeException::class, '[warp] test file suffix must not be empty');
+
 it('strips a trailing slash from directory args', function () {
     expect(TestFileFinder::find([$this->tmp.'/tests/Feature/']))->toBe([
         $this->tmp.'/tests/Feature/CTest.php',

@@ -109,6 +109,17 @@ it('honours a custom suffix', function () {
         ->and($stdout)->toBe("tests/spec_a.php\n");
 });
 
+it('rejects an empty suffix', function () {
+    chdir($this->tmp);
+    file_put_contents($this->tmp.'/tests/README.md', 'not a test');
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/2', 'tests', '--timings-dir='.$this->tmp.'/timings', '--suffix=']);
+
+    expect($exit)->toBe(2)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toContain('[warp] --suffix must not be empty');
+});
+
 it('uses phpunit xml discovery when no explicit paths are provided', function () {
     chdir($this->tmp);
     Dirs::ensure($this->tmp.'/checks');
