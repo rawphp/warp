@@ -29,25 +29,29 @@ if ($totals === []) {
 }
 
 $files = TestFileFinder::find($paths);
-$known = array_intersect_key($totals, array_flip($files));
-$fallback = $known === [] ? 1.0 : array_sum($known) / count($known);
-$weight = static fn (string $file): float => $totals[$file] ?? $fallback;
+
+if ($files === []) {
+    fwrite(STDERR, '[warp] no test files discovered under: '.implode(', ', $paths)."\n");
+    fwrite(STDERR, "usage: php bench/shard-spread.php <timings-dir> <shards> [paths...]\n");
+    exit(1);
+}
+
+$weights = DurationBalancedSharder::weights($files, $totals);
+$plan = DurationBalancedSharder::plan($files, $totals, $shards);
+$balanced = DurationBalancedSharder::loads($plan, $weights);
 
 // Baseline: what count-based CI matrices do today - equal-count alphabetical chunks.
 $chunks = array_chunk($files, (int) ceil(count($files) / $shards));
 $baseline = array_pad(
-    array_map(static fn (array $chunk): float => array_sum(array_map($weight, $chunk)), $chunks),
+    array_map(static fn (array $chunk): float => array_sum(array_map(
+        static fn (string $file): float => $weights[$file],
+        $chunk,
+    )), $chunks),
     $shards,
     0.0,
 );
 
-$balanced = [];
-
-for ($i = 1; $i <= $shards; $i++) {
-    $balanced[] = array_sum(array_map($weight, DurationBalancedSharder::assign($files, $totals, $i, $shards)));
-}
-
-printf("%d files, %.1fms recorded, %d shards\n\n", count($files), array_sum(array_map($weight, $files)), $shards);
+printf("%d files, %.1fms recorded, %d shards\n\n", count($files), array_sum($weights), $shards);
 printf("%-6s  %18s  %18s\n", 'shard', 'count-based (ms)', 'warp LPT (ms)');
 
 for ($i = 0; $i < $shards; $i++) {
