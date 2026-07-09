@@ -1,0 +1,39 @@
+# REQ-089: TimingStore fromEnv handles missing cwd
+
+**UR:** UR-015
+**Status:** backlog
+**Created:** 2026-07-09
+**Layer:** none
+**Entry point:**
+**Terminal state:**
+**Parent:**
+**Closure proof:**
+**Criteria approved:** agent-drafted
+**Priority:** 2
+**Size:** S
+**Files:** src/Timing/TimingStore.php, tests/Unit/Timing/TimingStoreTest.php, tests/Integration/Timing/TimingCaptureTest.php
+**Depends on:**
+
+## Task
+
+Fix `TimingStore::fromEnv()` so an unavailable current working directory does not resolve the default timings directory to `/.warp/timings`.
+
+## Context
+
+Confirmed finding 9: `fromEnv()` concatenates `getcwd().'/.warp/timings'` without guarding `getcwd() === false`, unlike other call sites that use `getcwd() ?: '.'`. If the process cwd is deleted or unreadable and `WARP_TIMINGS_DIR` is unset, timing capture can try to write at the filesystem root.
+
+## Acceptance Criteria
+
+- [ ] When `WARP_TIMINGS_DIR` is unset and `getcwd()` is unavailable, `TimingStore::fromEnv()` falls back to `./.warp/timings` or an equivalent non-root relative path, never `/.warp/timings`.
+- [ ] A child-process regression test reproduces the unavailable-cwd case without requiring root privileges.
+- [ ] When `WARP_TIMINGS_DIR` is set to a non-empty value, `fromEnv()` still uses it exactly as before.
+- [ ] Existing shard command handling of `getcwd() ?: '.'` remains compatible with the timing-store fallback.
+
+## Verification Steps
+
+> Execute these after implementation to confirm the feature actually works at runtime. Each must pass before committing.
+
+1. **test** `./vendor/bin/pest --filter="TimingStore|TimingCapture"`
+   - Expected: timing-store tests pass, including a child-process missing-cwd regression that does not attempt to create `/.warp/timings`.
+2. **test** `./vendor/bin/pest`
+   - Expected: full suite green; explicit `WARP_TIMINGS_DIR` behavior remains unchanged.
