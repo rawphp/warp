@@ -80,3 +80,29 @@ Additional review notes:
 - Findings 1 and 2 share a defect surface: `apply()`'s complete-batch supersede is too aggressive, and "completeness" is mis-detected for both filtered runs (finding 1) and `exit()`/`die()` abnormal exits (finding 2). The dead `|| ! self::shutdownHadFatalError()` in `TimingExtension.php:101` can never demote a `complete=true` flush and gives false reassurance that completeness is re-validated at flush time — it should be removed as part of the fix.
 - Findings 1–3 are silent timing-data loss that degrades shard balance invisibly (no error, just skew) — the one failure mode this tool must not have. Prioritize these.
 - Finding 4 pairs with a reuse observation: the atomic tmp-write + rename publish sequence is duplicated between writePending() and mergeToDisk() and has already drifted (short-write guard exists in one, not the other). Prefer extracting a shared atomic-write helper so the guard exists once.
+
+## Clarifications
+
+**Q:** REQ grouping for these findings — subsystem/concern path-units with serialized TimingStore deps and cleanups (#9, #10) folded into one trailing refactor REQ, per UR-011/UR-012 precedent?
+**A:** Yes — group by subsystem, serialize TimingStore-touching REQs via hard deps, one trailing cleanup REQ. *(inferred, confirmed)*
+
+**Q:** Finding #8 — where may junk pending batches be deleted, given the standing decision "warp shard/timings are read-only; disk merge only via explicit warp merge"?
+**A:** Only in mergeToDisk() under the merge lock — never in load(). *(inferred, confirmed)*
+
+**Q:** Finding #7 — guard shape for empty `--timings-dir=`?
+**A:** Mirror REQ-065's empty `--suffix` rejection: throw InvalidArgumentException at parse time. *(inferred, confirmed)*
+
+**Q:** Finding #6 — how should the bench script fix its path-form mismatch?
+**A:** Canonicalize bench file paths via Paths::canonical the way ShardCommand::canonicalFiles does — reuse, don't duplicate. *(inferred, confirmed)*
+
+**Q:** Finding #1 says a filtered run (`pest --filter=testA` with WARP_TIMINGS=1) wipes sibling timings; merge-side can't distinguish "deleted" from "filtered out". How should restricted runs be handled?
+**A:** Restriction-aware flush: TimingExtension inspects the PHPUnit Configuration at bootstrap; if a filter/group/path restriction was applied, flush complete=false — observed timings upsert, nothing supersedes. Stale-ID pruning still fires on unrestricted runs.
+
+**Q:** Finding #2's behavior is the accepted REQ-069 fix (paratest natural-end flushes must stay complete). How to make `exit()`/`die()` mid-run flush incomplete without breaking REQ-069?
+**A:** In-flight discriminator: the shutdown backstop flushes complete=false when the collector has an in-flight (started, unfinished) test; complete=true otherwise. exit() mid-test → incomplete; paratest natural end → complete.
+
+**Q:** Combined, those two fixes could starve stale-ID pruning in suite-split CI (always `--testsuite=Unit`/`Integration` jobs → always incomplete). How are testsuite-scoped runs treated?
+**A:** Testsuite-scoped is complete: only method/group/path filters (--filter, --group, explicit file args) force complete=false. A plain --testsuite selection fully observes every file it touches, so per-file supersede stays correct and pruning keeps working in suite-split CI.
+
+**Q:** Finding #5 — mergeToDisk() throws on unlink failure after timings.json is already published, wedging all future merges. How should unlink failure be handled?
+**A:** Warn and continue: log to stderr, keep deleting the rest, return success. Safe because pending timestamp ordering means the surviving old batch re-applies BEFORE newer data on the next merge — add a test pinning that ordering assumption.
