@@ -28,6 +28,7 @@ beforeEach(function () {
 
 afterEach(function () {
     chdir($this->cwd);
+    putenv('WARP_TIMINGS_DIR');
     Dirs::delete($this->tmp);
 });
 
@@ -108,6 +109,44 @@ it('honours a custom suffix', function () {
         ->and($stdout)->toBe("tests/spec_a.php\n");
 });
 
+it('uses WARP_TIMINGS_DIR when no timings-dir flag is provided', function () {
+    chdir($this->tmp);
+    $envDir = $this->tmp.'/env-timings';
+    putenv('WARP_TIMINGS_DIR='.$envDir);
+
+    (new TimingStore($envDir))->writePending([
+        't1' => ['file' => 'tests/ATest.php', 'ms' => 100.0],
+        't2' => ['file' => 'tests/BTest.php', 'ms' => 10.0],
+        't3' => ['file' => 'tests/CTest.php', 'ms' => 10.0],
+        't4' => ['file' => 'tests/DTest.php', 'ms' => 10.0],
+    ]);
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/2', 'tests']);
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->toBe("tests/ATest.php\n")
+        ->and($stderr)->toBe('');
+});
+
+it('lets timings-dir override WARP_TIMINGS_DIR', function () {
+    chdir($this->tmp);
+    putenv('WARP_TIMINGS_DIR='.$this->tmp.'/env-timings');
+    $flagDir = $this->tmp.'/flag-timings';
+
+    (new TimingStore($flagDir))->writePending([
+        't1' => ['file' => 'tests/ATest.php', 'ms' => 100.0],
+        't2' => ['file' => 'tests/BTest.php', 'ms' => 10.0],
+        't3' => ['file' => 'tests/CTest.php', 'ms' => 10.0],
+        't4' => ['file' => 'tests/DTest.php', 'ms' => 10.0],
+    ]);
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/2', 'tests', '--timings-dir='.$flagDir]);
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->toBe("tests/ATest.php\n")
+        ->and($stderr)->toBe('');
+});
+
 it('returns 2 with usage when the shard spec is missing', function () {
     [$exit, $stdout, $stderr] = ($this->run)([$this->tmp.'/tests']);
 
@@ -132,6 +171,17 @@ it('returns 2 on an out-of-range shard index', function () {
 
     expect($exit)->toBe(2)
         ->and($stderr)->toContain('[warp] shard index out of range');
+});
+
+it('rejects unknown options instead of treating them as paths', function () {
+    chdir($this->tmp);
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/8', '--timigs-dir=/x', 'tests']);
+
+    expect($exit)->toBe(2)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toContain('[warp] unknown option: --timigs-dir=/x')
+        ->and($stderr)->not->toContain('no such test path');
 });
 
 it('returns 3 and prints nothing when the shard is empty', function () {

@@ -22,16 +22,23 @@ final class ShardCommand
     {
         $spec = null;
         $paths = [];
-        $dir = '.warp/timings';
+        $store = TimingStore::fromEnv();
+        $dirLabel = 'configured timings dir';
         $suffix = 'Test.php';
 
         foreach ($args as $arg) {
             if (str_starts_with($arg, '--timings-dir=')) {
                 $dir = substr($arg, strlen('--timings-dir='));
+                $store = new TimingStore($dir);
+                $dirLabel = $dir;
             } elseif (str_starts_with($arg, '--suffix=')) {
                 $suffix = substr($arg, strlen('--suffix='));
             } elseif ($spec === null && preg_match('#^(\d+)/(\d+)$#', $arg, $matches) === 1) {
                 $spec = [(int) $matches[1], (int) $matches[2]];
+            } elseif (str_starts_with($arg, '--')) {
+                fwrite($stderr, "[warp] unknown option: {$arg}\n");
+
+                return 2;
             } else {
                 $paths[] = $arg;
             }
@@ -46,10 +53,10 @@ final class ShardCommand
         try {
             $files = TestFileFinder::find($paths === [] ? ['tests'] : $paths, $suffix);
             $files = self::canonicalFiles($files, getcwd() ?: '.');
-            $totals = (new TimingStore($dir))->fileTotals();
+            $totals = $store->fileTotals();
 
             if ($totals === []) {
-                fwrite($stderr, "[warp] no recorded timings under {$dir} - sharding count-balanced\n");
+                fwrite($stderr, "[warp] no recorded timings under {$dirLabel} - sharding count-balanced\n");
             } elseif (array_intersect_key($totals, array_flip($files)) === []) {
                 fwrite($stderr, "[warp] recorded timings match no discovered file - likely path-form or stale-artifact mismatch; sharding count-balanced\n");
             }

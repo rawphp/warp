@@ -22,6 +22,7 @@ beforeEach(function () {
 });
 
 afterEach(function () {
+    putenv('WARP_TIMINGS_DIR');
     Dirs::delete($this->tmp);
 });
 
@@ -59,12 +60,50 @@ it('returns 2 with a warp-prefixed error when the merge lock cannot be opened', 
         ->and($stderr)->not->toContain('Stack trace');
 });
 
+it('uses WARP_TIMINGS_DIR when no timings-dir flag is provided', function () {
+    putenv('WARP_TIMINGS_DIR='.$this->tmp);
+
+    (new TimingStore($this->tmp))->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.0]]);
+
+    [$exit, $stdout, $stderr] = ($this->run)([]);
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->toContain('merged 1 pending timing batch')
+        ->and($stderr)->toBe('')
+        ->and(glob($this->tmp.'/pending/*.json'))->toBe([]);
+});
+
+it('lets timings-dir override WARP_TIMINGS_DIR', function () {
+    $envDir = $this->tmp.'/env';
+    $flagDir = $this->tmp.'/flag';
+    putenv('WARP_TIMINGS_DIR='.$envDir);
+
+    (new TimingStore($envDir))->writePending(['env' => ['file' => 'tests/EnvTest.php', 'ms' => 1.0]]);
+    (new TimingStore($flagDir))->writePending(['flag' => ['file' => 'tests/FlagTest.php', 'ms' => 1.0]]);
+
+    [$exit, $stdout, $stderr] = ($this->run)(['--timings-dir='.$flagDir]);
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->toContain('merged 1 pending timing batch')
+        ->and($stderr)->toBe('')
+        ->and(glob($flagDir.'/pending/*.json'))->toBe([])
+        ->and(glob($envDir.'/pending/*.json'))->toHaveCount(1);
+});
+
 it('rejects unknown arguments', function () {
+    [$exit, $stdout, $stderr] = ($this->run)(['positional']);
+
+    expect($exit)->toBe(2)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toContain('[warp] unknown argument: positional');
+});
+
+it('rejects unknown options', function () {
     [$exit, $stdout, $stderr] = ($this->run)(['--bogus']);
 
     expect($exit)->toBe(2)
         ->and($stdout)->toBe('')
-        ->and($stderr)->toContain('[warp] unknown argument');
+        ->and($stderr)->toContain('[warp] unknown option: --bogus');
 });
 
 it('lists the merge command in usage output', function () {
