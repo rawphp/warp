@@ -3,11 +3,12 @@
 <!-- claimed-start -->
 **Claimed by:** Toms-MacBook-Pro.local.21409
 **Claimed at:** 2026-07-09T00:03:26Z
-**Heartbeat:** 2026-07-09T00:03:26Z
+**Heartbeat:** 2026-07-09T00:11:07Z
 <!-- claimed-end -->
 
 **UR:** UR-011
-**Status:** in-progress
+**Status:** stopped
+**Reason:** verification-failing
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
