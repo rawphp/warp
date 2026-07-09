@@ -1,13 +1,14 @@
 # REQ-063: Fix SnapshotStore promote() unimported RuntimeException
 
+
 **UR:** UR-012
-**Status:** backlog
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 2 verification checkpoints passed; commit:9e71f88
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -24,9 +25,9 @@ Code-review finding #2 (CONFIRMED, self-verified against the diff). This is a re
 
 ## Acceptance Criteria
 
-- [ ] `SnapshotStore::promote()` throws a catchable `\RuntimeException` (not a fatal `Error`) when the underlying `rename()` fails, carrying the message `[warp] failed to promote snapshot <staging>`.
-- [ ] The fix uses the same import convention as sibling `RawPHP\Warp\Db` classes (explicit `use RuntimeException;`) OR a leading-backslash `\RuntimeException`; no other behaviour changes.
-- [ ] A new test in `SnapshotStoreTest` exercises the promote-failure path and asserts a `RuntimeException` is thrown (previously untested).
+- [x] `SnapshotStore::promote()` throws a catchable `\RuntimeException` (not a fatal `Error`) when the underlying `rename()` fails, carrying the message `[warp] failed to promote snapshot <staging>`.
+- [x] The fix uses the same import convention as sibling `RawPHP\Warp\Db` classes (explicit `use RuntimeException;`) OR a leading-backslash `\RuntimeException`; no other behaviour changes.
+- [x] A new test in `SnapshotStoreTest` exercises the promote-failure path and asserts a `RuntimeException` is thrown (previously untested).
 
 ## Verification Steps
 
@@ -34,3 +35,8 @@ Code-review finding #2 (CONFIRMED, self-verified against the diff). This is a re
 
 1. **test** `./vendor/bin/pest --filter=SnapshotStore` — Expected: all SnapshotStore tests pass, including the new promote-failure test that asserts `RuntimeException` (not `Error`) is thrown.
 2. **runtime** In a scratch script, call `promote()` on a nonexistent/uncreatable staging dir and confirm the thrown class is `RuntimeException` and is caught by `catch (\RuntimeException $e)`. Expected: caught cleanly; message contains `failed to promote snapshot`.
+
+## Outputs
+
+- src/Db/SnapshotStore.php — Restored explicit RuntimeException import for SnapshotStore::promote().
+- tests/Unit/Db/SnapshotStoreTest.php — Added failure-path test asserting promote() throws a catchable RuntimeException.
