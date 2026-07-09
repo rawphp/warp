@@ -31,6 +31,7 @@ final class TimingExtension implements Extension
         $collector = new TimingCollector;
         $store = TimingStore::fromEnv();
         $root = (string) getcwd();
+        $completeRun = ! self::hasRestrictedSelection($configuration);
         $flush = static function (bool $complete) use ($collector, $store): void {
             self::flush($collector, $store, $complete);
         };
@@ -69,19 +70,22 @@ final class TimingExtension implements Extension
             }
         });
 
-        $facade->registerSubscriber(new class($flush) implements ExecutionFinishedSubscriber
+        $facade->registerSubscriber(new class($flush, $completeRun) implements ExecutionFinishedSubscriber
         {
-            public function __construct(private readonly Closure $flush) {}
+            public function __construct(
+                private readonly Closure $flush,
+                private readonly bool $completeRun,
+            ) {}
 
             public function notify(ExecutionFinished $event): void
             {
-                ($this->flush)(true);
+                ($this->flush)($this->completeRun);
             }
         });
 
         // Backstop: paratest workers and fatally-interrupted runs may never
-        // see ExecutionFinished; only fatal shutdowns are partial crash flushes.
-        register_shutdown_function(static fn () => $flush(! self::shutdownHadFatalError()));
+        // see ExecutionFinished; restricted or fatal shutdowns stay incomplete.
+        register_shutdown_function(static fn () => $flush($completeRun && ! self::shutdownHadFatalError()));
     }
 
     /** Telemetry wall-clock as float seconds, monotonic within a run. */
@@ -98,13 +102,22 @@ final class TimingExtension implements Extension
             return;
         }
 
-        $collector->flush($store, complete: $complete || ! self::shutdownHadFatalError());
+        $collector->flush($store, complete: $complete);
 
         $unattributed = $collector->unattributedCount();
 
         if ($unattributed > 0) {
             Stderr::write("[warp] {$unattributed} test(s) could not be attributed to a file; their timings were not recorded".PHP_EOL);
         }
+    }
+
+    private static function hasRestrictedSelection(Configuration $configuration): bool
+    {
+        return $configuration->hasFilter()
+            || $configuration->hasExcludeFilter()
+            || $configuration->hasGroups()
+            || $configuration->hasExcludeGroups()
+            || $configuration->hasCliArguments();
     }
 
     private static function shutdownHadFatalError(): bool
