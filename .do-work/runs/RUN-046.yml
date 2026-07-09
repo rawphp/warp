@@ -1,0 +1,28 @@
+run_id: RUN-046
+req: REQ-061
+ur: UR-011
+agent_id: "Toms-MacBook-Pro.local.21409"
+model: "inherited"
+branch: "req/REQ-061"
+started_at: "2026-07-09T02:00:41Z"
+ended_at: "2026-07-09T02:21:01Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "tier-weighted estimate"
+cost_estimate_num: 0.16
+pr_url: ""
+commands:
+  - "./vendor/bin/pest tests/Unit/Timing/TestFileResolverTest.php tests/Unit/Timing/TimingCollectorTest.php"
+  - "WARP_TIMINGS=1 ./vendor/bin/pest --filter=WarpModeTest && php bin/warp timings --timings-dir=.warp/timings"
+  - "./vendor/bin/pest"
+tests:
+  - "./vendor/bin/pest tests/Unit/Timing/TestFileResolverTest.php tests/Unit/Timing/TimingCollectorTest.php: 19 passed, 27 assertions"
+  - "runtime timing capture: 35 tests recorded across tests/Unit/WarpModeTest.php; Pest stderr empty"
+  - "./vendor/bin/pest: 220 passed, 538 assertions"
+changed_files:
+  - "src/Timing/TestFileResolver.php"
+  - "src/Timing/TimingCollector.php"
+  - "src/Timing/TimingExtension.php"
+  - "tests/Unit/Timing/TestFileResolverTest.php"
+  - "tests/Unit/Timing/TimingCollectorTest.php"
