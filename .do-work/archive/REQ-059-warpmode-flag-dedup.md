@@ -1,19 +1,13 @@
 # REQ-059: Collapse WarpMode's triplicated env-flag idiom into one helper
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.21409
-**Claimed at:** 2026-07-09T02:00:41Z
-**Heartbeat:** 2026-07-09T02:00:41Z
-<!-- claimed-end -->
-
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 2 verification checkpoints passed commit:de2ed48
 **Criteria approved:** agent-drafted
 **Priority:** 1
 **Size:** S
@@ -30,8 +24,8 @@ The accepted truthy set currently lives in three places; the next flag makes fou
 
 ## Acceptance Criteria
 
-- [ ] The `in_array(getenv(...), [...], true)` idiom appears exactly once in src/WarpMode.php.
-- [ ] All existing WarpMode tests pass unchanged (no behaviour change, including rejection of 'TRUE', 'yes', '0', empty).
+- [x] The `in_array(getenv(...), [...], true)` idiom appears exactly once in src/WarpMode.php.
+- [x] All existing WarpMode tests pass unchanged (no behaviour change, including rejection of 'TRUE', 'yes', '0', empty).
 
 ## Verification Steps
 
@@ -41,3 +35,7 @@ The accepted truthy set currently lives in three places; the next flag makes fou
    - Expected: all existing tests pass without modification.
 2. **test** `./vendor/bin/pest`
    - Expected: full suite green.
+
+## Outputs
+
+- `src/WarpMode.php` — Extracted duplicated env flag truthiness into one private helper while preserving all public flag behavior.
