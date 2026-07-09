@@ -77,6 +77,24 @@ it('throws without invoking the callback when flock fails', function () {
         ->and(FailingLockStream::$closed)->toBe(1);
 });
 
-it('throws a warp-prefixed runtime exception when the lock file cannot be opened', function () {
-    FileLock::withLock($this->root.'/missing/test.lock', fn (): bool => true);
-})->throws(RuntimeException::class, '[warp] cannot open file lock');
+it('reports the underlying fopen warning when the lock file cannot be opened', function () {
+    $called = false;
+    $lockFile = $this->root.'/missing/test.lock';
+    $thrown = null;
+
+    try {
+        FileLock::withLock($lockFile, function () use (&$called): bool {
+            $called = true;
+
+            return true;
+        });
+    } catch (RuntimeException $exception) {
+        $thrown = $exception;
+    }
+
+    expect($thrown)->toBeInstanceOf(RuntimeException::class)
+        ->and($thrown?->getMessage())->toContain('[warp] cannot open file lock at '.$lockFile)
+        ->and($thrown?->getMessage())->toContain('fopen('.$lockFile.')')
+        ->and($thrown?->getMessage())->toContain('No such file or directory')
+        ->and($called)->toBeFalse();
+});
