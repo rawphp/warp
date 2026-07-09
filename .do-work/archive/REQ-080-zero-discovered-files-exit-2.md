@@ -1,19 +1,11 @@
 # REQ-080: Exit 2 when discovery finds zero test files
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.53726
-**Claimed at:** 2026-07-09T11:11:38Z
-**Heartbeat:** 2026-07-09T11:11:38Z
-<!-- claimed-end -->
 
 **UR:** UR-014
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
-**Entry point:**
-**Terminal state:**
-**Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 4 checkpoints commit:e6298bd
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** M
@@ -44,10 +36,10 @@ Reuse (ideate.md Connector): the fix follows ShardCommand's existing `fwrite($st
 
 ## Acceptance Criteria
 
-- [ ] `warp shard <i>/<n>` with no path arguments, where phpunit.xml (or the tests/ fallback) discovery resolves to zero test files (e.g. an existing-but-empty suite directory), exits 2 with stderr containing `no test files discovered` and empty stdout — previously this exited 3.
-- [ ] `warp shard <i>/<n> <path>` with explicit paths matching zero files (existing-but-empty directory, or a `--suffix=` that matches nothing) exits 2 through the same guard — previously this exited 3.
-- [ ] Legitimately empty shards (discovered files ≥ 1, shard index beyond the file count) still exit 3: the existing tests at tests/Unit/Cli/ShardCommandTest.php:349, tests/Integration/Cli/WarpBinTest.php:212, and the sh -e guard-contract test at WarpBinTest.php:279 pass unmodified.
-- [ ] README's shard exit-code documentation states that zero discovered files is an exit-2 error (distinct from the exit-3 empty-shard skip), and CHANGELOG.md records the behavior change.
+- [x] `warp shard <i>/<n>` with no path arguments, where phpunit.xml (or the tests/ fallback) discovery resolves to zero test files (e.g. an existing-but-empty suite directory), exits 2 with stderr containing `no test files discovered` and empty stdout — previously this exited 3.
+- [x] `warp shard <i>/<n> <path>` with explicit paths matching zero files (existing-but-empty directory, or a `--suffix=` that matches nothing) exits 2 through the same guard — previously this exited 3.
+- [x] Legitimately empty shards (discovered files ≥ 1, shard index beyond the file count) still exit 3: the existing tests at tests/Unit/Cli/ShardCommandTest.php:349, tests/Integration/Cli/WarpBinTest.php:212, and the sh -e guard-contract test at WarpBinTest.php:279 pass unmodified.
+- [x] README's shard exit-code documentation states that zero discovered files is an exit-2 error (distinct from the exit-3 empty-shard skip), and CHANGELOG.md records the behavior change.
 
 ## Verification Steps
 
@@ -62,6 +54,10 @@ Reuse (ideate.md Connector): the fix follows ShardCommand's existing `fwrite($st
 4. **test** `./vendor/bin/pest`
    - Expected: full suite passes, 100%.
 
-## Post-merge validation
+## Outputs
 
-- [ ] None — all checks are executable in the worker's worktree.
+- src/Cli/ShardCommand.php — Adds the post-canonicalization zero-discovered-files exit-2 guard.
+- tests/Unit/Cli/ShardCommandTest.php — Adds unit coverage for zero-file suite discovery and explicit-path discovery.
+- tests/Integration/Cli/WarpBinTest.php — Adds binary and shell-guard regressions for zero discovered test files.
+- README.md — Documents zero discovered test files as an exit-2 shard error.
+- CHANGELOG.md — Records the shard behavior change.
