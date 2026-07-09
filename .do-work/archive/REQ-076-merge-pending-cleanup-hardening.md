@@ -1,19 +1,13 @@
 # REQ-076: Merge pending-file cleanup must not wedge or leak
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.23132
-**Claimed at:** 2026-07-09T09:26:05Z
-**Heartbeat:** 2026-07-09T09:26:05Z
-<!-- claimed-end -->
-
 **UR:** UR-013
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed checkpoints:2 commit:78a6c14
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** M
@@ -37,10 +31,10 @@ Code-review findings #5 and #8. Read archived REQ-048 (atomic pending writes / t
 
 ## Acceptance Criteria
 
-- [ ] An unlink failure on one merged pending file no longer throws: the remaining pending files are still deleted, a `[warp]` warning naming the stuck file goes to stderr, and `mergeToDisk()` returns the merged count (reproduces then fixes the finding-#5 wedge).
-- [ ] A test pins the re-apply ordering assumption: a surviving old complete batch plus a newer batch merge with the newer data winning after the second merge (timestamp order).
-- [ ] An undecodable pending batch and a decodes-to-scalar batch are both deleted by `mergeToDisk()` (with stderr warnings) and do not reappear on the next merge (reproduces then fixes the finding-#8 leak).
-- [ ] `load()` performs zero writes/deletes when encountering junk batches (read-only guarantee preserved — REQ-051 tests pass; junk skipped with a warning as today).
+- [x] An unlink failure on one merged pending file no longer throws: the remaining pending files are still deleted, a `[warp]` warning naming the stuck file goes to stderr, and `mergeToDisk()` returns the merged count (reproduces then fixes the finding-#5 wedge).
+- [x] A test pins the re-apply ordering assumption: a surviving old complete batch plus a newer batch merge with the newer data winning after the second merge (timestamp order).
+- [x] An undecodable pending batch and a decodes-to-scalar batch are both deleted by `mergeToDisk()` (with stderr warnings) and do not reappear on the next merge (reproduces then fixes the finding-#8 leak).
+- [x] `load()` performs zero writes/deletes when encountering junk batches (read-only guarantee preserved — REQ-051 tests pass; junk skipped with a warning as today).
 
 ## Verification Steps
 
@@ -48,3 +42,9 @@ Code-review findings #5 and #8. Read archived REQ-048 (atomic pending writes / t
 
 1. **test** `./vendor/bin/pest --filter="TimingStore|MergeCommand"` — Expected: all pass, including new unlink-failure, ordering-pin, and junk-deletion cases.
 2. **test** `./vendor/bin/pest` — Expected: full suite green (merge path shared with CLI commands).
+
+## Outputs
+
+- src/Timing/TimingStore.php — Merge cleanup now warns on unlink failures, continues deleting, and cleans junk only during merge.
+- tests/Unit/Timing/TimingStoreTest.php — Adds regression coverage for unlink cleanup, timestamp re-apply ordering, junk merge cleanup, and read-only load.
+- tests/Unit/Cli/MergeCommandTest.php — Adds CLI coverage proving junk batches are cleaned once and do not re-warn on later merge.
