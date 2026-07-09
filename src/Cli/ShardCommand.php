@@ -35,6 +35,12 @@ final class ShardCommand
                 $dirLabel = $dir;
             } elseif (str_starts_with($arg, '--suffix=')) {
                 $suffix = substr($arg, strlen('--suffix='));
+
+                if ($suffix === '') {
+                    fwrite($stderr, "[warp] --suffix must not be empty\n");
+
+                    return 2;
+                }
             } elseif (str_starts_with($arg, '--configuration=')) {
                 $configuration = substr($arg, strlen('--configuration='));
             } elseif ($spec === null && preg_match('#^(\d+)/(\d+)$#', $arg, $matches) === 1) {
