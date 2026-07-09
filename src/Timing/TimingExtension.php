@@ -31,7 +31,7 @@ final class TimingExtension implements Extension
         $collector = new TimingCollector;
         $store = TimingStore::fromEnv();
         $root = (string) getcwd();
-        $completeRun = ! self::hasRestrictedSelection($configuration);
+        $completeRun = ! self::hasIncompleteRunConfiguration($configuration);
         $flush = static function (bool $complete) use ($collector, $store): void {
             self::flush($collector, $store, $complete);
         };
@@ -113,13 +113,16 @@ final class TimingExtension implements Extension
         }
     }
 
-    private static function hasRestrictedSelection(Configuration $configuration): bool
+    private static function hasIncompleteRunConfiguration(Configuration $configuration): bool
     {
         return $configuration->hasFilter()
             || $configuration->hasExcludeFilter()
             || $configuration->hasGroups()
             || $configuration->hasExcludeGroups()
-            || $configuration->hasCliArguments();
+            || $configuration->hasCliArguments()
+            || $configuration->stopOnDefect()
+            || $configuration->stopOnError()
+            || $configuration->stopOnFailure();
     }
 
     private static function shutdownBackstopComplete(
