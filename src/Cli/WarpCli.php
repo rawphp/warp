@@ -16,6 +16,7 @@ final class WarpCli
         $rest = array_slice($argv, 2);
 
         return match ($argv[1] ?? null) {
+            'merge' => MergeCommand::run($rest, $stdout, $stderr),
             'shard' => ShardCommand::run($rest, $stdout, $stderr),
             'timings' => TimingsCommand::run($rest, $stdout, $stderr),
             default => self::usage($stderr),
@@ -28,6 +29,7 @@ final class WarpCli
         fwrite($stderr, <<<'TXT'
 warp - test engine CLI
 usage:
+  warp merge [--timings-dir=DIR]
   warp shard <index>/<total> [paths...] [--timings-dir=DIR] [--suffix=Test.php]
   warp timings [--timings-dir=DIR]
 

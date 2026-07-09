@@ -58,28 +58,40 @@ final class TimingStore
         $this->mergeToDisk();
     }
 
-    public function mergeToDisk(): void
+    public function mergeToDisk(): int
     {
         if (! is_dir($this->dir.'/pending')) {
-            return;
+            return 0;
         }
 
-        FileLock::withLock($this->dir.'/merge.lock', function (): void {
+        return FileLock::withLock($this->dir.'/merge.lock', function (): int {
             $pending = $this->pendingFiles();
 
             if ($pending === []) {
-                return;
+                return 0;
             }
 
             [$tests, $mergedPending] = $this->mergedWithPending($pending);
 
-            foreach ($mergedPending as $path) {
-                unlink($path);
+            $tmp = $this->dir.'/timings.json.tmp';
+
+            if (file_put_contents($tmp, json_encode(['version' => self::VERSION, 'tests' => $tests], JSON_THROW_ON_ERROR)) === false) {
+                throw new RuntimeException('[warp] cannot write merged timings to '.$tmp);
             }
 
-            $tmp = $this->dir.'/timings.json.tmp';
-            file_put_contents($tmp, json_encode(['version' => self::VERSION, 'tests' => $tests], JSON_THROW_ON_ERROR));
-            rename($tmp, $this->dir.'/timings.json');
+            if (! rename($tmp, $this->dir.'/timings.json')) {
+                @unlink($tmp);
+
+                throw new RuntimeException('[warp] cannot publish merged timings to '.$this->dir.'/timings.json');
+            }
+
+            foreach ($mergedPending as $path) {
+                if (! unlink($path)) {
+                    throw new RuntimeException('[warp] cannot delete merged pending timings batch at '.$path);
+                }
+            }
+
+            return count($mergedPending);
         });
     }
 
@@ -292,7 +304,17 @@ final class TimingStore
             return [];
         }
 
-        $data = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
+        $contents = file_get_contents($this->dir.'/timings.json');
+
+        if ($contents === false) {
+            throw new RuntimeException('[warp] cannot read timings from '.$this->dir.'/timings.json');
+        }
+
+        $data = json_decode($contents, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new RuntimeException('[warp] cannot decode timings from '.$this->dir.'/timings.json: '.json_last_error_msg());
+        }
 
         if (! is_array($data) || ($data['version'] ?? null) !== self::VERSION || ! is_array($data['tests'] ?? null)) {
             return [];

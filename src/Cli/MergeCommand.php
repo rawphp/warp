@@ -8,7 +8,7 @@ use InvalidArgumentException;
 use RawPHP\Warp\Timing\TimingStore;
 use RuntimeException;
 
-final class TimingsCommand
+final class MergeCommand
 {
     /**
      * @param  list<string>  $args
@@ -30,33 +30,21 @@ final class TimingsCommand
         }
 
         try {
-            $tests = (new TimingStore($dir))->load();
+            $merged = (new TimingStore($dir))->mergeToDisk();
         } catch (InvalidArgumentException|RuntimeException $exception) {
             fwrite($stderr, $exception->getMessage()."\n");
 
             return 2;
         }
 
-        if ($tests === []) {
-            fwrite($stdout, "[warp] no timings recorded yet - run the suite with WARP_TIMINGS=1\n");
+        if ($merged === 0) {
+            fwrite($stdout, "[warp] nothing to merge\n");
 
             return 0;
         }
 
-        $totals = TimingStore::aggregate($tests);
-        arsort($totals);
-
-        fwrite($stdout, sprintf(
-            "[warp] %d tests across %d files - %.1fms recorded\n",
-            count($tests),
-            count($totals),
-            array_sum($totals),
-        ));
-        fwrite($stdout, "slowest files:\n");
-
-        foreach (array_slice($totals, 0, 10, true) as $file => $ms) {
-            fwrite($stdout, sprintf("  %10.1fms  %s\n", $ms, $file));
-        }
+        $label = $merged === 1 ? 'batch' : 'batches';
+        fwrite($stdout, "[warp] merged {$merged} pending timing {$label}\n");
 
         return 0;
     }

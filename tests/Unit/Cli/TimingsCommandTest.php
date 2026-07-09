@@ -52,3 +52,15 @@ it('rejects unknown arguments', function () {
     expect($exit)->toBe(2)
         ->and($stderr)->toContain('unknown argument');
 });
+
+it('returns 2 without a stack trace when the merged timings file is corrupt', function () {
+    Dirs::ensure($this->tmp);
+    file_put_contents($this->tmp.'/timings.json', 'not json');
+
+    [$exit, $stdout, $stderr] = ($this->run)(['--timings-dir='.$this->tmp]);
+
+    expect($exit)->toBe(2)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toContain('[warp] cannot decode timings')
+        ->and($stderr)->not->toContain('Stack trace');
+});
