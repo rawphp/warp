@@ -73,13 +73,13 @@ final class TimingExtension implements Extension
 
             public function notify(ExecutionFinished $event): void
             {
-                $this->collector->flush($this->store);
+                $this->collector->flush($this->store, complete: true);
             }
         });
 
         // Backstop: paratest workers and fatally-interrupted runs may never
         // see ExecutionFinished; flush() is idempotent so both paths are safe.
-        register_shutdown_function(static fn () => $collector->flush($store));
+        register_shutdown_function(static fn () => $collector->flush($store, complete: false));
     }
 
     /** Telemetry wall-clock as float seconds, monotonic within a run. */

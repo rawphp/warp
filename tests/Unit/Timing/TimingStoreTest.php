@@ -46,7 +46,8 @@ it('writes pending batches atomically and leaves no temporary file behind', func
         ->and($files[0])->toMatch('/^\d{16,}-\d+-[a-f0-9]{8}\.json$/')
         ->and($files[0])->not->toEndWith('.tmp')
         ->and(json_decode((string) file_get_contents($this->dir.'/pending/'.$files[0]), true))->toBe([
-            't1' => ['file' => 'tests/ATest.php', 'ms' => 10.5],
+            'complete' => true,
+            'tests' => ['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]],
         ]);
 });
 
@@ -86,13 +87,65 @@ it('a rerun of a file supersedes all of that file\'s previous entries', function
         ->and($tests['t3']['ms'])->toBe(30.5);
 });
 
+it('incomplete pending batches merge by test id without superseding a whole file', function () {
+    Dirs::ensure($this->dir);
+    file_put_contents($this->dir.'/timings.json', json_encode([
+        'version' => 1,
+        'tests' => [
+            'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+            'FileA::two' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+            'FileA::three' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+        ],
+    ]));
+
+    Dirs::ensure($this->dir.'/pending');
+    file_put_contents($this->dir.'/pending/100-1-aabbccdd.json', json_encode([
+        'complete' => false,
+        'tests' => [
+            'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 100.0],
+        ],
+    ]));
+
+    expect($this->store->load())->toEqual([
+        'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 100.0],
+        'FileA::two' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+        'FileA::three' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+    ]);
+});
+
+it('complete pending batches keep superseding all previous entries for covered files', function () {
+    Dirs::ensure($this->dir);
+    file_put_contents($this->dir.'/timings.json', json_encode([
+        'version' => 1,
+        'tests' => [
+            'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+            'FileA::two' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+            'FileA::three' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+        ],
+    ]));
+
+    Dirs::ensure($this->dir.'/pending');
+    file_put_contents($this->dir.'/pending/100-1-aabbccdd.json', json_encode([
+        'complete' => true,
+        'tests' => [
+            'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 100.0],
+        ],
+    ]));
+
+    expect($this->store->load())->toEqual([
+        'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 100.0],
+    ]);
+});
+
 it('merges pending batches by numeric timestamp when older filename sorts first lexicographically', function () {
     Dirs::ensure($this->dir.'/pending');
     file_put_contents($this->dir.'/pending/100-99999-aaaaaaaa.json', json_encode([
-        'old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0],
+        'complete' => true,
+        'tests' => ['old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0]],
     ]));
     file_put_contents($this->dir.'/pending/200-1-bbbbbbbb.json', json_encode([
-        'new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0],
+        'complete' => true,
+        'tests' => ['new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0]],
     ]));
 
     expect($this->store->fileTotals())->toBe(['tests/FooTest.php' => 50.0]);
@@ -101,10 +154,12 @@ it('merges pending batches by numeric timestamp when older filename sorts first 
 it('merges pending batches by numeric timestamp when older filename sorts after newer lexicographically', function () {
     Dirs::ensure($this->dir.'/pending');
     file_put_contents($this->dir.'/pending/9-99999-aaaaaaaa.json', json_encode([
-        'old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0],
+        'complete' => true,
+        'tests' => ['old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0]],
     ]));
     file_put_contents($this->dir.'/pending/10-1-bbbbbbbb.json', json_encode([
-        'new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0],
+        'complete' => true,
+        'tests' => ['new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0]],
     ]));
 
     expect($this->store->fileTotals())->toBe(['tests/FooTest.php' => 50.0]);
@@ -115,7 +170,8 @@ it('leaves corrupt pending files in place and warns while merging valid siblings
     $badPath = $this->dir.'/pending/100-0-badbad00.json';
     file_put_contents($badPath, 'not json');
     file_put_contents($this->dir.'/pending/200-1-aabbccdd.json', json_encode([
-        't1' => ['file' => 'tests/ATest.php', 'ms' => 10.5],
+        'complete' => true,
+        'tests' => ['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]],
     ]));
 
     $script = $this->dir.'/merge.php';
@@ -152,10 +208,12 @@ it('skips old-format pending files with a warning', function () {
     Dirs::ensure($this->dir.'/pending');
     $oldPath = $this->dir.'/pending/12345-aaaaaaaa.json';
     file_put_contents($oldPath, json_encode([
-        'old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0],
+        'complete' => true,
+        'tests' => ['old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0]],
     ]));
     file_put_contents($this->dir.'/pending/200-1-bbbbbbbb.json', json_encode([
-        'new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0],
+        'complete' => true,
+        'tests' => ['new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0]],
     ]));
 
     $script = $this->dir.'/merge-old-format.php';
@@ -204,9 +262,12 @@ it('discovers pending batches when the store path contains glob metacharacters',
 it('drops malformed entries from a pending batch', function () {
     Dirs::ensure($this->dir.'/pending');
     file_put_contents($this->dir.'/pending/100-0-aabbccdd.json', json_encode([
-        'good' => ['file' => 'tests/ATest.php', 'ms' => 5.5],
-        'no-file' => ['ms' => 5.5],
-        'bad-ms' => ['file' => 'tests/BTest.php', 'ms' => 'slow'],
+        'complete' => true,
+        'tests' => [
+            'good' => ['file' => 'tests/ATest.php', 'ms' => 5.5],
+            'no-file' => ['ms' => 5.5],
+            'bad-ms' => ['file' => 'tests/BTest.php', 'ms' => 'slow'],
+        ],
     ]));
 
     expect(array_keys($this->store->load()))->toBe(['good']);

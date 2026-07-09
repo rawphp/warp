@@ -62,6 +62,48 @@ it('flush writes a single pending batch and only once', function () {
     Dirs::delete($dir);
 });
 
+it('flush marks normally completed batches complete by default', function () {
+    $dir = sys_get_temp_dir().'/warp-collector-'.bin2hex(random_bytes(4));
+    $store = new TimingStore($dir);
+    $collector = new TimingCollector;
+
+    $collector->started('t::one', 1.0);
+    $collector->finished('t::one', 'tests/OneTest.php', 1.5);
+
+    $collector->flush($store);
+
+    $path = glob($dir.'/pending/*.json')[0] ?? null;
+    $payload = json_decode((string) file_get_contents((string) $path), true);
+
+    expect($payload)->toEqual([
+        'complete' => true,
+        'tests' => ['t::one' => ['file' => 'tests/OneTest.php', 'ms' => 500.0]],
+    ]);
+
+    Dirs::delete($dir);
+});
+
+it('flush can mark shutdown backstop batches incomplete', function () {
+    $dir = sys_get_temp_dir().'/warp-collector-'.bin2hex(random_bytes(4));
+    $store = new TimingStore($dir);
+    $collector = new TimingCollector;
+
+    $collector->started('t::one', 1.0);
+    $collector->finished('t::one', 'tests/OneTest.php', 1.5);
+
+    $collector->flush($store, complete: false);
+
+    $path = glob($dir.'/pending/*.json')[0] ?? null;
+    $payload = json_decode((string) file_get_contents((string) $path), true);
+
+    expect($payload['complete'] ?? null)->toBeFalse()
+        ->and($payload['tests'] ?? [])->toEqual([
+            't::one' => ['file' => 'tests/OneTest.php', 'ms' => 500.0],
+        ]);
+
+    Dirs::delete($dir);
+});
+
 it('flush with nothing recorded writes nothing', function () {
     $dir = sys_get_temp_dir().'/warp-collector-'.bin2hex(random_bytes(4));
 
