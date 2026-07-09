@@ -334,6 +334,30 @@ it('shutdown backstop completeness remains incomplete after fatal shutdowns', fu
     expect(shutdownBackstopComplete($collector, hadFatalError: true))->toBeFalse();
 });
 
+it('keeps passing child runs green and warns once when timing flush fails', function () {
+    $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+    $fixture = writeTimingRestrictionFixture();
+
+    try {
+        Dirs::ensure($dir);
+        chmod($dir, 0555);
+
+        $result = runPestWithTimingsResult($dir, [$fixture]);
+        $output = implode(PHP_EOL, $result['output']);
+
+        expect($result['exit'])->toBe(0)
+            ->and(substr_count($output, '[warp] timing flush failed:'))->toBe(1)
+            ->and($output)->toContain('[warp] cannot create directory')
+            ->and($output)->not->toContain('Fatal error')
+            ->and($output)->not->toContain('exit code 255')
+            ->and(glob($dir.'/pending/*.json') ?: [])->toHaveCount(0);
+    } finally {
+        @chmod($dir, 0755);
+        @unlink($fixture);
+        Dirs::delete($dir);
+    }
+});
+
 it('leaves no trace when WARP_TIMINGS is off', function () {
     $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
     $root = dirname(__DIR__, 3);
@@ -502,6 +526,17 @@ XML,
  */
 function runPestWithTimings(string $dir, array $arguments): void
 {
+    $result = runPestWithTimingsResult($dir, $arguments);
+
+    test()->assertSame(0, $result['exit'], implode(PHP_EOL, $result['output']));
+}
+
+/**
+ * @param  list<string>  $arguments
+ * @return array{exit: int, output: list<string>}
+ */
+function runPestWithTimingsResult(string $dir, array $arguments): array
+{
     $root = dirname(__DIR__, 3);
     $bootstrap = writeTimingRestrictionBootstrap();
 
@@ -516,7 +551,7 @@ function runPestWithTimings(string $dir, array $arguments): void
 
         exec($command, $output, $exit);
 
-        test()->assertSame(0, $exit, implode(PHP_EOL, $output));
+        return ['exit' => $exit, 'output' => $output];
     } finally {
         @unlink($bootstrap);
     }
