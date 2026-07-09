@@ -1,7 +1,13 @@
 # REQ-075: Shared atomic-write helper closes mergeToDisk short-write gap
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.23132
+**Claimed at:** 2026-07-09T09:04:15Z
+**Heartbeat:** 2026-07-09T09:04:15Z
+<!-- claimed-end -->
+
 **UR:** UR-013
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
