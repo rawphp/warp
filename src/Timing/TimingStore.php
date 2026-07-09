@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RawPHP\Warp\Timing;
 
 use RawPHP\Warp\Db\Dirs;
+use RawPHP\Warp\Support\FileLock;
 use RuntimeException;
 
 final class TimingStore
@@ -54,59 +55,44 @@ final class TimingStore
 
     public function mergePending(): void
     {
+        $this->mergeToDisk();
+    }
+
+    public function mergeToDisk(): void
+    {
         if (! is_dir($this->dir.'/pending')) {
             return;
         }
 
-        $handle = fopen($this->dir.'/merge.lock', 'c');
-
-        if ($handle === false) {
-            throw new RuntimeException('[warp] cannot open timings lock in '.$this->dir);
-        }
-
-        flock($handle, LOCK_EX);
-
-        try {
+        FileLock::withLock($this->dir.'/merge.lock', function (): void {
             $pending = $this->pendingFiles();
 
             if ($pending === []) {
                 return;
             }
 
-            $tests = $this->readMerged();
-            $fileIndex = self::indexByFile($tests);
+            [$tests, $mergedPending] = $this->mergedWithPending($pending);
 
-            foreach ($pending as $path) {
-                $batch = json_decode((string) file_get_contents($path), true);
-
-                if (json_last_error() !== JSON_ERROR_NONE) {
-                    self::warn('[warp] skipped undecodable pending timings batch: '.$path.PHP_EOL);
-
-                    continue;
-                }
-
-                if (is_array($batch)) {
-                    $tests = self::apply($tests, $fileIndex, $batch);
-                }
-
+            foreach ($mergedPending as $path) {
                 unlink($path);
             }
 
             $tmp = $this->dir.'/timings.json.tmp';
             file_put_contents($tmp, json_encode(['version' => self::VERSION, 'tests' => $tests], JSON_THROW_ON_ERROR));
             rename($tmp, $this->dir.'/timings.json');
-        } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
-        }
+        });
     }
 
     /** @return array<string, array{file: string, ms: float}> */
     public function load(): array
     {
-        $this->mergePending();
+        if (! is_dir($this->dir.'/pending')) {
+            return $this->readMerged();
+        }
 
-        return $this->readMerged();
+        [$tests] = $this->mergedWithPending($this->pendingFiles());
+
+        return $tests;
     }
 
     /** @return array<string, float> file => total ms, path-sorted */
@@ -176,6 +162,34 @@ final class TimingStore
         }
 
         file_put_contents('php://stderr', $message);
+    }
+
+    /**
+     * @param  list<string>  $pending
+     * @return array{0: array<string, array{file: string, ms: float}>, 1: list<string>}
+     */
+    private function mergedWithPending(array $pending): array
+    {
+        $tests = $this->readMerged();
+        $fileIndex = self::indexByFile($tests);
+        $mergedPending = [];
+
+        foreach ($pending as $path) {
+            $batch = json_decode((string) file_get_contents($path), true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                self::warn('[warp] skipped undecodable pending timings batch: '.$path.PHP_EOL);
+
+                continue;
+            }
+
+            if (is_array($batch)) {
+                $tests = self::apply($tests, $fileIndex, $batch);
+                $mergedPending[] = $path;
+            }
+        }
+
+        return [$tests, $mergedPending];
     }
 
     /**
@@ -284,6 +298,15 @@ final class TimingStore
             return [];
         }
 
-        return $data['tests'];
+        $tests = [];
+
+        foreach ($data['tests'] as $id => $entry) {
+            if (is_string($id) && is_array($entry)
+                && is_string($entry['file'] ?? null) && is_numeric($entry['ms'] ?? null)) {
+                $tests[$id] = ['file' => $entry['file'], 'ms' => (float) $entry['ms']];
+            }
+        }
+
+        return $tests;
     }
 }
