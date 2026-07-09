@@ -15,6 +15,11 @@
 - `bench/shard-spread.sh` — S3 gate harness (count-based vs duration-balanced
   spread report from recorded timings).
 
+### Changed
+
+- `warp shard` now exits 2 when discovery finds zero test files, keeping that
+  error distinct from exit 3 legitimately empty shards.
+
 ## 0.2.0 - 2026-07-08
 
 ### Added

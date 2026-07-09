@@ -276,6 +276,73 @@ it('exposes shard exit codes 0, 3, and 2 through the real binary', function () {
         ->and($errorStderr)->toContain('[warp] no such test path');
 });
 
+it('exits 2 when the real binary discovers zero test files', function () {
+    $project = createWarpFixtureProject($this->dir, []);
+    file_put_contents($project.'/phpunit.xml', <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit>
+    <testsuites>
+        <testsuite name="Empty">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>
+XML);
+
+    [$exit, $stdout, $stderr] = warpBinRun(
+        ['shard', '1/2', '--timings-dir='.$project.'/timings'],
+        $project,
+    );
+
+    expect($exit)->toBe(2)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toBe("[warp] no test files discovered - nothing to shard\n");
+});
+
+it('keeps the sh -e shard guard fatal when discovery finds zero test files', function () {
+    $project = createWarpFixtureProject($this->dir, []);
+    $root = dirname(__DIR__, 3);
+    $php = escapeshellarg(PHP_BINARY);
+    $warp = escapeshellarg($root.'/bin/warp');
+    $timings = escapeshellarg($project.'/timings');
+    file_put_contents($project.'/phpunit.xml', <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit>
+    <testsuites>
+        <testsuite name="Empty">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>
+XML);
+
+    $guard = sprintf(
+        <<<'SH'
+set +e
+FILES=$(%s %s shard 1/2 --timings-dir=%s)
+rc=$?
+set -e
+if [ "$rc" -eq 3 ]; then
+    echo "skip"
+    exit 0
+fi
+if [ "$rc" -ne 0 ]; then
+    exit "$rc"
+fi
+printf 'run:%%s\n' "$FILES"
+SH,
+        $php,
+        $warp,
+        $timings,
+    );
+
+    [$exit, $stdout, $stderr] = shellRun($guard, $project);
+
+    expect($exit)->toBe(2)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toBe("[warp] no test files discovered - nothing to shard\n");
+});
+
 it('keeps the corrected sh -e shard guard tolerant of empty shards but fatal on errors', function () {
     $project = createWarpFixtureProject($this->dir, ['OnlyTest.php']);
     $root = dirname(__DIR__, 3);
