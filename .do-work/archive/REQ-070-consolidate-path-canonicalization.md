@@ -1,13 +1,14 @@
 # REQ-070: Consolidate path canonicalization onto Paths::canonical
 
+
 **UR:** UR-012
-**Status:** backlog
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 2 verification checkpoints passed; commit:90bdae9
 **Criteria approved:** agent-drafted
 **Priority:** 1
 **Size:** M
@@ -24,10 +25,10 @@ Code-review finding #9 (canonicalization half; CONFIRMED duplication, altitude c
 
 ## Acceptance Criteria
 
-- [ ] `TestFileResolver` no longer contains a private copy of the realpath/normalize/strip-root logic; it calls `Support\Paths::canonical()` for normalization and retains its caching wrapper.
-- [ ] For a representative set of inputs (absolute, root-relative, `./`-prefixed, nested, at-root), the key produced by the recording path equals the key produced by `Paths::canonical` used at shard time (asserted by a test that compares both).
-- [ ] Behaviour is otherwise unchanged: existing `TestFileResolver` and shard-key tests pass; no change to `Paths::canonical`'s public contract (extend it only if a genuinely missing case is found, with a test).
-- [ ] Caching hot-path behaviour preserved (no extra realpath calls on repeated resolves).
+- [x] `TestFileResolver` no longer contains a private copy of the realpath/normalize/strip-root logic; it calls `Support\Paths::canonical()` for normalization and retains its caching wrapper.
+- [x] For a representative set of inputs (absolute, root-relative, `./`-prefixed, nested, at-root), the key produced by the recording path equals the key produced by `Paths::canonical` used at shard time (asserted by a test that compares both).
+- [x] Behaviour is otherwise unchanged: existing `TestFileResolver` and shard-key tests pass; no change to `Paths::canonical`'s public contract (extend it only if a genuinely missing case is found, with a test).
+- [x] Caching hot-path behaviour preserved (no extra realpath calls on repeated resolves).
 
 ## Verification Steps
 
@@ -35,3 +36,8 @@ Code-review finding #9 (canonicalization half; CONFIRMED duplication, altitude c
 
 1. **test** `./vendor/bin/pest --filter="TestFileResolver|Paths|ShardCommand"` — Expected: all pass, including a new test asserting recording-key == shard-key for the same file across the input variants above.
 2. **test** `./vendor/bin/pest` — Expected: full suite green (shared canonicalization touches both timing and sharding paths).
+
+## Outputs
+
+- src/Timing/TestFileResolver.php — Replaced duplicated canonicalization logic with a thin Paths::canonical() delegation while preserving resolver caches.
+- tests/Unit/Timing/TestFileResolverTest.php — Added shared-key parity coverage across representative inputs and a delegation guard.
