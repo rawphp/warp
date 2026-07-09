@@ -1,15 +1,10 @@
 # REQ-091: FileLock reports open failure reason
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.82488
-**Claimed at:** 2026-07-09T20:46:54Z
-**Heartbeat:** 2026-07-09T20:50:15Z
-<!-- claimed-end -->
 **UR:** UR-015
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 2 verification checkpoints passed; commit:49a94b0
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -39,3 +34,8 @@ Confirmed finding 11: `FileLock::withLock()` uses `@fopen()` and throws a generi
    - Expected: FileLock tests pass, including an open-failure assertion that contains the OS/PHP warning reason.
 2. **test** `./vendor/bin/pest`
    - Expected: full suite green; lock behavior in timing merge and DB snapshot helpers remains compatible.
+
+## Outputs
+
+- src/Support/FileLock.php — Captures suppressed fopen warning detail and appends it to file-lock open failure RuntimeException messages.
+- tests/Unit/Support/FileLockTest.php — Adds open-failure diagnostic coverage while preserving callback suppression and flock-failure behavior coverage.
