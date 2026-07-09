@@ -1,7 +1,13 @@
 # REQ-051: Read-only load — consumers overlay pending in memory; explicit mergeToDisk()
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.21409
+**Claimed at:** 2026-07-09T00:03:26Z
+**Heartbeat:** 2026-07-09T00:03:26Z
+<!-- claimed-end -->
+
 **UR:** UR-011
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
