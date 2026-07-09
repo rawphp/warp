@@ -18,7 +18,7 @@
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** M
-**Files:** src/Timing/TimingStore.php, tests/Unit/Timing/TimingStoreTest.php
+**Files:** src/Timing/TimingStore.php, tests/Unit/Timing/TimingStoreTest.php, tests/Integration/Timing/TimingCaptureTest.php
 **Depends on:** REQ-047, REQ-050
 
 ## Task
@@ -27,6 +27,7 @@ Split `TimingStore`'s read and write paths (finding #3, per the UR-011 clarified
 
 1. `load()` becomes strictly read-only: it reads `timings.json`, overlays any pending batches **in memory** (using the recording-order + completeness semantics from REQ-049/REQ-050), and returns the merged view. It must not open `merge.lock`, must not rewrite `timings.json`, and must not unlink anything. Note the current code opens the lock BEFORE checking whether pending is empty (src/Timing/TimingStore.php:49 vs :60) — all of that leaves the read path.
 2. Add an explicit `mergeToDisk()` method that performs the durable merge (rewrite `timings.json`, delete merged pending files) under `Support\FileLock::withLock()` (REQ-047), replacing the inline lock choreography in `mergePending()`.
+3. Update `tests/Integration/Timing/TimingCaptureTest.php` so the real Pest timing-capture integration test asserts the new read-only `load()` contract: captured pending batches remain on disk after `load()` overlays them in memory. Do not keep the old "load consumes pending" assertion.
 
 ## Context
 
@@ -38,6 +39,7 @@ Review finding #3: `warp shard` performs destructive writes on its read path on 
 - [ ] `load()` leaves `pending/*.json` files in place (asserted after load).
 - [ ] `mergeToDisk()` rewrites `timings.json` with the merged view, deletes merged pending files, and serializes concurrent callers via `FileLock::withLock()`; the inline fopen/flock code in TimingStore is deleted.
 - [ ] In-memory overlay and `mergeToDisk()` produce identical merged data for the same inputs (property asserted by a test running both against the same fixture).
+- [ ] `tests/Integration/Timing/TimingCaptureTest.php` no longer asserts that `load()` consumes pending batches; it asserts the captured pending batch remains available after the read-only load overlay.
 
 ## Verification Steps
 
@@ -45,7 +47,9 @@ Review finding #3: `warp shard` performs destructive writes on its read path on 
 
 1. **test** `./vendor/bin/pest tests/Unit/Timing/TimingStoreTest.php`
    - Expected: read-only-directory load test and mergeToDisk equivalence test pass.
-2. **test** `./vendor/bin/pest`
+2. **test** `./vendor/bin/pest tests/Integration/Timing/TimingCaptureTest.php`
+   - Expected: real Pest timing capture still records timings, and the integration assertion matches read-only `load()` semantics.
+3. **test** `./vendor/bin/pest`
    - Expected: full suite green.
 
 ## Integration
