@@ -1,19 +1,13 @@
 # REQ-056: Expose DurationBalancedSharder plan/weights as public API
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.21409
-**Claimed at:** 2026-07-09T01:54:13Z
-**Heartbeat:** 2026-07-09T01:54:13Z
-<!-- claimed-end -->
-
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** package
 **Entry point:**
 **Terminal state:**
 **Parent:** REQ-054
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 2 verification checkpoints passed commit:9126154
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -35,9 +29,9 @@ Over-cap findings A4/E-bench: `bench/shard-spread.php:32-34` duplicates the shar
 
 ## Acceptance Criteria
 
-- [ ] `plan()` returns all bins in one pass; `assign($files, $totals, "$k/$n")` returns exactly `plan($files, $totals, $n)[$k-1]` (asserted for several k/n).
-- [ ] Per-file resolved weights (with fallback applied) and per-bin loads are obtainable from the public API without re-deriving the fallback policy.
-- [ ] All existing DurationBalancedSharder tests pass unchanged (determinism contract intact).
+- [x] `plan()` returns all bins in one pass; `assign($files, $totals, "$k/$n")` returns exactly `plan($files, $totals, $n)[$k-1]` (asserted for several k/n).
+- [x] Per-file resolved weights (with fallback applied) and per-bin loads are obtainable from the public API without re-deriving the fallback policy.
+- [x] All existing DurationBalancedSharder tests pass unchanged (determinism contract intact).
 
 ## Verification Steps
 
@@ -55,3 +49,8 @@ Over-cap findings A4/E-bench: `bench/shard-spread.php:32-34` duplicates the shar
 **Data dependencies:** File-totals map from `TimingStore::fileTotals()` (src/Timing/TimingStore.php) — shape unchanged.
 
 **Service dependencies:** None; pure in-memory computation. Existing callers' `assign()` signature is preserved.
+
+## Outputs
+
+- `src/Shard/DurationBalancedSharder.php` — Added public `plan()`, `weights()`, and `loads()` APIs; kept `assign()` delegating to `plan()` with the existing range error contract.
+- `tests/Unit/Shard/DurationBalancedSharderTest.php` — Added plan/assign equivalence, resolved weights, per-bin loads, and no-timings fallback coverage while preserving existing determinism tests.
