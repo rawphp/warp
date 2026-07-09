@@ -141,14 +141,14 @@ it('shutdown backstop capture supersedes stale entries for fully observed files'
     $collector->finished('FileA::one', 'tests/FileATest.php', 1.25);
 
     $store = new TimingStore($dir);
-    $flush->invoke(null, $collector, $store, true);
+    $flush->invoke(null, $collector, $store, shutdownBackstopComplete($collector));
     $store->mergeToDisk();
 
     $collector = new TimingCollector;
     $collector->started('FileA::one', 2.0);
     $collector->finished('FileA::one', 'tests/FileATest.php', 2.5);
 
-    $flush->invoke(null, $collector, $store, true);
+    $flush->invoke(null, $collector, $store, shutdownBackstopComplete($collector));
     $store->mergeToDisk();
 
     expect($store->load())->toBe([
@@ -156,6 +156,45 @@ it('shutdown backstop capture supersedes stale entries for fully observed files'
     ]);
 
     Dirs::delete($dir);
+});
+
+it('shutdown backstop capture with an in-flight test does not supersede sibling timings', function () {
+    $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+
+    Dirs::ensure($dir);
+    file_put_contents($dir.'/timings.json', json_encode([
+        'version' => 1,
+        'tests' => [
+            'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
+            'FileA::sibling' => ['file' => 'tests/FileATest.php', 'ms' => 5000.0],
+        ],
+    ], JSON_THROW_ON_ERROR));
+
+    $flush = new ReflectionMethod(TimingExtension::class, 'flush');
+    $collector = new TimingCollector;
+    $collector->started('FileA::one', 1.0);
+    $collector->finished('FileA::one', 'tests/FileATest.php', 1.25);
+    $collector->started('FileA::two', 1.3);
+
+    $store = new TimingStore($dir);
+    $flush->invoke(null, $collector, $store, shutdownBackstopComplete($collector));
+    $store->mergeToDisk();
+
+    expect(pendingCompletenessFlags($dir))->toBe([])
+        ->and($store->load())->toBe([
+            'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 250.0],
+            'FileA::sibling' => ['file' => 'tests/FileATest.php', 'ms' => 5000.0],
+        ]);
+
+    Dirs::delete($dir);
+});
+
+it('shutdown backstop completeness remains incomplete after fatal shutdowns', function () {
+    $collector = new TimingCollector;
+    $collector->started('FileA::one', 1.0);
+    $collector->finished('FileA::one', 'tests/FileATest.php', 1.25);
+
+    expect(shutdownBackstopComplete($collector, hadFatalError: true))->toBeFalse();
 });
 
 it('leaves no trace when WARP_TIMINGS is off', function () {
@@ -283,4 +322,14 @@ function pendingCompletenessFlags(string $dir): array
     }
 
     return $flags;
+}
+
+function shutdownBackstopComplete(
+    TimingCollector $collector,
+    bool $completeRun = true,
+    bool $hadFatalError = false,
+): bool {
+    $method = new ReflectionMethod(TimingExtension::class, 'shutdownBackstopComplete');
+
+    return $method->invoke(null, $collector, $completeRun, $hadFatalError);
 }

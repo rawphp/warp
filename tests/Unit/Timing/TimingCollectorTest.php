@@ -30,6 +30,20 @@ it('tracks interleaved tests independently', function () {
     ]);
 });
 
+it('reports whether a test is currently in flight', function () {
+    $collector = new TimingCollector;
+
+    expect($collector->hasInFlight())->toBeFalse();
+
+    $collector->started('t::one', 1.0);
+
+    expect($collector->hasInFlight())->toBeTrue();
+
+    $collector->finished('t::one', 'tests/OneTest.php', 1.5);
+
+    expect($collector->hasInFlight())->toBeFalse();
+});
+
 it('ignores a finish without a matching start', function () {
     $collector = new TimingCollector;
 

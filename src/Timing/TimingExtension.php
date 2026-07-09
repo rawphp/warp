@@ -83,9 +83,11 @@ final class TimingExtension implements Extension
             }
         });
 
-        // Backstop: paratest workers and fatally-interrupted runs may never
-        // see ExecutionFinished; restricted or fatal shutdowns stay incomplete.
-        register_shutdown_function(static fn () => $flush($completeRun && ! self::shutdownHadFatalError()));
+        // Backstop: paratest workers and interrupted runs may never see
+        // ExecutionFinished; restricted, fatal, or in-flight shutdowns stay incomplete.
+        register_shutdown_function(static fn () => $flush(
+            self::shutdownBackstopComplete($collector, $completeRun, self::shutdownHadFatalError())
+        ));
     }
 
     /** Telemetry wall-clock as float seconds, monotonic within a run. */
@@ -118,6 +120,14 @@ final class TimingExtension implements Extension
             || $configuration->hasGroups()
             || $configuration->hasExcludeGroups()
             || $configuration->hasCliArguments();
+    }
+
+    private static function shutdownBackstopComplete(
+        TimingCollector $collector,
+        bool $completeRun,
+        bool $hadFatalError,
+    ): bool {
+        return $completeRun && ! $collector->hasInFlight() && ! $hadFatalError;
     }
 
     private static function shutdownHadFatalError(): bool
