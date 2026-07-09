@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use RawPHP\Warp\Cli\ShardCommand;
 use RawPHP\Warp\Db\Dirs;
+use RawPHP\Warp\Shard\MissingConfigurationException;
+use RawPHP\Warp\Shard\SuiteDiscovery;
 use RawPHP\Warp\Timing\TimingStore;
 
 beforeEach(function () {
@@ -172,6 +174,20 @@ it('does not pre-scan for phpunit xml before suite discovery', function () {
     expect($source)->not->toContain('SuiteDiscovery::configurationPath');
 });
 
+it('uses the missing-configuration exception type instead of matching exception messages', function () {
+    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Cli/ShardCommand.php');
+
+    expect($source)->toContain('MissingConfigurationException')
+        ->and($source)->not->toContain("getMessage() !== '[warp] no phpunit.xml found at project root'")
+        ->and($source)->not->toContain('[warp] no phpunit.xml found at project root');
+});
+
+it('throws a typed missing-configuration exception when no phpunit xml exists', function () {
+    chdir($this->tmp);
+
+    SuiteDiscovery::discover($this->tmp);
+})->throws(MissingConfigurationException::class, '[warp] no phpunit.xml found at project root');
+
 it('falls back to tests with a stderr note when no phpunit xml exists', function () {
     chdir($this->tmp);
 
@@ -181,6 +197,33 @@ it('falls back to tests with a stderr note when no phpunit xml exists', function
         ->and($stdout)->toBe("tests/ATest.php\ntests/CTest.php\n")
         ->and($stderr)->toContain('no phpunit.xml found')
         ->and($stderr)->toContain('falling back to tests/Test.php');
+});
+
+it('does not fall back when suite discovery fails for a reason other than missing configuration', function () {
+    chdir($this->tmp);
+    writeShardPhpunitConfig($this->tmp.'/phpunit.xml', <<<'XML'
+        <testsuite name="Missing">
+            <directory>missing-tests</directory>
+        </testsuite>
+XML);
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/2', '--timings-dir='.$this->tmp.'/timings']);
+
+    expect($exit)->toBe(2)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toContain('[warp] no such test suite directory')
+        ->and($stderr)->not->toContain('falling back to tests/Test.php');
+});
+
+it('does not fall back when an explicit configuration file is missing', function () {
+    chdir($this->tmp);
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/2', '--configuration=missing.xml', '--timings-dir='.$this->tmp.'/timings']);
+
+    expect($exit)->toBe(2)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toContain('[warp] no such configuration file: missing.xml')
+        ->and($stderr)->not->toContain('falling back to tests/Test.php');
 });
 
 it('bypasses suite discovery when explicit paths are provided', function () {

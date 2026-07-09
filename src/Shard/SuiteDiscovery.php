@@ -30,7 +30,7 @@ final class SuiteDiscovery
         $configurationPath = self::configurationPath($root, $configuration);
 
         if ($configurationPath === null) {
-            throw new RuntimeException('[warp] no phpunit.xml found at project root');
+            throw new MissingConfigurationException('[warp] no phpunit.xml found at project root');
         }
 
         try {

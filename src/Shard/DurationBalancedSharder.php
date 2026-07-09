@@ -28,44 +28,15 @@ final class DurationBalancedSharder
         usort($order, static fn (string $a, string $b): int => ($weights[$b] <=> $weights[$a]) ?: strcmp($a, $b));
 
         $bins = array_fill(0, $shards, []);
-
-        if (self::allWeightsEqual($weights)) {
-            foreach ($order as $offset => $file) {
-                $bins[$offset % $shards][] = $file;
-            }
-
-            return self::sortBins($bins);
-        }
-
         $loads = array_fill(0, $shards, 0.0);
 
         foreach ($order as $file) {
-            $lightest = (int) array_search(min($loads), $loads, true);
+            $lightest = (int) array_search((float) min($loads), $loads, true);
             $loads[$lightest] += $weights[$file];
             $bins[$lightest][] = $file;
         }
 
         return self::sortBins($bins);
-    }
-
-    /**
-     * @param  array<string, float>  $weights
-     */
-    private static function allWeightsEqual(array $weights): bool
-    {
-        if ($weights === []) {
-            return false;
-        }
-
-        $first = reset($weights);
-
-        foreach ($weights as $weight) {
-            if ($weight !== $first) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /**
