@@ -1,0 +1,24 @@
+run_id: RUN-043
+req: REQ-059
+ur: UR-011
+agent_id: "Toms-MacBook-Pro.local.21409"
+model: "inherited"
+branch: "req/REQ-059"
+started_at: "2026-07-09T02:00:41Z"
+ended_at: "2026-07-09T02:14:35Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "tier-weighted estimate"
+cost_estimate_num: 0.05
+pr_url: ""
+commands:
+  - "php substr_count(src/WarpMode.php, 'in_array(getenv')"
+  - "./vendor/bin/pest tests/Unit/WarpModeTest.php"
+  - "./vendor/bin/pest"
+tests:
+  - "structural count: in_array(getenv appears once"
+  - "./vendor/bin/pest tests/Unit/WarpModeTest.php: 35 passed, 35 assertions"
+  - "./vendor/bin/pest: 215 passed, 526 assertions"
+changed_files:
+  - "src/WarpMode.php"
