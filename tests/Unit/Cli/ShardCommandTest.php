@@ -111,6 +111,32 @@ it('honours a custom suffix', function () {
         ->and($stdout)->toBe("tests/spec_a.php\n");
 });
 
+it('exits 2 when suite discovery finds no test files', function () {
+    chdir($this->tmp);
+    Dirs::ensure($this->tmp.'/empty-tests');
+    writeShardPhpunitConfig($this->tmp.'/phpunit.xml', <<<'XML'
+        <testsuite name="Empty">
+            <directory>empty-tests</directory>
+        </testsuite>
+XML);
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/2', '--timings-dir='.$this->tmp.'/timings']);
+
+    expect($exit)->toBe(2)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toBe("[warp] no test files discovered - nothing to shard\n");
+});
+
+it('exits 2 when explicit paths match no test files', function () {
+    chdir($this->tmp);
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/2', 'tests', '--timings-dir='.$this->tmp.'/timings', '--suffix=Spec.php']);
+
+    expect($exit)->toBe(2)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toBe("[warp] no test files discovered - nothing to shard\n");
+});
+
 it('rejects an empty suffix', function () {
     chdir($this->tmp);
     file_put_contents($this->tmp.'/tests/README.md', 'not a test');

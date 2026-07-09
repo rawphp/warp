@@ -268,7 +268,7 @@ codes are:
 | Exit | Meaning | CI recipe consequence |
 |------|---------|-----------------------|
 | 0 | Shard has files; stdout is the newline-delimited file list. | Run Pest with `FILES`. |
-| 2 | Usage, discovery, timings, or other shard error. | Fail the job with the same code. |
+| 2 | Usage, discovery, timings, zero discovered test files, or other shard error. | Fail the job with the same code. |
 | 3 | Empty shard (more shards than files). | Skip cleanly; do not run Pest with an empty file list. |
 
 Use an exit-code-aware guard under `sh -e`; this exact contract is exercised by

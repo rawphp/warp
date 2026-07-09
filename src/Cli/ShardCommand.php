@@ -89,6 +89,13 @@ final class ShardCommand
             }
 
             $files = self::canonicalFiles($files, getcwd() ?: '.');
+
+            if ($files === []) {
+                fwrite($stderr, "[warp] no test files discovered - nothing to shard\n");
+
+                return 2;
+            }
+
             $totals = $timings->store->fileTotals();
 
             if ($totals === []) {
