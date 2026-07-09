@@ -66,6 +66,45 @@ it('is deterministic across repeated calls', function () {
         ->toBe(DurationBalancedSharder::assign($files, $totals, 1, 2));
 });
 
+it('returns every shard in one plan and assign delegates to the selected bin', function () {
+    $files = ['tests/ATest.php', 'tests/BTest.php', 'tests/CTest.php', 'tests/DTest.php', 'tests/ETest.php'];
+    $totals = ['tests/ATest.php' => 100.0, 'tests/BTest.php' => 60.0, 'tests/CTest.php' => 30.0];
+
+    foreach ([2, 3, 6] as $shards) {
+        $plan = DurationBalancedSharder::plan($files, $totals, $shards);
+
+        expect($plan)->toHaveCount($shards);
+
+        for ($index = 1; $index <= $shards; $index++) {
+            expect(DurationBalancedSharder::assign($files, $totals, $index, $shards))
+                ->toBe($plan[$index - 1]);
+        }
+    }
+});
+
+it('exposes resolved per-file weights and per-bin loads without re-deriving fallback policy', function () {
+    $files = ['tests/ATest.php', 'tests/BTest.php', 'tests/CTest.php', 'tests/DTest.php'];
+    $totals = ['tests/ATest.php' => 30.0, 'tests/BTest.php' => 10.0];
+
+    $weights = DurationBalancedSharder::weights($files, $totals);
+    $plan = DurationBalancedSharder::plan($files, $totals, 3);
+
+    expect($weights)->toBe([
+        'tests/ATest.php' => 30.0,
+        'tests/BTest.php' => 10.0,
+        'tests/CTest.php' => 20.0,
+        'tests/DTest.php' => 20.0,
+    ])
+        ->and(DurationBalancedSharder::loads($plan, $weights))->toBe([30.0, 30.0, 20.0]);
+});
+
+it('exposes the no-timings fallback weight as one millisecond per file', function () {
+    expect(DurationBalancedSharder::weights(['tests/ATest.php', 'tests/BTest.php'], []))->toBe([
+        'tests/ATest.php' => 1.0,
+        'tests/BTest.php' => 1.0,
+    ]);
+});
+
 it('rejects out-of-range shard specs', function (int $index, int $total) {
     DurationBalancedSharder::assign(['tests/ATest.php'], [], $index, $total);
 })->with([[0, 2], [3, 2], [1, 0]])->throws(InvalidArgumentException::class, '[warp] shard index out of range');
