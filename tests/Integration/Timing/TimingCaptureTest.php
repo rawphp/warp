@@ -123,6 +123,50 @@ it('keeps testsuite-only captures complete so stale ids are pruned', function ()
     }
 });
 
+it('attributes inherited classic phpunit test methods to concrete test files', function () {
+    $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+    $fixtures = writeTimingInheritedPhpunitFixtures();
+    $config = writeTimingInheritedPhpunitConfig($fixtures['one'], $fixtures['two']);
+
+    try {
+        runPestWithTimings($dir, ['--configuration='.$config, '--testsuite=InheritedTimingFixture']);
+
+        $tests = (new TimingStore($dir))->load();
+        $filesById = [];
+
+        foreach ($tests as $id => $entry) {
+            if (str_contains($id, 'WarpInheritedTimingOneTest') || str_contains($id, 'WarpInheritedTimingTwoTest')) {
+                $filesById[$id] = $entry['file'];
+            }
+        }
+
+        expect($filesById)->toHaveCount(4)
+            ->and(array_unique(array_values($filesById)))->sequence(
+                fn ($file) => $file->toBe('tests/Integration/Timing/InheritedTimingOneTest.php'),
+                fn ($file) => $file->toBe('tests/Integration/Timing/InheritedTimingTwoTest.php'),
+            );
+
+        foreach ($filesById as $id => $file) {
+            if (str_contains($id, 'WarpInheritedTimingOneTest')) {
+                expect($file)->toBe('tests/Integration/Timing/InheritedTimingOneTest.php');
+            }
+
+            if (str_contains($id, 'WarpInheritedTimingTwoTest')) {
+                expect($file)->toBe('tests/Integration/Timing/InheritedTimingTwoTest.php');
+            }
+        }
+    } finally {
+        @unlink($config);
+        @unlink($config.'.php');
+
+        foreach ($fixtures as $fixture) {
+            @unlink($fixture);
+        }
+
+        Dirs::delete($dir);
+    }
+});
+
 it('marks stop-on-failure captures incomplete so unrun sibling timings survive', function () {
     $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
     $fixture = writeTimingEarlyStopFixture();
@@ -424,6 +468,100 @@ function writeTimingRestrictionPhpunitConfig(string $fixture): string
 XML,
         htmlspecialchars($bootstrap, ENT_XML1),
         htmlspecialchars($fixture, ENT_XML1),
+    ));
+
+    return $path;
+}
+
+/**
+ * @return array{base: string, trait: string, one: string, two: string}
+ */
+function writeTimingInheritedPhpunitFixtures(): array
+{
+    $directory = dirname(__DIR__).'/Timing';
+    $base = $directory.'/InheritedTimingBase.php';
+    $trait = $directory.'/InheritedTimingTrait.php';
+    $one = $directory.'/InheritedTimingOneTest.php';
+    $two = $directory.'/InheritedTimingTwoTest.php';
+
+    file_put_contents($base, <<<'PHP'
+<?php
+
+use PHPUnit\Framework\TestCase;
+
+abstract class WarpInheritedTimingBaseTest extends TestCase
+{
+    public function testInheritedBaseTiming(): void
+    {
+        self::assertTrue(true);
+    }
+}
+PHP);
+    file_put_contents($trait, <<<'PHP'
+<?php
+
+trait WarpInheritedTimingTrait
+{
+    public function testInheritedTraitTiming(): void
+    {
+        self::assertTrue(true);
+    }
+}
+PHP);
+    file_put_contents($one, sprintf(<<<'PHP'
+<?php
+
+require_once %s;
+require_once %s;
+
+final class WarpInheritedTimingOneTest extends WarpInheritedTimingBaseTest
+{
+    use WarpInheritedTimingTrait;
+}
+PHP,
+        var_export($base, true),
+        var_export($trait, true),
+    ));
+    file_put_contents($two, sprintf(<<<'PHP'
+<?php
+
+require_once %s;
+require_once %s;
+
+final class WarpInheritedTimingTwoTest extends WarpInheritedTimingBaseTest
+{
+    use WarpInheritedTimingTrait;
+}
+PHP,
+        var_export($base, true),
+        var_export($trait, true),
+    ));
+
+    return ['base' => $base, 'trait' => $trait, 'one' => $one, 'two' => $two];
+}
+
+function writeTimingInheritedPhpunitConfig(string $one, string $two): string
+{
+    $path = sys_get_temp_dir().'/warp-phpunit-'.bin2hex(random_bytes(4)).'.xml';
+    $bootstrap = writeTimingRestrictionBootstrap($path.'.php');
+
+    file_put_contents($path, sprintf(<<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="%s" colors="true">
+    <testsuites>
+        <testsuite name="InheritedTimingFixture">
+            <file>%s</file>
+            <file>%s</file>
+        </testsuite>
+    </testsuites>
+    <extensions>
+        <bootstrap class="RawPHP\Warp\Timing\TimingExtension"/>
+    </extensions>
+</phpunit>
+XML,
+        htmlspecialchars($bootstrap, ENT_XML1),
+        htmlspecialchars($one, ENT_XML1),
+        htmlspecialchars($two, ENT_XML1),
     ));
 
     return $path;
