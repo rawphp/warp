@@ -7,7 +7,7 @@ use RawPHP\Warp\Shard\TestFileFinder;
 use RawPHP\Warp\Timing\TimingStore;
 
 /** @return array{0: int, 1: string, 2: string} [exit, stdout, stderr] */
-function warpBinRun(array $args): array
+function warpBinRun(array $args, ?string $cwd = null): array
 {
     $root = dirname(__DIR__, 3);
 
@@ -15,7 +15,7 @@ function warpBinRun(array $args): array
         ['php', $root.'/bin/warp', ...$args],
         [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
         $pipes,
-        $root,
+        $cwd ?? $root,
     );
 
     $stdout = stream_get_contents($pipes[1]);
@@ -24,11 +24,121 @@ function warpBinRun(array $args): array
     return [proc_close($process), (string) $stdout, (string) $stderr];
 }
 
+/** @return array{0: int, 1: string, 2: string} [exit, stdout, stderr] */
+function shellRun(string $script, string $cwd): array
+{
+    $process = proc_open(
+        ['sh', '-e', '-c', $script],
+        [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+        $pipes,
+        $cwd,
+    );
+
+    $stdout = stream_get_contents($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+
+    return [proc_close($process), (string) $stdout, (string) $stderr];
+}
+
+/** @param list<string> $files */
+function createWarpFixtureProject(string $dir, array $files = ['ATest.php', 'BTest.php', 'CTest.php']): string
+{
+    $project = $dir.'/project';
+    Dirs::ensure($project.'/tests');
+
+    foreach ($files as $file) {
+        file_put_contents($project.'/tests/'.$file, '<?php');
+    }
+
+    return $project;
+}
+
+function writeTimingArtifactWithPendingOverlay(string $dir): void
+{
+    Dirs::ensure($dir.'/pending');
+
+    file_put_contents($dir.'/timings.json', json_encode([
+        'version' => 1,
+        'tests' => [
+            'ATest::old' => ['file' => 'tests/ATest.php', 'ms' => 1.0],
+            'BTest::old' => ['file' => 'tests/BTest.php', 'ms' => 1.0],
+        ],
+    ], JSON_THROW_ON_ERROR));
+
+    file_put_contents($dir.'/pending/100-1-aabbccdd.json', json_encode([
+        'complete' => true,
+        'tests' => [
+            'ATest::fresh' => ['file' => 'tests/ATest.php', 'ms' => 100.0],
+            'BTest::fresh' => ['file' => 'tests/BTest.php', 'ms' => 1.0],
+        ],
+    ], JSON_THROW_ON_ERROR));
+}
+
+/** @return array<string, string> */
+function timingArtifactSnapshot(string $dir): array
+{
+    if (! is_dir($dir)) {
+        return [];
+    }
+
+    $snapshot = [];
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST,
+    );
+
+    foreach ($iterator as $entry) {
+        $path = $entry->getPathname();
+        $relative = substr($path, strlen($dir) + 1);
+        $snapshot[$relative] = $entry->isDir()
+            ? 'dir'
+            : 'file:'.(string) file_get_contents($path);
+    }
+
+    ksort($snapshot);
+
+    return $snapshot;
+}
+
+function makeTimingArtifactReadOnly(string $dir): void
+{
+    if (is_dir($dir.'/pending')) {
+        chmod($dir.'/pending', 0555);
+    }
+
+    chmod($dir, 0555);
+}
+
+function makeWritableForDelete(string $path): void
+{
+    if (! file_exists($path) && ! is_link($path)) {
+        return;
+    }
+
+    if (! is_dir($path) || is_link($path)) {
+        @chmod($path, 0644);
+
+        return;
+    }
+
+    @chmod($path, 0755);
+
+    $children = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST,
+    );
+
+    foreach ($children as $child) {
+        @chmod($child->getPathname(), $child->isDir() && ! $child->isLink() ? 0755 : 0644);
+    }
+}
+
 beforeEach(function () {
     $this->dir = sys_get_temp_dir().'/warp-bin-'.bin2hex(random_bytes(4));
 });
 
 afterEach(function () {
+    makeWritableForDelete($this->dir);
     Dirs::delete($this->dir);
 });
 
@@ -69,4 +179,148 @@ it('exits 3 for an empty shard', function () {
 
     expect($exit)->toBe(3)
         ->and($stdout)->toBe('');
+});
+
+it('loads pending timings from a read-only artifact without writing while sharding and reporting timings', function () {
+    $project = createWarpFixtureProject($this->dir);
+    $timings = $project.'/timings';
+    writeTimingArtifactWithPendingOverlay($timings);
+    makeTimingArtifactReadOnly($timings);
+
+    clearstatcache();
+    $beforeSnapshot = timingArtifactSnapshot($timings);
+    $beforeDirMtime = filemtime($timings);
+    $beforePendingMtime = filemtime($timings.'/pending');
+
+    [$shardExit, $shardStdout, $shardStderr] = warpBinRun(
+        ['shard', '1/2', 'tests', '--timings-dir='.$timings],
+        $project,
+    );
+    [$timingsExit, $timingsStdout, $timingsStderr] = warpBinRun(
+        ['timings', '--timings-dir='.$timings],
+        $project,
+    );
+
+    clearstatcache();
+
+    expect($shardExit)->toBe(0)
+        ->and($shardStdout)->toBe("tests/ATest.php\n")
+        ->and($shardStderr)->toBe('')
+        ->and($timingsExit)->toBe(0)
+        ->and($timingsStdout)->toContain('2 tests across 2 files - 101.0ms recorded')
+        ->and($timingsStderr)->toBe('')
+        ->and(timingArtifactSnapshot($timings))->toBe($beforeSnapshot)
+        ->and(filemtime($timings))->toBe($beforeDirMtime)
+        ->and(filemtime($timings.'/pending'))->toBe($beforePendingMtime);
+});
+
+it('exposes shard exit codes 0, 3, and 2 through the real binary', function () {
+    $project = createWarpFixtureProject($this->dir, ['OnlyTest.php']);
+
+    [$successExit, $successStdout, $successStderr] = warpBinRun(
+        ['shard', '1/1', 'tests', '--timings-dir='.$project.'/timings'],
+        $project,
+    );
+    [$emptyExit, $emptyStdout, $emptyStderr] = warpBinRun(
+        ['shard', '2/2', 'tests', '--timings-dir='.$project.'/timings'],
+        $project,
+    );
+    [$errorExit, $errorStdout, $errorStderr] = warpBinRun(
+        ['shard', '1/1', 'missing-tests', '--timings-dir='.$project.'/timings'],
+        $project,
+    );
+
+    expect($successExit)->toBe(0)
+        ->and($successStdout)->toBe("tests/OnlyTest.php\n")
+        ->and($successStderr)->toContain('no recorded timings')
+        ->and($emptyExit)->toBe(3)
+        ->and($emptyStdout)->toBe('')
+        ->and($emptyStderr)->toContain('is empty')
+        ->and($errorExit)->toBe(2)
+        ->and($errorStdout)->toBe('')
+        ->and($errorStderr)->toContain('[warp] no such test path');
+});
+
+it('keeps the corrected sh -e shard guard tolerant of empty shards but fatal on errors', function () {
+    $project = createWarpFixtureProject($this->dir, ['OnlyTest.php']);
+    $root = dirname(__DIR__, 3);
+    $php = escapeshellarg(PHP_BINARY);
+    $warp = escapeshellarg($root.'/bin/warp');
+    $timings = escapeshellarg($project.'/timings');
+
+    $guard = static function (string $spec, string $path) use ($php, $warp, $timings): string {
+        return sprintf(
+            <<<'SH'
+set +e
+FILES=$(%s %s shard %s %s --timings-dir=%s)
+rc=$?
+set -e
+if [ "$rc" -eq 3 ]; then
+    echo "skip"
+    exit 0
+fi
+if [ "$rc" -ne 0 ]; then
+    exit "$rc"
+fi
+printf 'run:%%s\n' "$FILES"
+SH,
+            $php,
+            $warp,
+            escapeshellarg($spec),
+            escapeshellarg($path),
+            $timings,
+        );
+    };
+
+    [$runExit, $runStdout, $runStderr] = shellRun($guard('1/1', 'tests'), $project);
+    [$skipExit, $skipStdout, $skipStderr] = shellRun($guard('2/2', 'tests'), $project);
+    [$errorExit, $errorStdout, $errorStderr] = shellRun($guard('1/1', 'missing-tests'), $project);
+
+    expect($runExit)->toBe(0)
+        ->and($runStdout)->toBe("run:tests/OnlyTest.php\n")
+        ->and($runStderr)->toContain('no recorded timings')
+        ->and($skipExit)->toBe(0)
+        ->and($skipStdout)->toBe("skip\n")
+        ->and($skipStderr)->toContain('is empty')
+        ->and($errorExit)->toBe(2)
+        ->and($errorStdout)->toBe('')
+        ->and($errorStderr)->toContain('[warp] no such test path');
+});
+
+it('merges pending timings and keeps subsequent read-only shard output byte-identical to the overlay plan', function () {
+    $project = createWarpFixtureProject($this->dir);
+    $timings = $project.'/timings';
+
+    (new TimingStore($timings))->writePending([
+        'ATest::fresh' => ['file' => 'tests/ATest.php', 'ms' => 100.0],
+        'BTest::fresh' => ['file' => 'tests/BTest.php', 'ms' => 1.0],
+    ]);
+
+    [$preExit, $preStdout, $preStderr] = warpBinRun(
+        ['shard', '1/2', 'tests', '--timings-dir='.$timings],
+        $project,
+    );
+    [$mergeExit, $mergeStdout, $mergeStderr] = warpBinRun(
+        ['merge', '--timings-dir='.$timings],
+        $project,
+    );
+
+    expect($mergeExit)->toBe(0)
+        ->and($mergeStdout)->toContain('merged 1 pending timing batch')
+        ->and($mergeStderr)->toBe('')
+        ->and(glob($timings.'/pending/*.json'))->toBe([]);
+
+    makeTimingArtifactReadOnly($timings);
+
+    [$postExit, $postStdout, $postStderr] = warpBinRun(
+        ['shard', '1/2', 'tests', '--timings-dir='.$timings],
+        $project,
+    );
+
+    expect($preExit)->toBe(0)
+        ->and($preStdout)->toBe("tests/ATest.php\n")
+        ->and($preStderr)->toBe('')
+        ->and($postExit)->toBe($preExit)
+        ->and($postStdout)->toBe($preStdout)
+        ->and($postStderr)->toBe($preStderr);
 });
