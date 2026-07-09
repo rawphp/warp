@@ -1,23 +1,17 @@
 # REQ-078: Reject empty --timings-dir= at parse time
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.23132
-**Claimed at:** 2026-07-09T09:53:55Z
-**Heartbeat:** 2026-07-09T09:53:55Z
-<!-- claimed-end -->
-
 **UR:** UR-013
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed checkpoints:2 commit:91538c6
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
-**Files:** src/Cli/TimingStoreArgumentParser.php, tests/Unit/Cli/ShardCommandTest.php, tests/Unit/Cli/TimingsCommandTest.php
+**Files:** src/Cli/TimingStoreArgumentParser.php, tests/Unit/Cli/ShardCommandTest.php, tests/Unit/Cli/TimingsCommandTest.php, tests/Unit/Cli/MergeCommandTest.php
 **Depends on:**
 
 ## Task
@@ -30,8 +24,8 @@ Code-review finding #7. REQ-065 (archived) is the exact guard-shape and test-sha
 
 ## Acceptance Criteria
 
-- [ ] `--timings-dir=` with an empty value throws `InvalidArgumentException` with a `[warp]`-prefixed message; the command exits 2 with the message on stderr (reproduces then fixes the finding-#7 scenario — no filesystem probe at `/`).
-- [ ] A non-empty `--timings-dir=DIR` still constructs the store for DIR exactly as before (existing parser tests pass).
+- [x] `--timings-dir=` with an empty value throws `InvalidArgumentException` with a `[warp]`-prefixed message; the command exits 2 with the message on stderr (reproduces then fixes the finding-#7 scenario — no filesystem probe at `/`).
+- [x] A non-empty `--timings-dir=DIR` still constructs the store for DIR exactly as before (existing parser tests pass).
 
 ## Verification Steps
 
@@ -39,3 +33,10 @@ Code-review finding #7. REQ-065 (archived) is the exact guard-shape and test-sha
 
 1. **test** `./vendor/bin/pest --filter="ShardCommand|TimingsCommand|MergeCommand"` — Expected: all pass, including a new empty `--timings-dir=` rejection case asserting exit code 2 and the stderr message.
 2. **test** `./vendor/bin/pest` — Expected: full suite green.
+
+## Outputs
+
+- src/Cli/TimingStoreArgumentParser.php — Rejects empty `--timings-dir` values with a warp-prefixed `InvalidArgumentException`.
+- tests/Unit/Cli/ShardCommandTest.php — Covers shard command empty `--timings-dir` rejection.
+- tests/Unit/Cli/TimingsCommandTest.php — Covers timings command empty `--timings-dir` rejection.
+- tests/Unit/Cli/MergeCommandTest.php — Covers merge command empty `--timings-dir` rejection through the shared parser.

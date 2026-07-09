@@ -1,0 +1,25 @@
+run_id: RUN-067
+req: REQ-078
+ur: UR-013
+agent_id: "Toms-MacBook-Pro.local.23132"
+model: "sonnet"
+branch: "req/REQ-078"
+started_at: "2026-07-09T09:53:55Z"
+ended_at: "2026-07-09T10:13:46Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "estimated-sonnet"
+cost_estimate_num: 0.20
+pr_url: ""
+commands:
+  - "./vendor/bin/pest --filter=\"ShardCommand|TimingsCommand|MergeCommand\""
+  - "./vendor/bin/pest"
+tests:
+  - "./vendor/bin/pest --filter=\"ShardCommand|TimingsCommand|MergeCommand\""
+  - "./vendor/bin/pest"
+changed_files:
+  - "src/Cli/TimingStoreArgumentParser.php"
+  - "tests/Unit/Cli/MergeCommandTest.php"
+  - "tests/Unit/Cli/ShardCommandTest.php"
+  - "tests/Unit/Cli/TimingsCommandTest.php"
