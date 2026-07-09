@@ -1,0 +1,28 @@
+run_id: RUN-051
+req: REQ-062
+ur: UR-011
+agent_id: "codex-main+worker"
+model: "gpt-5"
+branch: "s3"
+started_at: "2026-07-09T02:44:23Z"
+ended_at: "2026-07-09T02:54:40Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "active block cost at ledger write: $8.09"
+cost_estimate_num: 8.09
+pr_url: ""
+commands:
+  - "grep -n 'if FILES=\$(' README.md; echo $?"
+  - "sh -e temp README guard harness for exit 0/3/2"
+  - "./vendor/bin/pest"
+  - "check-policy.sh"
+  - "independent review"
+tests:
+  - "grep: old if FILES pattern absent (exit 1, no matches)"
+  - "runtime: README guard harness ran on exit 0, skipped cleanly on exit 3, failed on exit 2"
+  - "full: ./vendor/bin/pest => 240 passed, 627 assertions"
+  - "policy: check-policy => clear"
+  - "review: independent subagent => passed"
+changed_files:
+  - "README.md"
