@@ -7,13 +7,13 @@
 <!-- claimed-end -->
 
 **UR:** UR-011
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** docs
 **Entry point:** A user follows README.md's "Timing-based sharding" / CI recipe sections to wire warp into a CI matrix.
 **Terminal state:** Following the README verbatim produces a pipeline where shard errors fail the job (exit 2) while empty shards skip cleanly (exit 3), recording and sharding read the same directory, `warp merge` is in the workflow, and the canonical-key version-lock caveat is stated.
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed all 3 verification checkpoints passed commit:86f95ee
 **Criteria approved:** agent-drafted
 **Priority:** 1
 **Size:** M
@@ -37,10 +37,10 @@ Review finding #2 is a docs bug with CI-green-zero-tests consequences: the recom
 
 ## Acceptance Criteria
 
-- [ ] The old `if FILES=$(...warp shard...); then` pattern no longer appears anywhere in README.md (grep-verified); the replacement branches explicitly on exit 3 vs other non-zero.
-- [ ] The exit-code table documents 0, 2, and 3 with their CI-recipe consequences.
-- [ ] `warp merge`, `WARP_TIMINGS_DIR` CLI parity, read-only artifact support, the version-lock caveat, phpunit.xml discovery (+ `--configuration`), and the clean-break note each appear in the relevant section.
-- [ ] The documented recipe is semantically identical to the one asserted green in REQ-053's `sh -e` integration test.
+- [x] The old `if FILES=$(...warp shard...); then` pattern no longer appears anywhere in README.md (grep-verified); the replacement branches explicitly on exit 3 vs other non-zero.
+- [x] The exit-code table documents 0, 2, and 3 with their CI-recipe consequences.
+- [x] `warp merge`, `WARP_TIMINGS_DIR` CLI parity, read-only artifact support, the version-lock caveat, phpunit.xml discovery (+ `--configuration`), and the clean-break note each appear in the relevant section.
+- [x] The documented recipe is semantically identical to the one asserted green in REQ-053's `sh -e` integration test.
 
 ## Verification Steps
 
@@ -60,3 +60,7 @@ Review finding #2 is a docs bug with CI-green-zero-tests consequences: the recom
 **Data dependencies:** Documents the behaviour of `bin/warp` subcommands and the `.warp/timings` artifact layout as shipped by REQ-052/055/058/060.
 
 **Service dependencies:** None (prose); accuracy depends on the four contract-defining REQs it hard-depends on.
+
+## Outputs
+
+- `README.md` — Updated timing/sharding documentation for explicit `warp merge`, read-only shard/timings reads, timing directory parity, phpunit.xml discovery, canonical path keys, exit-code-aware CI sharding, version lock caveat, and pre-UR-011 artifact clean break.
