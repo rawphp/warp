@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RawPHP\Warp\Timing;
 
+use RawPHP\Warp\Support\Paths;
 use ReflectionClass;
 use Stringable;
 use Throwable;
@@ -18,9 +19,6 @@ final class TestFileResolver
 
     /** @var array<class-string, bool> */
     private static array $cacheableByClass = [];
-
-    /** @var array<string, string|null> */
-    private static array $rootPrefixes = [];
 
     /**
      * Pest evaluates its test classes, so PHPUnit reports "...eval()'d code" as
@@ -108,45 +106,6 @@ final class TestFileResolver
 
     private static function canonical(string $path, string $root): ?string
     {
-        $prefix = self::rootPrefix($root);
-        $realPath = realpath($path);
-
-        if ($prefix === null || $realPath === false) {
-            return null;
-        }
-
-        $path = str_replace('\\', '/', $realPath);
-        $root = rtrim($prefix, '/');
-
-        if ($path === $root) {
-            return '';
-        }
-
-        if (! str_starts_with($path, $prefix)) {
-            return null;
-        }
-
-        $relative = substr($path, strlen($prefix));
-
-        while (str_starts_with($relative, './')) {
-            $relative = substr($relative, 2);
-        }
-
-        return $relative;
-    }
-
-    private static function rootPrefix(string $root): ?string
-    {
-        if (array_key_exists($root, self::$rootPrefixes)) {
-            return self::$rootPrefixes[$root];
-        }
-
-        $realRoot = realpath($root);
-
-        if ($realRoot === false) {
-            return self::$rootPrefixes[$root] = null;
-        }
-
-        return self::$rootPrefixes[$root] = rtrim(str_replace('\\', '/', $realRoot), '/').'/';
+        return Paths::canonical($path, $root);
     }
 }

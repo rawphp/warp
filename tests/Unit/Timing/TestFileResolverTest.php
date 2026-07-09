@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use RawPHP\Warp\Support\Paths;
 use RawPHP\Warp\Timing\TestFileResolver;
 
 /** Mimics a Pest-generated test class, which carries its real source path in a static. */
@@ -148,4 +149,30 @@ it('emits canonical root-relative keys with no leading dot slash', function () {
 
     expect(TestFileResolver::resolve(stdClass::class, './tests/ATest.php', $this->root))
         ->toBe('tests/ATest.php');
+});
+
+it('produces the same keys as shard-time path canonicalization', function (string $input, string $root) {
+    chdir($this->root);
+
+    $path = str_replace('{root}', $this->root, $input);
+    $canonicalRoot = str_replace('{root}', $this->root, $root);
+
+    expect(TestFileResolver::resolve(stdClass::class, $path, $canonicalRoot))
+        ->toBe(Paths::canonical($path, $canonicalRoot));
+})->with([
+    'absolute nested path' => ['{root}/tests/Feature/ExampleTest.php', '{root}'],
+    'root-relative path' => ['tests/ATest.php', '{root}'],
+    'dot-slash prefixed path' => ['./tests/ATest.php', '{root}'],
+    'nested unit path with trailing root slash' => ['{root}/tests/Unit/ClassicTest.php', '{root}/'],
+    'at project root' => ['{root}', '{root}'],
+]);
+
+it('delegates canonicalization to the shared Paths helper', function () {
+    $source = file_get_contents(dirname(__DIR__, 3).'/src/Timing/TestFileResolver.php');
+
+    expect($source)
+        ->toContain('use RawPHP\Warp\Support\Paths;')
+        ->toContain('Paths::canonical($path, $root)')
+        ->not->toContain('realpath($path)')
+        ->not->toContain('str_replace(\'\\\\\', \'/\', $realPath)');
 });
