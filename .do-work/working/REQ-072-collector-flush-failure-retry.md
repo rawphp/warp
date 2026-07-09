@@ -1,7 +1,13 @@
 # REQ-072: Don't mark collector flushed before the write succeeds
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.23132
+**Claimed at:** 2026-07-09T08:38:28Z
+**Heartbeat:** 2026-07-09T08:38:28Z
+<!-- claimed-end -->
+
 **UR:** UR-013
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
