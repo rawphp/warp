@@ -109,6 +109,14 @@ function writeTimingArtifactForFiles(string $dir, array $fileTotals): void
     ], JSON_THROW_ON_ERROR));
 }
 
+function writeFakePestBinary(string $project, string $body): void
+{
+    Dirs::ensure($project.'/vendor/bin');
+
+    file_put_contents($project.'/vendor/bin/pest', "#!/usr/bin/env sh\nset -eu\n".$body);
+    chmod($project.'/vendor/bin/pest', 0755);
+}
+
 /** @return array<string, string> */
 function timingArtifactSnapshot(string $dir): array
 {
@@ -469,4 +477,70 @@ it('bench shard spread warns when recorded timings match no discovered file', fu
     expect($exit)->toBe(0)
         ->and($stdout)->toContain('3 files, 3.0ms recorded, 2 shards')
         ->and($stderr)->toContain('recorded timings match no discovered file');
+});
+
+it('bench shard spread does not let stale timings mask a pest crash', function () {
+    $project = createWarpFixtureProject($this->dir, ['ATest.php', 'BTest.php']);
+    $root = dirname(__DIR__, 3);
+    $timings = $project.'/.warp/timings';
+    writeTimingArtifactForFiles($timings, [
+        'tests/ATest.php' => 100.0,
+        'tests/BTest.php' => 1.0,
+    ]);
+    $beforeSnapshot = timingArtifactSnapshot($timings);
+
+    writeFakePestBinary($project, <<<'SH'
+exit 17
+SH);
+
+    $process = proc_open(
+        ['bash', $root.'/bench/shard-spread.sh', $project, '2', 'tests'],
+        [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+        $pipes,
+        $project,
+    );
+
+    $stdout = stream_get_contents($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+    $exit = proc_close($process);
+
+    expect($exit)->toBe(17)
+        ->and((string) $stdout)->not->toContain('files, 101.0ms recorded')
+        ->and((string) $stderr)->not->toContain('continuing because timing artifacts were recorded')
+        ->and(timingArtifactSnapshot($timings))->toBe($beforeSnapshot);
+});
+
+it('bench shard spread continues after pest failure when the fresh run recorded timings', function () {
+    $project = createWarpFixtureProject($this->dir, ['ATest.php', 'BTest.php']);
+    $root = dirname(__DIR__, 3);
+    $staleTimings = $project.'/.warp/timings';
+    writeTimingArtifactForFiles($staleTimings, [
+        'tests/ATest.php' => 1.0,
+    ]);
+    $staleArtifact = (string) file_get_contents($staleTimings.'/timings.json');
+
+    writeFakePestBinary($project, <<<'SH'
+mkdir -p "$WARP_TIMINGS_DIR"
+cat > "$WARP_TIMINGS_DIR/timings.json" <<'JSON'
+{"version":1,"tests":{"ATest::test":{"file":"tests/ATest.php","ms":100},"BTest::test":{"file":"tests/BTest.php","ms":1}}}
+JSON
+exit 17
+SH);
+
+    $process = proc_open(
+        ['bash', $root.'/bench/shard-spread.sh', $project, '2', 'tests'],
+        [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+        $pipes,
+        $project,
+    );
+
+    $stdout = stream_get_contents($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+    $exit = proc_close($process);
+
+    expect($exit)->toBe(0)
+        ->and((string) $stdout)->toContain('2 files, 101.0ms recorded, 2 shards')
+        ->and((string) $stderr)->toContain('continuing because timing artifacts were recorded')
+        ->and((string) file_get_contents($staleTimings.'/timings.json'))->toBe($staleArtifact)
+        ->and(glob($staleTimings.'/run-*/timings.json'))->toHaveCount(1);
 });
