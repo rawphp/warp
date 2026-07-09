@@ -79,8 +79,8 @@ final class TimingExtension implements Extension
         });
 
         // Backstop: paratest workers and fatally-interrupted runs may never
-        // see ExecutionFinished; flush() is idempotent so both paths are safe.
-        register_shutdown_function(static fn () => $flush(false));
+        // see ExecutionFinished; only fatal shutdowns are partial crash flushes.
+        register_shutdown_function(static fn () => $flush(! self::shutdownHadFatalError()));
     }
 
     /** Telemetry wall-clock as float seconds, monotonic within a run. */
@@ -97,13 +97,31 @@ final class TimingExtension implements Extension
             return;
         }
 
-        $collector->flush($store, complete: $complete);
+        $collector->flush($store, complete: $complete || ! self::shutdownHadFatalError());
 
         $unattributed = $collector->unattributedCount();
 
         if ($unattributed > 0) {
             self::warn("[warp] {$unattributed} test(s) could not be attributed to a file; their timings were not recorded".PHP_EOL);
         }
+    }
+
+    private static function shutdownHadFatalError(): bool
+    {
+        $error = error_get_last();
+
+        if (! is_array($error) || ! isset($error['type'])) {
+            return false;
+        }
+
+        return in_array($error['type'], [
+            E_ERROR,
+            E_PARSE,
+            E_CORE_ERROR,
+            E_COMPILE_ERROR,
+            E_USER_ERROR,
+            E_RECOVERABLE_ERROR,
+        ], true);
     }
 
     private static function warn(string $message): void
