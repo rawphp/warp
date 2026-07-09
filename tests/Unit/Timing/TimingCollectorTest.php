@@ -76,6 +76,53 @@ it('flush writes a single pending batch and only once', function () {
     Dirs::delete($dir);
 });
 
+it('does not mark flushed after a failed pending write so shutdown can retry', function () {
+    $dir = sys_get_temp_dir().'/warp-collector-'.bin2hex(random_bytes(8));
+    $store = new TimingStore($dir);
+    $collector = new TimingCollector;
+
+    try {
+        $collector->started('t::one', 1.0);
+        $collector->finished('t::one', 'tests/OneTest.php', 1.5);
+
+        Dirs::ensure($dir);
+        expect(file_put_contents($dir.'/pending', 'not-a-directory'))->not->toBeFalse();
+
+        $writeFailed = false;
+
+        try {
+            $collector->flush($store, complete: true);
+        } catch (RuntimeException $e) {
+            $writeFailed = true;
+
+            expect($e->getMessage())->toContain('[warp] cannot create directory');
+        }
+
+        expect($writeFailed)->toBeTrue()
+            ->and($collector->hasFlushed())->toBeFalse();
+
+        unlink($dir.'/pending');
+
+        $collector->flush($store, complete: false);
+
+        $path = glob($dir.'/pending/*.json')[0] ?? null;
+        $payload = json_decode((string) file_get_contents((string) $path), true);
+
+        expect($collector->hasFlushed())->toBeTrue()
+            ->and(glob($dir.'/pending/*.json'))->toHaveCount(1)
+            ->and($payload)->toEqual([
+                'complete' => false,
+                'tests' => ['t::one' => ['file' => 'tests/OneTest.php', 'ms' => 500.0]],
+            ]);
+
+        $collector->flush($store, complete: true);
+
+        expect(glob($dir.'/pending/*.json'))->toHaveCount(1);
+    } finally {
+        Dirs::delete($dir);
+    }
+});
+
 it('flush marks normally completed batches complete by default', function () {
     $dir = sys_get_temp_dir().'/warp-collector-'.bin2hex(random_bytes(4));
     $store = new TimingStore($dir);
