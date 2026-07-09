@@ -17,7 +17,11 @@ final class FileLock
             throw new RuntimeException('[warp] cannot open file lock at '.$lockFile);
         }
 
-        flock($handle, LOCK_EX);
+        if (! flock($handle, LOCK_EX)) {
+            fclose($handle);
+
+            throw new RuntimeException('[warp] cannot acquire file lock at '.$lockFile);
+        }
 
         try {
             return $callback();
