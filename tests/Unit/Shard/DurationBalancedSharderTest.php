@@ -63,7 +63,28 @@ it('keeps no-timings fallback distribution stable when file count is not divisib
     ]);
 });
 
-it('preserves greedy placement for mixed positive and zero timing weights', function () {
+it('spreads files with all-zero timing weights across available shards', function () {
+    $files = ['tests/ATest.php', 'tests/BTest.php', 'tests/CTest.php', 'tests/DTest.php'];
+    $totals = [
+        'tests/ATest.php' => 0.0,
+        'tests/BTest.php' => 0.0,
+        'tests/CTest.php' => 0.0,
+        'tests/DTest.php' => 0.0,
+    ];
+
+    expect(DurationBalancedSharder::plan($files, $totals, 4))->toBe([
+        ['tests/ATest.php'],
+        ['tests/BTest.php'],
+        ['tests/CTest.php'],
+        ['tests/DTest.php'],
+    ])
+        ->and(DurationBalancedSharder::assign($files, $totals, 1, 4))->toBe(['tests/ATest.php'])
+        ->and(DurationBalancedSharder::assign($files, $totals, 2, 4))->toBe(['tests/BTest.php'])
+        ->and(DurationBalancedSharder::assign($files, $totals, 3, 4))->toBe(['tests/CTest.php'])
+        ->and(DurationBalancedSharder::assign($files, $totals, 4, 4))->toBe(['tests/DTest.php']);
+});
+
+it('keeps mixed positive and zero timing weights deterministic and complete', function () {
     $files = ['tests/ATest.php', 'tests/BTest.php', 'tests/CTest.php', 'tests/DTest.php'];
     $totals = [
         'tests/ATest.php' => 1.0,
@@ -72,12 +93,20 @@ it('preserves greedy placement for mixed positive and zero timing weights', func
         'tests/DTest.php' => 0.0,
     ];
 
-    expect(DurationBalancedSharder::plan($files, $totals, 4))->toBe([
+    $plan = DurationBalancedSharder::plan($files, $totals, 4);
+
+    expect($plan)->toBe([
         ['tests/ATest.php'],
-        ['tests/BTest.php', 'tests/CTest.php', 'tests/DTest.php'],
-        [],
-        [],
-    ]);
+        ['tests/BTest.php'],
+        ['tests/CTest.php'],
+        ['tests/DTest.php'],
+    ])
+        ->and($plan)->toBe(DurationBalancedSharder::plan($files, $totals, 4));
+
+    $covered = array_merge(...$plan);
+    sort($covered);
+
+    expect($covered)->toBe($files);
 });
 
 it('ignores totals for files not in the given list', function () {
