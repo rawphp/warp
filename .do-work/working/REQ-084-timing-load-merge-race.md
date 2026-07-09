@@ -1,7 +1,12 @@
 # REQ-084: Timing reads do not drop batches during merge
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.82488
+**Claimed at:** 2026-07-09T20:37:07Z
+**Heartbeat:** 2026-07-09T20:37:07Z
+<!-- claimed-end -->
 **UR:** UR-015
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** none
 **Closure proof:**
