@@ -1,19 +1,13 @@
 # REQ-072: Don't mark collector flushed before the write succeeds
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.23132
-**Claimed at:** 2026-07-09T08:38:28Z
-**Heartbeat:** 2026-07-09T08:38:28Z
-<!-- claimed-end -->
-
 **UR:** UR-013
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed checkpoints:2 commit:65ba6cd
 **Criteria approved:** agent-drafted
 **Priority:** 3
 **Size:** S
@@ -30,9 +24,9 @@ Code-review finding #3 (CONFIRMED). The double-flush guard exists because the `E
 
 ## Acceptance Criteria
 
-- [ ] When `writePending()` throws, `hasFlushed()` remains `false` afterwards, and a subsequent `flush()` call retries the write (verified by a test with a store stub/failing dir that throws once, then succeeds).
-- [ ] When `writePending()` succeeds, `hasFlushed()` returns `true` and a second `flush()` call performs no second write (existing idempotency preserved — exactly one pending batch on disk).
-- [ ] The `$complete` argument passed on the retry is the retry caller's value, not a stale one (no caching of the failed attempt's flag).
+- [x] When `writePending()` throws, `hasFlushed()` remains `false` afterwards, and a subsequent `flush()` call retries the write (verified by a test with a store stub/failing dir that throws once, then succeeds).
+- [x] When `writePending()` succeeds, `hasFlushed()` returns `true` and a second `flush()` call performs no second write (existing idempotency preserved — exactly one pending batch on disk).
+- [x] The `$complete` argument passed on the retry is the retry caller's value, not a stale one (no caching of the failed attempt's flag).
 
 ## Verification Steps
 
@@ -40,3 +34,8 @@ Code-review finding #3 (CONFIRMED). The double-flush guard exists because the `E
 
 1. **test** `./vendor/bin/pest --filter=TimingCollector` — Expected: all pass, including a new case reproducing the original bug path: first flush throws (unwritable timings dir), collector is NOT marked flushed, second flush succeeds and publishes exactly one batch.
 2. **test** `./vendor/bin/pest` — Expected: full suite green (flush is shared machinery between the ExecutionFinished subscriber and the shutdown backstop).
+
+## Outputs
+
+- src/Timing/TimingCollector.php — Marks collector flushed only after `writePending()` succeeds.
+- tests/Unit/Timing/TimingCollectorTest.php — Adds regression coverage for failed flush retry, success idempotency, and retry complete flag.
