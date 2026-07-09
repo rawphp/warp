@@ -1,7 +1,13 @@
 # REQ-076: Merge pending-file cleanup must not wedge or leak
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.23132
+**Claimed at:** 2026-07-09T09:26:05Z
+**Heartbeat:** 2026-07-09T09:26:05Z
+<!-- claimed-end -->
+
 **UR:** UR-013
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
