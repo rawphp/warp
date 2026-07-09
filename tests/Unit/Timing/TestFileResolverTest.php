@@ -76,6 +76,43 @@ it('uses the reported file for classic phpunit classes', function () {
         ->toBe('tests/Unit/ClassicTest.php');
 });
 
+it('uses the concrete class file for inherited classic phpunit test methods', function () {
+    $suffix = bin2hex(random_bytes(4));
+    $baseClass = 'WarpResolverInheritedBase'.$suffix;
+    $concreteClass = 'WarpResolverConcreteTest'.$suffix;
+    $baseFile = $this->root.'/tests/Unit/'.$baseClass.'.php';
+    $concreteFile = $this->root.'/tests/Unit/'.$concreteClass.'.php';
+
+    file_put_contents($baseFile, sprintf(<<<'PHP'
+<?php
+
+abstract class %s extends PHPUnit\Framework\TestCase
+{
+    public function testInheritedTiming(): void
+    {
+        self::assertTrue(true);
+    }
+}
+PHP,
+        $baseClass,
+    ));
+    file_put_contents($concreteFile, sprintf(<<<'PHP'
+<?php
+
+require_once %s;
+
+final class %s extends %s {}
+PHP,
+        var_export($baseFile, true),
+        $concreteClass,
+        $baseClass,
+    ));
+    require_once $concreteFile;
+
+    expect(TestFileResolver::resolve($concreteClass, $baseFile, $this->root))
+        ->toBe('tests/Unit/'.$concreteClass.'.php');
+});
+
 it('prefers the pest-generated filename over the eval\'d report', function () {
     $reported = "/proj/vendor/pestphp/pest/src/Factories/TestCaseFactory.php(175) : eval()'d code";
 

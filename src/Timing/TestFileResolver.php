@@ -17,6 +17,9 @@ final class TestFileResolver
     /** @var array<class-string, string|null> */
     private static array $filenameByClass = [];
 
+    /** @var array<class-string, string|null> */
+    private static array $fileByClass = [];
+
     /** @var array<class-string, bool> */
     private static array $cacheableByClass = [];
 
@@ -36,7 +39,9 @@ final class TestFileResolver
         }
 
         try {
-            $file = self::filenameForClass($className) ?? $reportedFile;
+            $file = self::filenameForClass($className)
+                ?? self::classFileInsideRoot($className, $root)
+                ?? $reportedFile;
 
             $resolved = str_contains($file, "eval()'d code")
                 ? null
@@ -52,6 +57,20 @@ final class TestFileResolver
         }
 
         return $resolved;
+    }
+
+    /**
+     * @param  class-string  $className
+     */
+    private static function classFileInsideRoot(string $className, string $root): ?string
+    {
+        $file = self::fileForClass($className);
+
+        if ($file === null || Paths::canonical($file, $root) === null) {
+            return null;
+        }
+
+        return $file;
     }
 
     /**
@@ -85,6 +104,24 @@ final class TestFileResolver
             return self::$filenameByClass[$className] = (string) $value;
         } catch (Throwable) {
             return self::$filenameByClass[$className] = null;
+        }
+    }
+
+    /**
+     * @param  class-string  $className
+     */
+    private static function fileForClass(string $className): ?string
+    {
+        if (array_key_exists($className, self::$fileByClass)) {
+            return self::$fileByClass[$className];
+        }
+
+        try {
+            $file = (new ReflectionClass($className))->getFileName();
+
+            return self::$fileByClass[$className] = is_string($file) ? $file : null;
+        } catch (Throwable) {
+            return self::$fileByClass[$className] = null;
         }
     }
 
