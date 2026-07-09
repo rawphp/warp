@@ -4,9 +4,6 @@
 **Status:** backlog
 **Created:** 2026-07-09
 **Layer:** none
-**Entry point:**
-**Terminal state:**
-**Parent:**
 **Closure proof:**
 **Criteria approved:** agent-drafted
 **Priority:** 2
