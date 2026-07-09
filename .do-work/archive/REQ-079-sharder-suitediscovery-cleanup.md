@@ -1,23 +1,17 @@
 # REQ-079: Remove dead sharder path; typed missing-config exception
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.23132
-**Claimed at:** 2026-07-09T10:05:30Z
-**Heartbeat:** 2026-07-09T10:05:30Z
-<!-- claimed-end -->
-
 **UR:** UR-013
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-09
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed checkpoints:2 commit:e0bbf54
 **Criteria approved:** agent-drafted
 **Priority:** 1
 **Size:** M
-**Files:** src/Shard/DurationBalancedSharder.php, src/Shard/SuiteDiscovery.php, src/Cli/ShardCommand.php, tests/Unit/Shard/DurationBalancedSharderTest.php, tests/Unit/Cli/ShardCommandTest.php
+**Files:** src/Cli/ShardCommand.php, src/Shard/DurationBalancedSharder.php, src/Shard/MissingConfigurationException.php, src/Shard/SuiteDiscovery.php, tests/Unit/Cli/ShardCommandTest.php, tests/Unit/Shard/DurationBalancedSharderTest.php
 **Depends on:**
 
 ## Task
@@ -33,10 +27,10 @@ Code-review findings #9 and #10 — pure refactor, no behavior change intended; 
 
 ## Acceptance Criteria
 
-- [ ] `allWeightsEqual()` and its branch are removed; a test pins that an all-equal-weights plan (the no-timings fallback case) produces the same bins as before the removal, for at least two (files, shards) shapes including a non-divisible count.
-- [ ] `SuiteDiscovery::discover()` throws the new typed exception for the missing-config case; `ShardCommand` catches it by type (no `getMessage()` string comparison remains — grep confirms) and the fallback-to-`tests/` behavior with the same stderr notice is preserved.
-- [ ] A non-missing-config discovery failure (e.g. unloadable configuration) still aborts with exit 2 and the error on stderr — it must NOT trigger the fallback.
-- [ ] When `--configuration=` is explicitly passed and missing, the command still errors rather than falling back (existing behavior preserved).
+- [x] `allWeightsEqual()` and its branch are removed; a test pins that an all-equal-weights plan (the no-timings fallback case) produces the same bins as before the removal, for at least two (files, shards) shapes including a non-divisible count.
+- [x] `SuiteDiscovery::discover()` throws the new typed exception for the missing-config case; `ShardCommand` catches it by type (no `getMessage()` string comparison remains — grep confirms) and the fallback-to-`tests/` behavior with the same stderr notice is preserved.
+- [x] A non-missing-config discovery failure (e.g. unloadable configuration) still aborts with exit 2 and the error on stderr — it must NOT trigger the fallback.
+- [x] When `--configuration=` is explicitly passed and missing, the command still errors rather than falling back (existing behavior preserved).
 
 ## Verification Steps
 
@@ -44,3 +38,12 @@ Code-review findings #9 and #10 — pure refactor, no behavior change intended; 
 
 1. **test** `./vendor/bin/pest --filter="DurationBalancedSharder|ShardCommand|SuiteDiscovery"` — Expected: all pass, including the equal-weights distribution pin and the typed-exception fallback cases.
 2. **test** `./vendor/bin/pest` — Expected: full suite green (behavior-preserving refactor across the shard path).
+
+## Outputs
+
+- src/Cli/ShardCommand.php — Catches `MissingConfigurationException` by type for implicit no-config fallback while preserving other discovery errors.
+- src/Shard/DurationBalancedSharder.php — Removes `allWeightsEqual` branch/helper and preserves original greedy load update semantics.
+- src/Shard/MissingConfigurationException.php — Adds typed missing-configuration exception for suite discovery.
+- src/Shard/SuiteDiscovery.php — Throws `MissingConfigurationException` for missing implicit `phpunit.xml` / `phpunit.xml.dist`.
+- tests/Unit/Cli/ShardCommandTest.php — Covers typed missing-config fallback, non-fallback discovery errors, and explicit missing configuration.
+- tests/Unit/Shard/DurationBalancedSharderTest.php — Pins no-timings distribution and mixed positive/zero greedy placement behavior.
