@@ -6,9 +6,10 @@
 **Heartbeat:** 2026-07-09T20:47:28Z
 <!-- claimed-end -->
 **UR:** UR-015
-**Status:** in-progress
+**Status:** stopped
 **Created:** 2026-07-09
 **Layer:** none
+**Reason:** review-failed
 **Closure proof:**
 **Criteria approved:** agent-drafted
 **Priority:** 2
@@ -39,3 +40,7 @@ Confirmed finding 1: `hasRestrictedSelection()` only inspects static selection r
    - Expected: the suite passes, including a child-process regression where `stopOnFailure` leaves sibling stored timings intact after merge.
 2. **test** `./vendor/bin/pest`
    - Expected: full suite green; completeness behavior remains compatible with prior timing-store and shutdown-backstop tests.
+
+## Review blocker
+
+Independent review failed: AC3 is not satisfied because configured stop-on-* runs are treated as incomplete even when the selected run completes successfully. A successful plain `--testsuite` or unrestricted run with `stopOnFailure=true` would now keep stale sibling timings instead of pruning them.
