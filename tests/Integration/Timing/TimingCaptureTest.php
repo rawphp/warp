@@ -662,6 +662,138 @@ it('flushes a pending batch through the shutdown backstop when a test exits mid-
     }
 });
 
+it('records telemetry duration for errored-unprepared tests so the file keeps real weight after supersede (finding 5)', function () {
+    $root = dirname(__DIR__, 3);
+    $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+    $suite = sys_get_temp_dir().'/warp-errored-setup-suite-'.bin2hex(random_bytes(4));
+    $bootstrap = writeTimingRestrictionBootstrap();
+    $fixtureKey = 'ErroredSetupFixtureTest.php';
+    $erroredInSetupOne = 'WarpErroredSetupFixtureTest::testErrorsInSetupOne';
+    $erroredInSetupTwo = 'WarpErroredSetupFixtureTest::testErrorsInSetupTwo';
+
+    Dirs::ensure($suite);
+    file_put_contents($suite.'/ErroredSetupFixtureTest.php', <<<'PHP'
+<?php
+
+use PHPUnit\Framework\TestCase;
+
+final class WarpErroredSetupFixtureTest extends TestCase
+{
+    protected function setUp(): void
+    {
+        // Simulates finding 5's illustrative case (a 60s DB timeout in setUp):
+        // real, non-trivial work happens before the throw, before Test\Prepared
+        // ever fires - Test\Finished is gated on wasPrepared() and never fires
+        // for these two tests.
+        if (str_starts_with($this->name(), 'testErrorsInSetup')) {
+            usleep(15_000);
+
+            throw new RuntimeException('simulated setUp failure (e.g. DB timeout)');
+        }
+    }
+
+    public function testPassesNormally(): void
+    {
+        $this->assertTrue(true);
+    }
+
+    public function testErrorsInSetupOne(): void
+    {
+        $this->assertTrue(true);
+    }
+
+    public function testErrorsInSetupTwo(): void
+    {
+        $this->assertTrue(true);
+    }
+
+    public function testErrorsAfterPreparation(): void
+    {
+        // setUp succeeds for this test (name doesn't match testErrorsInSetup*),
+        // so it IS prepared; the body then errors. Test\Finished still fires and
+        // must remain the sole source of this test's duration - Errored firing
+        // too must not double-record it.
+        throw new RuntimeException('simulated failure after setUp succeeded');
+    }
+}
+PHP);
+
+    $config = $suite.'/phpunit.xml';
+    file_put_contents($config, sprintf(<<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="%s" colors="true">
+    <testsuites>
+        <testsuite name="ErroredSetupFixture">
+            <directory>.</directory>
+        </testsuite>
+    </testsuites>
+    <extensions>
+        <bootstrap class="RawPHP\Warp\Timing\TimingExtension"/>
+    </extensions>
+</phpunit>
+XML,
+        htmlspecialchars($bootstrap, ENT_XML1),
+    ));
+
+    // Prior real timings for the file, seeded before the run - this is what
+    // findings 5's supersede-on-complete defect would wipe to nothing.
+    Dirs::ensure($dir);
+    file_put_contents($dir.'/timings.json', json_encode([
+        'version' => 3,
+        'tests' => [
+            'Seeded::stale' => ['file' => $fixtureKey, 'ms' => 99999.0],
+        ],
+    ], JSON_THROW_ON_ERROR));
+
+    try {
+        exec(sprintf(
+            'cd %s && WARP_MODE=0 WARP_DB=0 WARP_TIMINGS=1 WARP_TIMINGS_DIR=%s %s --configuration=%s 2>&1',
+            escapeshellarg($suite),
+            escapeshellarg($dir),
+            escapeshellarg($root.'/vendor/bin/phpunit'),
+            escapeshellarg($config),
+        ), $output, $exit);
+
+        expect($exit)->toBe(2, implode(PHP_EOL, $output));
+
+        $map = pendingCompleteMaps($dir)[0] ?? null;
+
+        expect($map[$fixtureKey] ?? null)->toBeTrue();
+
+        $payload = pendingPayloads($dir)[0];
+        $recorded = $payload['tests'] ?? [];
+
+        // The never-prepared tests must carry a real (nonzero) recorded duration,
+        // not be silently missing (pre-fix, they never appeared here at all).
+        expect($recorded)->toHaveKeys([$erroredInSetupOne, $erroredInSetupTwo])
+            ->and($recorded[$erroredInSetupOne]['ms'])->toBeGreaterThan(0.0)
+            ->and($recorded[$erroredInSetupTwo]['ms'])->toBeGreaterThan(0.0);
+
+        $store = new TimingStore($dir);
+        $store->mergeToDisk();
+
+        $tests = $store->load();
+
+        // Complete-file supersede replaced the stale seeded entry entirely, but
+        // with the errored tests' real telemetry-derived durations, not with
+        // nothing - the file's total weight after supersede is nonzero.
+        expect($tests)->not->toHaveKey('Seeded::stale')
+            ->and($tests)->toHaveKeys([$erroredInSetupOne, $erroredInSetupTwo]);
+
+        $totalForFile = array_sum(array_map(
+            static fn (array $entry): float => $entry['ms'],
+            array_filter($tests, static fn (array $entry): bool => $entry['file'] === $fixtureKey),
+        ));
+
+        expect($totalForFile)->toBeGreaterThan(0.0);
+    } finally {
+        @unlink($config);
+        Dirs::delete($suite);
+        Dirs::delete($dir);
+        @unlink($bootstrap);
+    }
+});
+
 function writeTimingIncompleteStopFixture(): string
 {
     $path = dirname(__DIR__).'/Timing/IncompleteStopFixtureTest.php';

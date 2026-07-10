@@ -50,6 +50,12 @@ it('subscribes to every terminal outcome so no enumerated test can leak in-fligh
     }
 });
 
+it('registers a Prepared subscriber so Errored can gate on wasPrepared (finding 5)', function () {
+    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Timing/TimingExtension.php');
+
+    expect($source)->toContain('PreparedSubscriber');
+});
+
 it('resolves a non-method (.phpt) event to its canonical root-relative file key', function () {
     $root = dirname(__DIR__, 3);
     $phpt = __DIR__.'/warp-filefor-'.bin2hex(random_bytes(4)).'.phpt';

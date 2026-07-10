@@ -145,6 +145,39 @@ it('never marks a file complete when a worker saw only a slice of it (finding 14
     expect($collector->completeFiles())->toBe(['tests/FTest.php' => false]);
 });
 
+it('records a duration from Errored telemetry when a test errors before being prepared (finding 5)', function () {
+    $collector = new TimingCollector;
+
+    $collector->enumerated('F::erroredInSetUp', 'tests/FTest.php');
+
+    // PreparationStarted always fires before setUp runs, so started() is called
+    // regardless of whether setUp then throws. No prepared() call follows: setUp
+    // threw before Test\Prepared fired, so Test\Finished (gated on wasPrepared())
+    // will never fire either - Errored is the only terminal signal for this id.
+    $collector->started('F::erroredInSetUp', 10.0);
+    $collector->errored('F::erroredInSetUp', 'tests/FTest.php', 10.06);
+
+    expect($collector->all())->toBe(['F::erroredInSetUp' => ['file' => 'tests/FTest.php', 'ms' => 60.0]])
+        ->and($collector->completeFiles())->toBe(['tests/FTest.php' => true]);
+});
+
+it('does not double-record a duration when a prepared test errors after running (no double-record)', function () {
+    $collector = new TimingCollector;
+
+    $collector->started('t::one', 100.0);
+    // Test\Prepared fired (setUp succeeded) before the test body threw: Errored
+    // fires first (from inside runBare()), Test\Finished fires afterward and
+    // will carry the real duration - errored() must not record one itself here.
+    $collector->prepared('t::one');
+    $collector->errored('t::one', 'tests/OneTest.php', 100.01);
+
+    expect($collector->all())->toBe([]);
+
+    $collector->finished('t::one', 'tests/OneTest.php', 100.05);
+
+    expect($collector->all())->toBe(['t::one' => ['file' => 'tests/OneTest.php', 'ms' => 50.0]]);
+});
+
 it('records a per-file completeness map for multiple files independently', function () {
     $collector = new TimingCollector;
 
