@@ -7,6 +7,7 @@ namespace RawPHP\Warp\Shard;
 use const PHP_VERSION;
 
 use PHPUnit\TextUI\XmlConfiguration\Loader;
+use RawPHP\Warp\Support\Paths;
 use RuntimeException;
 use SebastianBergmann\FileIterator\Facade as FileIterator;
 use Throwable;
@@ -17,7 +18,6 @@ use function is_file;
 use function rtrim;
 use function sort;
 use function str_contains;
-use function str_starts_with;
 use function version_compare;
 
 final class SuiteDiscovery
@@ -86,7 +86,7 @@ final class SuiteDiscovery
         $root = rtrim($root, DIRECTORY_SEPARATOR);
 
         if ($configuration !== null) {
-            $path = self::resolve($root, $configuration);
+            $path = Paths::absolute($configuration, $root);
 
             if (! is_file($path)) {
                 throw new RuntimeException('[warp] no such configuration file: '.$configuration);
@@ -123,20 +123,7 @@ final class SuiteDiscovery
         try {
             return self::configurationPath($root, $configuration);
         } catch (RuntimeException) {
-            return self::resolve(rtrim($root, DIRECTORY_SEPARATOR), (string) $configuration);
+            return Paths::absolute((string) $configuration, rtrim($root, DIRECTORY_SEPARATOR));
         }
-    }
-
-    private static function resolve(string $root, string $path): string
-    {
-        if (str_starts_with($path, DIRECTORY_SEPARATOR)) {
-            return $path;
-        }
-
-        if (preg_match('#^[A-Za-z]:[\\\\/]#', $path) === 1) {
-            return $path;
-        }
-
-        return $root.DIRECTORY_SEPARATOR.$path;
     }
 }

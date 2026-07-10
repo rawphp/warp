@@ -1563,6 +1563,26 @@ PHP,
         expect($dir)->toBe($this->dir);
     });
 
+    it('fromEnv treats a simulated Windows drive-letter WARP_TIMINGS_DIR as absolute, not joined onto cwd (finding 10, regression, fails pre-fix)', function () {
+        putenv('WARP_TIMINGS_DIR=C:\\timings');
+
+        $store = TimingStore::fromEnv();
+        $dir = (new ReflectionProperty(TimingStore::class, 'dir'))->getValue($store);
+
+        expect($dir)->toBe('C:\\timings');
+    });
+
+    it('constructor absolutizes a relative dir against the construction-time cwd, byte-identical to fromEnv (finding 10, REQ-107)', function () {
+        $store = new TimingStore('relative/dir');
+        $dir = (new ReflectionProperty(TimingStore::class, 'dir'))->getValue($store);
+
+        expect($dir)->toBe((getcwd() ?: '.').'/relative/dir');
+    });
+
+    it('no longer has a private absolutize copy on TimingStore (deleted duplicate, REQ-107)', function () {
+        expect(method_exists(TimingStore::class, 'absolutize'))->toBeFalse();
+    });
+
     it('reproduces the original bug: fromEnv with a relative dir still writes under the original cwd after a later chdir (regression, fails pre-fix)', function () {
         $root = dirname(__DIR__, 3);
         $projectDir = sys_get_temp_dir().'/warp-req094-project-'.bin2hex(random_bytes(4));

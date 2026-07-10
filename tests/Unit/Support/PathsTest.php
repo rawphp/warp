@@ -110,3 +110,40 @@ it('isInside reports true only for paths that resolve inside the root, independe
         ->and(Paths::isInside($this->tmp.'/root', $this->tmp.'/root'))->toBeTrue()
         ->and(Paths::isInside($this->tmp.'/missing/BazTest.php', $this->tmp.'/root'))->toBeFalse();
 });
+
+it('absolute treats a leading-slash path as already absolute, unchanged (REQ-107)', function () {
+    expect(Paths::absolute('/already/absolute', '/some/base'))->toBe('/already/absolute');
+});
+
+it('absolute treats a Windows drive-letter path with a backslash separator as absolute, unchanged (finding 10, REQ-107)', function () {
+    expect(Paths::absolute('C:\\timings', '/some/base'))->toBe('C:\\timings');
+});
+
+it('absolute treats a Windows drive-letter path with a forward-slash separator as absolute, unchanged (finding 10, REQ-107)', function () {
+    expect(Paths::absolute('C:/timings', '/some/base'))->toBe('C:/timings');
+});
+
+it('absolute joins a relative path onto a base without a trailing separator (REQ-107)', function () {
+    expect(Paths::absolute('relative/dir', '/some/base'))->toBe('/some/base/relative/dir');
+});
+
+it('absolute joins a relative path onto a base that already has a trailing separator (REQ-107)', function () {
+    expect(Paths::absolute('relative/dir', '/some/base/'))->toBe('/some/base/relative/dir');
+});
+
+it('has exactly one drive-letter absolute-path regex in the codebase, in Paths (REQ-107, finding 14)', function () {
+    $srcDir = dirname(__DIR__, 3).'/src';
+    $count = 0;
+
+    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($srcDir, FilesystemIterator::SKIP_DOTS));
+
+    foreach ($iterator as $file) {
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+
+        $count += substr_count((string) file_get_contents($file->getPathname()), '^[A-Za-z]:');
+    }
+
+    expect($count)->toBe(1);
+});

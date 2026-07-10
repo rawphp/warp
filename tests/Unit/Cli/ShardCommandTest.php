@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use RawPHP\Warp\Cli\ShardCommand;
+use RawPHP\Warp\Cli\TimingStoreArgumentParser;
 use RawPHP\Warp\Cli\WarpCli;
 use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Shard\MissingConfigurationException;
@@ -76,6 +77,22 @@ it('produces byte-identical duration-balanced shards for relative, dot-relative,
             "tests/ATest.php\n",
         ])
         ->and(array_column($runs, 2))->toBe(['', '', '']);
+});
+
+it('pins --timings-dir=relative/dir at parse-time cwd, byte-identical to WARP_TIMINGS_DIR resolution (finding 10, REQ-107)', function () {
+    chdir($this->tmp);
+    $parseTimeCwd = getcwd();
+
+    $parsed = TimingStoreArgumentParser::parse(['--timings-dir=relative/dir'], fn (string $arg): bool => false);
+
+    // A later chdir (e.g. the command changing directories mid-run) must not
+    // move the store: absolutization happens once, at construction/parse
+    // time, exactly like WARP_TIMINGS_DIR already does (REQ-094).
+    chdir($this->cwd);
+
+    $dir = (new ReflectionProperty(TimingStore::class, 'dir'))->getValue($parsed->store);
+
+    expect($dir)->toBe($parseTimeCwd.'/relative/dir');
 });
 
 it('warns when recorded totals match no discovered canonical file', function () {

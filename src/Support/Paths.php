@@ -25,6 +25,30 @@ final class Paths
     }
 
     /**
+     * The single shared absolute-path resolver (REQ-107, findings 10/14): a
+     * leading `/` or DIRECTORY_SEPARATOR is already absolute, a Windows
+     * drive-letter form (`C:\...` or `C:/...`) is already absolute and is
+     * returned unchanged even on a non-Windows host - this is what the
+     * drifted TimingStore copy got wrong, checking only leading `/` and
+     * silently joining a Windows env var onto cwd. Everything else joins
+     * onto rtrim'd $base. Every caller that used to keep its own copy of
+     * this check (ShardCommand, SuiteDiscovery, TimingStore) now calls here
+     * instead, so the regex exists exactly once in the codebase.
+     */
+    public static function absolute(string $path, string $base): string
+    {
+        if (str_starts_with($path, '/') || str_starts_with($path, DIRECTORY_SEPARATOR)) {
+            return $path;
+        }
+
+        if (preg_match('#^[A-Za-z]:[\\\\/]#', $path) === 1) {
+            return $path;
+        }
+
+        return rtrim($base, '/').'/'.$path;
+    }
+
+    /**
      * Canonical timing-key for a path against a root. Inside-root files keep the
      * existing root-relative key (unchanged byte-for-byte). Outside-root files -
      * now allowed on every caller path, not gated by a per-caller flag - get a

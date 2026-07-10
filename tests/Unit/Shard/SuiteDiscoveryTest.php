@@ -131,6 +131,17 @@ XML);
     expect(SuiteDiscovery::configurationPath($this->tmp, 'custom.xml'))->toBe($this->tmp.'/custom.xml');
 });
 
+it('treats an absolute explicit configuration path as already resolved, unchanged (REQ-107)', function () {
+    file_put_contents($this->tmp.'/custom.xml', discoveryConfigFixture());
+
+    expect(SuiteDiscovery::configurationPath($this->tmp, $this->tmp.'/custom.xml'))
+        ->toBe($this->tmp.'/custom.xml');
+});
+
+it('no longer has a private resolve copy on SuiteDiscovery (deleted duplicate, REQ-107, uses shared Paths::absolute)', function () {
+    expect(method_exists(SuiteDiscovery::class, 'resolve'))->toBeFalse();
+});
+
 function writeDiscoveryFile(string $path): void
 {
     Dirs::ensure(dirname($path));
