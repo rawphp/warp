@@ -30,7 +30,7 @@ final class ShardCommand
     {
         $spec = null;
         $paths = [];
-        $suffix = 'Test.php';
+        $suffix = ['Test.php', '.phpt'];
         $suffixOption = null;
         $configuration = null;
 
