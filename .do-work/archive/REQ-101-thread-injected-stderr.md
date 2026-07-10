@@ -1,22 +1,16 @@
 # REQ-101: Thread injected stderr through TimingStore warnings
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.95040
-**Claimed at:** 2026-07-10T04:43:52Z
-**Heartbeat:** 2026-07-10T04:43:52Z
-<!-- claimed-end -->
-
 **UR:** UR-016
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:a835961
 **Criteria approved:** agent-drafted
 **Size:** M
-**Files:** src/Timing/TimingStore.php, src/Support/Stderr.php, src/Cli/ShardCommand.php, src/Cli/MergeCommand.php, src/Cli/TimingsCommand.php, src/Cli/WarpCli.php, tests/Unit/Cli/MergeCommandTest.php, tests/Unit/Timing/TimingStoreTest.php
+**Files:** src/Timing/TimingStore.php, src/Cli/TimingStoreArgumentParser.php, src/Cli/ShardCommand.php, src/Cli/MergeCommand.php, src/Cli/TimingsCommand.php, tests/Unit/Cli/MergeCommandTest.php, tests/Unit/Timing/TimingStoreTest.php
 **Depends on:**
 
 ## Task
@@ -29,10 +23,10 @@ Finding 10 (UR-016), verified CONFIRMED: an embedded caller invoking `WarpCli::r
 
 ## Acceptance Criteria
 
-- [ ] `WarpCli::run` invoked with `php://memory` streams captures every store warning (merge junk-batch warnings, unlink warnings, load warnings) in the injected stderr stream; nothing reaches the raw process STDERR from the CLI path
-- [ ] The PHPUnit extension path (no CLI, no injected streams) still emits warnings to process STDERR — recording-time behavior unchanged
-- [ ] MergeCommandTest's proc_open-based warning assertions are converted to in-process injected-stream assertions (subprocess spawning retained only where a real process boundary is the thing under test)
-- [ ] No remaining `Stderr::write` call sites inside TimingStore code paths reachable from CLI commands (grep confirms)
+- [x] `WarpCli::run` invoked with `php://memory` streams captures every store warning (merge junk-batch warnings, unlink warnings, load warnings) in the injected stderr stream; nothing reaches the raw process STDERR from the CLI path
+- [x] The PHPUnit extension path (no CLI, no injected streams) still emits warnings to process STDERR — recording-time behavior unchanged
+- [x] MergeCommandTest's proc_open-based warning assertions are converted to in-process injected-stream assertions (subprocess spawning retained only where a real process boundary is the thing under test)
+- [x] No remaining `Stderr::write` call sites inside TimingStore code paths reachable from CLI commands (grep confirms)
 
 ## Verification Steps
 
@@ -44,3 +38,13 @@ Finding 10 (UR-016), verified CONFIRMED: an embedded caller invoking `WarpCli::r
    - Expected: all green
 3. **test** `./vendor/bin/pest`
    - Expected: full suite green (constructor threading ripples through integration tests)
+
+## Outputs
+
+- src/Timing/TimingStore.php — Injectable Closure warning sink (warn/withWarner, preserved through withRoot); all CLI-reachable emission sites routed through it
+- src/Cli/TimingStoreArgumentParser.php — parse() accepts $stderr and binds it as the store warner
+- src/Cli/MergeCommand.php — Passes injected $stderr to the parser
+- src/Cli/ShardCommand.php — Passes injected $stderr to the parser
+- src/Cli/TimingsCommand.php — Passes injected $stderr to the parser
+- tests/Unit/Cli/MergeCommandTest.php — In-process reproduction test; proc_open junk-batch test converted to injected-stream assertion
+- tests/Unit/Timing/TimingStoreTest.php — Structural test rewritten to assert the new sink contract
