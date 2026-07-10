@@ -89,7 +89,7 @@ namespace {
 
                 $batch = json_decode((string) \file_get_contents($path), true);
                 \file_put_contents(self::$dir.'/timings.json', json_encode([
-                    'version' => 2,
+                    'version' => 3,
                     'tests' => is_array($batch) && is_array($batch['tests'] ?? null) ? $batch['tests'] : [],
                 ], JSON_THROW_ON_ERROR));
                 \unlink($path);
@@ -209,7 +209,7 @@ namespace {
         Dirs::ensure($this->dir.'/pending');
 
         file_put_contents($this->dir.'/timings.json', json_encode([
-            'version' => 2,
+            'version' => 3,
             'tests' => [
                 'old' => ['file' => 'tests/OldTest.php', 'ms' => 100.0],
                 'stale' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0],
@@ -217,7 +217,7 @@ namespace {
         ]));
 
         file_put_contents($this->dir.'/pending/100-1-aabbccdd.json', json_encode([
-            'complete' => true,
+            'complete' => ['tests/FooTest.php' => true],
             'tests' => [
                 'fresh' => ['file' => 'tests/FooTest.php', 'ms' => 50.0],
             ],
@@ -250,7 +250,7 @@ namespace {
             ->and($files[0])->toMatch('/^\d{16,}-\d+-[a-f0-9]{8}\.json$/')
             ->and($files[0])->not->toEndWith('.tmp')
             ->and(json_decode((string) file_get_contents($this->dir.'/pending/'.$files[0]), true))->toBe([
-                'complete' => true,
+                'complete' => [],
                 'root' => null,
                 'tests' => ['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]],
             ]);
@@ -271,7 +271,7 @@ namespace {
     it('treats a short merged timings write as a failed write and does not publish it', function () {
         Dirs::ensure($this->dir.'/pending');
         file_put_contents($this->dir.'/timings.json', json_encode([
-            'version' => 2,
+            'version' => 3,
             'tests' => ['old' => ['file' => 'tests/OldTest.php', 'ms' => 99.0]],
         ]));
         file_put_contents($this->dir.'/pending/100-1-aabbccdd.json', json_encode([
@@ -316,8 +316,12 @@ namespace {
         ]);
         $this->store->mergeToDisk();
 
-        // t2 was renamed/deleted since: the fresh run of ATest.php only has t1.
-        $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 11.5]]);
+        // t2 was renamed/deleted since: the fresh, complete run of ATest.php only
+        // has t1, so it supersedes ATest.php while leaving BTest.php untouched.
+        $this->store->writePending(
+            ['t1' => ['file' => 'tests/ATest.php', 'ms' => 11.5]],
+            ['tests/ATest.php' => true],
+        );
 
         $tests = $this->store->load();
 
@@ -330,7 +334,7 @@ namespace {
     it('incomplete pending batches merge by test id without superseding a whole file', function () {
         Dirs::ensure($this->dir);
         file_put_contents($this->dir.'/timings.json', json_encode([
-            'version' => 2,
+            'version' => 3,
             'tests' => [
                 'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
                 'FileA::two' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
@@ -340,7 +344,7 @@ namespace {
 
         Dirs::ensure($this->dir.'/pending');
         file_put_contents($this->dir.'/pending/100-1-aabbccdd.json', json_encode([
-            'complete' => false,
+            'complete' => ['tests/FileATest.php' => false],
             'tests' => [
                 'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 100.0],
             ],
@@ -353,10 +357,37 @@ namespace {
         ]);
     });
 
+    it('merges two incomplete slices of one file to the union without mutual deletion (finding 14)', function () {
+        Dirs::ensure($this->dir.'/pending');
+
+        // Two paratest --functional workers: each enumerated FooTest.php fully but
+        // ran only half its methods, so each batch flags the file incomplete and
+        // upserts its own ids. Neither may delete the other's half.
+        file_put_contents($this->dir.'/pending/100-1-aaaaaaaa.json', json_encode([
+            'complete' => ['tests/FooTest.php' => false],
+            'tests' => [
+                'Foo::a' => ['file' => 'tests/FooTest.php', 'ms' => 10.0],
+                'Foo::b' => ['file' => 'tests/FooTest.php', 'ms' => 20.0],
+            ],
+        ]));
+        file_put_contents($this->dir.'/pending/200-1-bbbbbbbb.json', json_encode([
+            'complete' => ['tests/FooTest.php' => false],
+            'tests' => [
+                'Foo::c' => ['file' => 'tests/FooTest.php', 'ms' => 30.0],
+                'Foo::d' => ['file' => 'tests/FooTest.php', 'ms' => 40.0],
+            ],
+        ]));
+
+        $this->store->mergeToDisk();
+
+        expect(array_keys($this->store->load()))->toBe(['Foo::a', 'Foo::b', 'Foo::c', 'Foo::d'])
+            ->and($this->store->fileTotals())->toBe(['tests/FooTest.php' => 100.0]);
+    });
+
     it('complete pending batches keep superseding all previous entries for covered files', function () {
         Dirs::ensure($this->dir);
         file_put_contents($this->dir.'/timings.json', json_encode([
-            'version' => 2,
+            'version' => 3,
             'tests' => [
                 'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
                 'FileA::two' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
@@ -366,7 +397,7 @@ namespace {
 
         Dirs::ensure($this->dir.'/pending');
         file_put_contents($this->dir.'/pending/100-1-aabbccdd.json', json_encode([
-            'complete' => true,
+            'complete' => ['tests/FileATest.php' => true],
             'tests' => [
                 'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 100.0],
             ],
@@ -379,20 +410,20 @@ namespace {
 
     it('mergeToDisk and load produce identical merged data for the same fixture', function () {
         $seed = [
-            'version' => 2,
+            'version' => 3,
             'tests' => [
                 'FileA::old' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
                 'FileB::old' => ['file' => 'tests/FileBTest.php', 'ms' => 2000.0],
             ],
         ];
         $oldBatch = [
-            'complete' => true,
+            'complete' => ['tests/FileATest.php' => true],
             'tests' => [
                 'FileA::fresh' => ['file' => 'tests/FileATest.php', 'ms' => 10.0],
             ],
         ];
         $partialBatch = [
-            'complete' => false,
+            'complete' => ['tests/FileBTest.php' => false],
             'tests' => [
                 'FileB::new' => ['file' => 'tests/FileBTest.php', 'ms' => 20.0],
             ],
@@ -418,11 +449,11 @@ namespace {
     it('merges pending batches by numeric timestamp when older filename sorts first lexicographically', function () {
         Dirs::ensure($this->dir.'/pending');
         file_put_contents($this->dir.'/pending/100-99999-aaaaaaaa.json', json_encode([
-            'complete' => true,
+            'complete' => ['tests/FooTest.php' => true],
             'tests' => ['old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0]],
         ]));
         file_put_contents($this->dir.'/pending/200-1-bbbbbbbb.json', json_encode([
-            'complete' => true,
+            'complete' => ['tests/FooTest.php' => true],
             'tests' => ['new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0]],
         ]));
 
@@ -432,11 +463,11 @@ namespace {
     it('merges pending batches by numeric timestamp when older filename sorts after newer lexicographically', function () {
         Dirs::ensure($this->dir.'/pending');
         file_put_contents($this->dir.'/pending/9-99999-aaaaaaaa.json', json_encode([
-            'complete' => true,
+            'complete' => ['tests/FooTest.php' => true],
             'tests' => ['old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0]],
         ]));
         file_put_contents($this->dir.'/pending/10-1-bbbbbbbb.json', json_encode([
-            'complete' => true,
+            'complete' => ['tests/FooTest.php' => true],
             'tests' => ['new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0]],
         ]));
 
@@ -483,7 +514,7 @@ namespace RawPHP\Warp\Timing {
             $GLOBALS['triggered'] = true;
             $batch = json_decode((string) \file_get_contents($filename), true);
             \file_put_contents($GLOBALS['argv'][1].'/timings.json', json_encode([
-                'version' => 2,
+                'version' => 3,
                 'tests' => is_array($batch) && is_array($batch['tests'] ?? null) ? $batch['tests'] : [],
             ], JSON_THROW_ON_ERROR));
             \unlink($filename);
@@ -786,7 +817,7 @@ PHP);
         Dirs::ensure($this->dir.'/pending');
         $stuckPath = $this->dir.'/pending/100-0-badbad00.json';
         file_put_contents($stuckPath, json_encode([
-            'complete' => true,
+            'complete' => ['tests/FooTest.php' => true],
             'tests' => ['old' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0]],
         ]));
 
@@ -830,7 +861,7 @@ PHP);
 
         $newPath = $this->dir.'/pending/200-1-aabbccdd.json';
         file_put_contents($newPath, json_encode([
-            'complete' => true,
+            'complete' => ['tests/FooTest.php' => true],
             'tests' => ['new' => ['file' => 'tests/FooTest.php', 'ms' => 50.0]],
         ]));
 
@@ -1042,7 +1073,7 @@ PHP);
 
     it('drops a non-finite ms entry when reading merged timings', function () {
         Dirs::ensure($this->dir);
-        file_put_contents($this->dir.'/timings.json', '{"version":2,"tests":{"poison":{"file":"tests/PoisonTest.php","ms":1e999},"ok":{"file":"tests/OkTest.php","ms":9.0}}}');
+        file_put_contents($this->dir.'/timings.json', '{"version":3,"tests":{"poison":{"file":"tests/PoisonTest.php","ms":1e999},"ok":{"file":"tests/OkTest.php","ms":9.0}}}');
 
         expect(array_keys($this->store->load()))->toBe(['ok']);
     });
@@ -1082,7 +1113,7 @@ PHP);
 
         $merged = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
 
-        expect($merged['version'])->toBe(2);
+        expect($merged['version'])->toBe(3);
     });
 
     it('stamps the canonical root into pending batches, merged timings, and storedRoot', function () {

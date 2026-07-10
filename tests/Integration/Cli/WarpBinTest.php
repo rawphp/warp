@@ -76,7 +76,7 @@ function writeTimingArtifactWithPendingOverlay(string $dir): void
     Dirs::ensure($dir.'/pending');
 
     file_put_contents($dir.'/timings.json', json_encode([
-        'version' => 2,
+        'version' => 3,
         'tests' => [
             'ATest::old' => ['file' => 'tests/ATest.php', 'ms' => 1.0],
             'BTest::old' => ['file' => 'tests/BTest.php', 'ms' => 1.0],
@@ -84,7 +84,7 @@ function writeTimingArtifactWithPendingOverlay(string $dir): void
     ], JSON_THROW_ON_ERROR));
 
     file_put_contents($dir.'/pending/100-1-aabbccdd.json', json_encode([
-        'complete' => true,
+        'complete' => ['tests/ATest.php' => true, 'tests/BTest.php' => true],
         'tests' => [
             'ATest::fresh' => ['file' => 'tests/ATest.php', 'ms' => 100.0],
             'BTest::fresh' => ['file' => 'tests/BTest.php', 'ms' => 1.0],
@@ -104,7 +104,7 @@ function writeTimingArtifactForFiles(string $dir, array $fileTotals): void
     }
 
     file_put_contents($dir.'/timings.json', json_encode([
-        'version' => 2,
+        'version' => 3,
         'tests' => $tests,
     ], JSON_THROW_ON_ERROR));
 }
@@ -583,7 +583,7 @@ it('bench shard spread continues after pest failure when the fresh run recorded 
     writeFakePestBinary($project, <<<'SH'
 mkdir -p "$WARP_TIMINGS_DIR"
 cat > "$WARP_TIMINGS_DIR/timings.json" <<'JSON'
-{"version":2,"tests":{"ATest::test":{"file":"tests/ATest.php","ms":100},"BTest::test":{"file":"tests/BTest.php","ms":1}}}
+{"version":3,"tests":{"ATest::test":{"file":"tests/ATest.php","ms":100},"BTest::test":{"file":"tests/BTest.php","ms":1}}}
 JSON
 exit 17
 SH);

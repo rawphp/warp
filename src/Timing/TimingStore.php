@@ -13,7 +13,7 @@ use RuntimeException;
 final class TimingStore
 {
     /** Bump to discard every stored timing when the on-disk format changes. */
-    private const VERSION = 2;
+    private const VERSION = 3;
 
     private static int $lastPendingTimestamp = 0;
 
@@ -54,10 +54,13 @@ final class TimingStore
 
     /**
      * Lock-free per-process batch: unique filename, atomic tmp+rename publish.
+     * `$completeFiles` maps each file this process fully accounted for to whether
+     * every enumerated test terminated; `apply()` supersedes only complete files.
      *
      * @param  array<string, array{file: string, ms: float}>  $tests
+     * @param  array<string, bool>  $completeFiles
      */
-    public function writePending(array $tests, bool $complete = true): void
+    public function writePending(array $tests, array $completeFiles = []): void
     {
         if ($tests === []) {
             return;
@@ -67,7 +70,7 @@ final class TimingStore
 
         $path = $this->dir.'/pending/'.self::nextPendingTimestamp().'-'.getmypid().'-'.bin2hex(random_bytes(4)).'.json';
 
-        $encoded = json_encode(['complete' => $complete, 'root' => $this->root, 'tests' => $tests], JSON_THROW_ON_ERROR);
+        $encoded = json_encode(['complete' => $completeFiles, 'root' => $this->root, 'tests' => $tests], JSON_THROW_ON_ERROR);
         AtomicFile::write(
             $path,
             $encoded,
@@ -271,7 +274,10 @@ final class TimingStore
     }
 
     /**
-     * Complete batches supersede whole files; incomplete crash batches only upsert observed test IDs.
+     * Per-file supersede: a batch replaces file F's prior entries only when it
+     * flags F complete (every enumerated test of F terminated in that process);
+     * otherwise it upserts observed test ids. A worker that saw only a slice of a
+     * file never flags it complete, so partial batches never delete siblings.
      *
      * @param  array<string, array{file: string, ms: float}>  $tests
      * @param  array<string, array<string, true>>  $fileIndex
@@ -283,36 +289,28 @@ final class TimingStore
         $clean = [];
         $batchTests = $batch['tests'] ?? null;
 
-        if (! is_array($batchTests)) {
-            return $tests;
-        }
-
-        foreach ($batchTests as $id => $entry) {
-            if (is_string($id) && is_array($entry)
-                && is_string($entry['file'] ?? null) && is_numeric($entry['ms'] ?? null)
-                && is_finite((float) $entry['ms'])) {
-                $clean[$id] = ['file' => $entry['file'], 'ms' => (float) $entry['ms']];
-            }
-        }
-
-        if ($clean === []) {
-            return $tests;
-        }
-
-        if (($batch['complete'] ?? false) === true) {
-            $covered = [];
-
-            foreach ($clean as $entry) {
-                $covered[$entry['file']] = true;
-            }
-
-            foreach (array_keys($covered) as $file) {
-                foreach (array_keys($fileIndex[$file] ?? []) as $id) {
-                    unset($tests[$id]);
+        if (is_array($batchTests)) {
+            foreach ($batchTests as $id => $entry) {
+                if (is_string($id) && is_array($entry)
+                    && is_string($entry['file'] ?? null) && is_numeric($entry['ms'] ?? null)
+                    && is_finite((float) $entry['ms'])) {
+                    $clean[$id] = ['file' => $entry['file'], 'ms' => (float) $entry['ms']];
                 }
-
-                unset($fileIndex[$file]);
             }
+        }
+
+        $completeFiles = self::completeFilesOf($batch);
+
+        if ($clean === [] && $completeFiles === []) {
+            return $tests;
+        }
+
+        foreach ($completeFiles as $file) {
+            foreach (array_keys($fileIndex[$file] ?? []) as $id) {
+                unset($tests[$id]);
+            }
+
+            unset($fileIndex[$file]);
         }
 
         foreach ($clean as $id => $entry) {
@@ -330,6 +328,33 @@ final class TimingStore
         }
 
         return $tests;
+    }
+
+    /**
+     * The files a batch flags complete. Tolerant of legacy/foreign payloads: a
+     * non-map `complete` (e.g. an old boolean flag) yields no complete files, so
+     * such a batch degrades to upsert-only rather than wrongly superseding.
+     *
+     * @param  array<mixed>  $batch
+     * @return list<string>
+     */
+    private static function completeFilesOf(array $batch): array
+    {
+        $complete = $batch['complete'] ?? null;
+
+        if (! is_array($complete)) {
+            return [];
+        }
+
+        $files = [];
+
+        foreach ($complete as $file => $isComplete) {
+            if (is_string($file) && $isComplete === true) {
+                $files[] = $file;
+            }
+        }
+
+        return $files;
     }
 
     /**
