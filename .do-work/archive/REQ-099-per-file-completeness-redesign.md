@@ -1,22 +1,16 @@
 # REQ-099: Per-file event-driven completeness redesign
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.95040
-**Claimed at:** 2026-07-10T03:59:49Z
-**Heartbeat:** 2026-07-10T03:59:49Z
-<!-- claimed-end -->
-
 **UR:** UR-016
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:411c758 full_suite:350_passed
 **Criteria approved:** agent-drafted
 **Size:** L
-**Files:** src/Timing/TimingExtension.php, src/Timing/TimingCollector.php, src/Timing/TimingStore.php, tests/Unit/Timing/TimingExtensionTest.php, tests/Unit/Timing/TimingCollectorTest.php, tests/Unit/Timing/TimingStoreTest.php, tests/Integration/Timing/TimingCaptureTest.php
+**Files:** src/Timing/TimingExtension.php, src/Timing/TimingCollector.php, src/Timing/TimingStore.php, tests/Unit/Timing/TimingExtensionTest.php, tests/Unit/Timing/TimingCollectorTest.php, tests/Unit/Timing/TimingStoreTest.php, tests/Integration/Timing/TimingCaptureTest.php, tests/Integration/Cli/WarpBinTest.php
 **Depends on:** REQ-093
 
 ## Task
@@ -38,13 +32,13 @@ Findings 4, 5, 14, 15, 16 (UR-016), all verified CONFIRMED — five holes in one
 
 ## Acceptance Criteria
 
-- [ ] Batch payload carries per-file complete flags; `TimingStore::apply()` supersedes per file only when that file is flagged complete, upserts otherwise; store VERSION coordinated with REQ-093
-- [ ] A run halted by `--stop-on-warning` (or any stop-on flag) marks the interrupted file incomplete — its prior full timings survive the merge — while fully-terminated files still supersede (fixes finding 4 without any stop-on flag list)
-- [ ] A suite containing `.phpt` tests and a test skipped in `setUp()` reaches end-of-run with zero in-flight entries; fully-run files are marked complete (fixes findings 5 and 16)
-- [ ] Simulated paratest --functional slicing (two collectors each fed half of one file's tests, both flushed) merges to the union of both halves — neither batch deletes the other's entries (fixes finding 14)
-- [ ] `hasStopOnConfiguration`, `shutdownHadFatalError`, and the process-wide selected/finished counters are deleted; no caller remains (grep confirms)
-- [ ] A real subprocess test exercises the register_shutdown_function backstop in a process where ExecutionFinished never fires (test kills or exit()s mid-run) and asserts a pending batch exists with correct per-file flags — closing the untested-backstop gap
-- [ ] Full suite green
+- [x] Batch payload carries per-file complete flags; `TimingStore::apply()` supersedes per file only when that file is flagged complete, upserts otherwise; store VERSION coordinated with REQ-093
+- [x] A run halted by `--stop-on-warning` (or any stop-on flag) marks the interrupted file incomplete — its prior full timings survive the merge — while fully-terminated files still supersede (fixes finding 4 without any stop-on flag list)
+- [x] A suite containing `.phpt` tests and a test skipped in `setUp()` reaches end-of-run with zero in-flight entries; fully-run files are marked complete (fixes findings 5 and 16)
+- [x] Simulated paratest --functional slicing (two collectors each fed half of one file's tests, both flushed) merges to the union of both halves — neither batch deletes the other's entries (fixes finding 14)
+- [x] `hasStopOnConfiguration`, `shutdownHadFatalError`, and the process-wide selected/finished counters are deleted; no caller remains (grep confirms)
+- [x] A real subprocess test exercises the register_shutdown_function backstop in a process where ExecutionFinished never fires (test kills or exit()s mid-run) and asserts a pending batch exists with correct per-file flags — closing the untested-backstop gap
+- [x] Full suite green
 
 ## Verification Steps
 
@@ -60,3 +54,16 @@ Findings 4, 5, 14, 15, 16 (UR-016), all verified CONFIRMED — five holes in one
    - Expected: batch exists; interrupted file incomplete
 5. **test** `./vendor/bin/pest`
    - Expected: full suite green
+
+## Outputs
+
+- src/Timing/TimingExtension.php — Loaded-enumeration + four terminal-event subscribers; stop-on/counter/fatal machinery deleted
+- src/Timing/TimingCollector.php — Per-file enumerated-vs-terminated accounting; completeFiles(); flush() writes per-file map
+- src/Timing/TimingStore.php — VERSION 2->3; writePending(tests, completeFiles map); apply() per-file supersede
+- tests/Unit/Timing/TimingExtensionTest.php — Deletion greps, terminal-subscriber coverage, phpt fileFor resolution
+- tests/Unit/Timing/TimingCollectorTest.php — Rewritten for enumerated/terminated/completeFiles API
+- tests/Unit/Timing/TimingStoreTest.php — Per-file complete-map fixtures, VERSION 3, two-slice union merge
+- tests/Integration/Timing/TimingCaptureTest.php — Stop-on-incomplete, phpt+setUp-skip, exit()-backstop subprocess tests
+- tests/Integration/Cli/WarpBinTest.php — Fixtures updated to VERSION 3 + per-file complete map (J2 ripple)
+
+Review note (advisory): README's --filter supersede description (~lines 228-229) is now stale — a --filter run upserts while preserving sibling entries instead of replacing the file's entries.
