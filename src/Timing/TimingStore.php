@@ -8,6 +8,7 @@ use Closure;
 use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Support\AtomicFile;
 use RawPHP\Warp\Support\FileLock;
+use RawPHP\Warp\Support\Paths;
 use RawPHP\Warp\Support\Stderr;
 use RuntimeException;
 
@@ -30,37 +31,34 @@ final class TimingStore
      */
     private ?array $snapshotCache = null;
 
+    private readonly string $dir;
+
     /**
+     * @param  string  $dir  Absolutized here, in the constructor, against the
+     *                       construction-time cwd via Paths::absolute()
+     *                       (REQ-107, finding 10) - so every entry point
+     *                       (fromEnv(), a raw `new TimingStore($dir)` from
+     *                       TimingStoreArgumentParser, withRoot()/withWarner()'s
+     *                       reconstruction) resolves a relative dir identically,
+     *                       and a later chdir() can never move it.
      * @param  Closure(string): void|null  $warn  Warning sink for non-fatal diagnostics.
      *                                            CLI commands inject one that writes to their captured $stderr stream so an
      *                                            embedded WarpCli::run never leaks onto the host process's real STDERR; the
      *                                            PHPUnit-extension/embedded default (null) falls back to process STDERR.
      */
     public function __construct(
-        private readonly string $dir,
+        string $dir,
         private readonly ?string $root = null,
         private readonly ?Closure $warn = null,
-    ) {}
+    ) {
+        $this->dir = Paths::absolute($dir, getcwd() ?: '.');
+    }
 
     public static function fromEnv(): self
     {
         $dir = getenv('WARP_TIMINGS_DIR');
 
-        return new self($dir !== false && $dir !== '' ? self::absolutize($dir) : (getcwd() ?: '.').'/.warp/timings');
-    }
-
-    /**
-     * Resolve a relative WARP_TIMINGS_DIR against the cwd at construction time,
-     * so every later use (including the shutdown-flush backstop) resolves to
-     * the same directory regardless of any subsequent chdir().
-     */
-    private static function absolutize(string $dir): string
-    {
-        if (str_starts_with($dir, '/')) {
-            return $dir;
-        }
-
-        return (getcwd() ?: '.').'/'.$dir;
+        return new self($dir !== false && $dir !== '' ? $dir : '.warp/timings');
     }
 
     /**
