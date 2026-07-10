@@ -188,21 +188,14 @@ namespace {
         expect(method_exists(TimingStore::class, 'merge'.'Pending'))->toBeFalse();
     });
 
-    it('keeps stderr warning writes centralized in one support helper', function () {
-        $src = dirname(__DIR__, 3).'/src';
-        $sources = '';
-
-        foreach ([
-            $src.'/Timing/TimingStore.php',
-            $src.'/Timing/TimingExtension.php',
-            $src.'/Support/Stderr.php',
-        ] as $file) {
-            $sources .= is_file($file) ? (string) file_get_contents($file) : '';
-        }
+    it('routes store warnings through an injectable sink so no CLI-reachable path writes raw STDERR', function () {
+        $storeSource = (string) file_get_contents(dirname(__DIR__, 3).'/src/Timing/TimingStore.php');
 
         expect(class_exists(Stderr::class))->toBeTrue()
-            ->and(substr_count($sources, 'function warn('))->toBe(0)
-            ->and(substr_count($sources, 'function write('))->toBe(1);
+            // Every CLI-reachable warning emission point routes through the injected sink...
+            ->and(substr_count($storeSource, '$this->warn('))->toBeGreaterThan(0)
+            // ...and the sole direct Stderr::write left is the extension/embedded default fallback.
+            ->and(substr_count($storeSource, 'Stderr::write'))->toBe(1);
     });
 
     it('loads from a read-only directory with pending batches without writing a lock or clearing pending', function () {

@@ -65,7 +65,7 @@ final class ShardCommand
             $paths[] = $arg;
 
             return true;
-        });
+        }, $stderr);
 
         if ($spec === null) {
             fwrite($stderr, "[warp] usage: warp shard <index>/<total> [paths...] [--timings-dir=DIR] [--suffix=Test.php]\n");

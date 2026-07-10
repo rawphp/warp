@@ -17,10 +17,18 @@ final class TimingStoreArgumentParser
     /**
      * @param  list<string>  $args
      * @param  callable(string): bool  $consume
+     * @param  resource|null  $stderr  Bound as the store's warning sink so store
+     *                                 diagnostics reach the caller's injected stream instead of raw STDERR.
      */
-    public static function parse(array $args, callable $consume): self
+    public static function parse(array $args, callable $consume, $stderr = null): self
     {
-        $store = TimingStore::fromEnv();
+        $warn = is_resource($stderr)
+            ? static function (string $message) use ($stderr): void {
+                fwrite($stderr, $message);
+            }
+        : null;
+
+        $store = TimingStore::fromEnv()->withWarner($warn);
         $dirLabel = 'configured timings dir';
 
         foreach ($args as $arg) {
@@ -31,7 +39,7 @@ final class TimingStoreArgumentParser
                     throw new InvalidArgumentException('[warp] --timings-dir must not be empty');
                 }
 
-                $store = new TimingStore($dir);
+                $store = (new TimingStore($dir))->withWarner($warn);
                 $dirLabel = $dir;
 
                 continue;

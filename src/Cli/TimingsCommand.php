@@ -15,7 +15,7 @@ final class TimingsCommand
      */
     public static function run(array $args, $stdout, $stderr): int
     {
-        $timings = TimingStoreArgumentParser::parse($args, static fn (string $arg): bool => false);
+        $timings = TimingStoreArgumentParser::parse($args, static fn (string $arg): bool => false, $stderr);
         $tests = $timings->store->load();
 
         if ($tests === []) {
