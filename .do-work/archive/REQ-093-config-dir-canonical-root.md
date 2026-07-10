@@ -1,22 +1,16 @@
 # REQ-093: Config-dir canonical root for timing keys with root stamp
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.95040
-**Claimed at:** 2026-07-10T02:31:34Z
-**Heartbeat:** 2026-07-10T02:31:34Z
-<!-- claimed-end -->
-
 **UR:** UR-016
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:1358201
 **Criteria approved:** agent-drafted
 **Size:** L
-**Files:** src/Timing/TimingExtension.php, src/Timing/TimingStore.php, src/Timing/TestFileResolver.php, src/Cli/ShardCommand.php, tests/Unit/Timing/TimingStoreTest.php, tests/Unit/Cli/ShardCommandTest.php, tests/Integration/Timing/TimingCaptureTest.php, README.md
+**Files:** src/Timing/TimingExtension.php, src/Timing/TimingStore.php, src/Cli/ShardCommand.php, tests/Unit/Timing/TimingStoreTest.php, tests/Unit/Timing/TimingCollectorTest.php, tests/Unit/Cli/ShardCommandTest.php, tests/Integration/Timing/TimingCaptureTest.php, tests/Integration/Cli/WarpBinTest.php, README.md
 **Depends on:**
 
 ## Task
@@ -34,11 +28,11 @@ Finding 1 (UR-016), verified CONFIRMED: TimingExtension keys timings relative to
 
 ## Acceptance Criteria
 
-- [ ] TimingExtension derives its canonical root from the Configuration source path (`dirname` of the phpunit.xml actually used) when one exists; `getcwd()` only when no XML config is loaded
-- [ ] `timings.json` and pending batch payloads carry the canonical root; the store VERSION is bumped
-- [ ] Recording timings via a run whose cwd differs from the config dir (e.g. `pest -c sub/phpunit.xml` from the parent dir) then running `warp shard N/M --configuration=sub/phpunit.xml` from the parent dir produces duration-balanced shards — the keys intersect
-- [ ] `warp shard` against an artifact whose stamped root differs from the shard-time canonical root exits non-zero with a stderr message naming both roots
-- [ ] Shard output paths remain resolvable by phpunit when invoked from the same cwd with the same `--configuration` value (document the resolution rule in the README)
+- [x] TimingExtension derives its canonical root from the Configuration source path (`dirname` of the phpunit.xml actually used) when one exists; `getcwd()` only when no XML config is loaded
+- [x] `timings.json` and pending batch payloads carry the canonical root; the store VERSION is bumped
+- [x] Recording timings via a run whose cwd differs from the config dir (e.g. `pest -c sub/phpunit.xml` from the parent dir) then running `warp shard N/M --configuration=sub/phpunit.xml` from the parent dir produces duration-balanced shards — the keys intersect
+- [x] `warp shard` against an artifact whose stamped root differs from the shard-time canonical root exits non-zero with a stderr message naming both roots
+- [x] Shard output paths remain resolvable by phpunit when invoked from the same cwd with the same `--configuration` value (document the resolution rule in the README)
 
 ## Verification Steps
 
@@ -52,3 +46,15 @@ Finding 1 (UR-016), verified CONFIRMED: TimingExtension keys timings relative to
    - Expected: all pass, including the loud root-mismatch exit
 4. **test** `./vendor/bin/pest`
    - Expected: full suite green (schema bump ripples through integration tests)
+
+## Outputs
+
+- src/Timing/TimingExtension.php — canonicalRoot() from Configuration source path; bind store via withRoot()
+- src/Timing/TimingStore.php — VERSION 1->2; root field; stamp root in pending + timings.json; storedRoot()
+- src/Cli/ShardCommand.php — loud non-zero exit on stored-root vs shard-time-root mismatch
+- README.md — documented canonical config-dir root rule and mismatch/resolution behavior
+- tests/Unit/Timing/TimingStoreTest.php — root-stamp + version-2 + storedRoot tests
+- tests/Unit/Timing/TimingCollectorTest.php — payload-shape ripple (footprint-corrected)
+- tests/Unit/Cli/ShardCommandTest.php — root-mismatch loud-exit test
+- tests/Integration/Timing/TimingCaptureTest.php — finding-1 cross-cwd reproduction test
+- tests/Integration/Cli/WarpBinTest.php — schema-bump ripple fixtures (footprint-corrected)
