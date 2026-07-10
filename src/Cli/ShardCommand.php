@@ -89,7 +89,7 @@ final class ShardCommand
                 if ($suffixOption !== null) {
                     fwrite($stderr, "[warp] --suffix={$suffixOption} ignored because phpunit.xml discovery controls test file suffixes\n");
                 }
-                $canonicalRoot = self::suiteRoot($root, $configuration);
+                $canonicalRoot = Paths::configRoot(SuiteDiscovery::rootConfigurationPath($root, $configuration), $root);
                 $allowOutsideRoot = true;
             } catch (MissingConfigurationException $exception) {
                 if ($configuration !== null) {
@@ -101,8 +101,20 @@ final class ShardCommand
             }
         } else {
             if ($configuration !== null) {
-                fwrite($stderr, "[warp] --configuration={$configuration} ignored because explicit test paths bypass suite discovery\n");
+                fwrite($stderr, "[warp] --configuration={$configuration} ignored for suite discovery (explicit test paths bypass discovery); still used for the timing-key root\n");
             }
+
+            // Explicit paths bypass discovery but the timing-key root is still the
+            // config dir the extension recorded against: honour --configuration for
+            // the root, or probe for an implicit phpunit.xml exactly as discovery
+            // would (finding 9). Only cwd-rooted runs with no config stay at getcwd.
+            $configPath = SuiteDiscovery::rootConfigurationPath($root, $configuration);
+
+            if ($configPath !== null) {
+                $canonicalRoot = Paths::configRoot($configPath, $root);
+                $allowOutsideRoot = true;
+            }
+
             $files = TestFileFinder::find($paths, $suffix);
         }
 
@@ -115,16 +127,24 @@ final class ShardCommand
         }
 
         $storedRoot = $timings->store->storedRoot();
-
-        if ($storedRoot !== null && $storedRoot !== $canonicalRoot) {
-            fwrite($stderr, "[warp] timings root mismatch: recorded against '{$storedRoot}' but this shard resolves keys against '{$canonicalRoot}' - re-record timings from the same config dir or pass the matching --configuration\n");
-
-            return 2;
-        }
-
         $totals = $timings->store->fileTotals();
 
-        if ($totals === []) {
+        if ($storedRoot !== null && $storedRoot !== $canonicalRoot) {
+            // Middle-path mismatch policy (finding 7, supersedes UR-016's
+            // unconditional fail-loudly): if stored keys would still match
+            // discovered files, this is a real misconfiguration worth stopping
+            // for; if none match, the artifact is pure stale/foreign (e.g. a CI
+            // cache restored to a renamed workspace) so degrade instead of
+            // failing the whole shard matrix.
+            if (array_intersect_key($totals, array_flip($files)) !== []) {
+                fwrite($stderr, "[warp] timings root mismatch: recorded against '{$storedRoot}' but this shard resolves keys against '{$canonicalRoot}' - recorded keys still match discovered files, so this is a real misconfiguration; re-record timings from the same config dir or pass the matching --configuration\n");
+
+                return 2;
+            }
+
+            fwrite($stderr, "[warp] timings root mismatch: recorded against '{$storedRoot}' but this shard resolves keys against '{$canonicalRoot}' - no recorded key matches a discovered file (stale or foreign artifact); sharding count-balanced\n");
+            $totals = [];
+        } elseif ($totals === []) {
             fwrite($stderr, "[warp] no recorded timings under {$timings->dirLabel} - sharding count-balanced\n");
         } elseif (array_intersect_key($totals, array_flip($files)) === []) {
             fwrite($stderr, "[warp] recorded timings match no discovered file - likely path-form or stale-artifact mismatch; sharding count-balanced\n");
@@ -165,30 +185,5 @@ final class ShardCommand
         sort($canonical);
 
         return $canonical;
-    }
-
-    private static function suiteRoot(string $root, ?string $configuration): string
-    {
-        if ($configuration === null) {
-            return $root;
-        }
-
-        $path = self::absolutePath($root, $configuration);
-        $realpath = realpath($path);
-
-        return dirname($realpath === false ? $path : $realpath);
-    }
-
-    private static function absolutePath(string $root, string $path): string
-    {
-        if (str_starts_with($path, DIRECTORY_SEPARATOR)) {
-            return $path;
-        }
-
-        if (preg_match('#^[A-Za-z]:[\\\\/]#', $path) === 1) {
-            return $path;
-        }
-
-        return rtrim($root, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$path;
     }
 }
