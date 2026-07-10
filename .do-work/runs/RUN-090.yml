@@ -1,0 +1,20 @@
+run_id: RUN-090
+req: REQ-100
+ur: UR-016
+agent_id: "Toms-MacBook-Pro.local.95040"
+model: "sonnet"
+branch: "req/REQ-100"
+started_at: "2026-07-10T04:34:01Z"
+ended_at: "2026-07-10T04:43:41Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "estimate: sonnet clean pass"
+cost_estimate_num: 0.35
+pr_url: ""
+commands:
+  []
+tests:
+  []
+changed_files:
+  []

@@ -1,0 +1,25 @@
+run_id: RUN-018
+req: REQ-021
+ur: UR-006
+agent_id: "Toms-MacBook-Pro.local.47146"
+model: "sonnet"
+branch: "req/REQ-021"
+started_at: "2026-07-07T07:11:54Z"
+ended_at: "2026-07-07T07:29:44Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "sonnet tier estimate"
+cost_estimate_num: 0.20
+pr_url: ""
+commands:
+  - "composer dump-autoload -o (initial, mistaken)"
+  - "composer dump-autoload (revert)"
+  - "composer install --no-interaction (independent vendor)"
+  - "./vendor/bin/pest tests/Unit/Db/DirsTest.php"
+  - "./vendor/bin/pest"
+tests:
+  - "./vendor/bin/pest"
+changed_files:
+  - "src/Db/Dirs.php"
+  - "tests/Unit/Db/DirsTest.php"

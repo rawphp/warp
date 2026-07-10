@@ -1,0 +1,25 @@
+run_id: RUN-053
+req: REQ-065
+ur: UR-012
+agent_id: "Toms-MacBook-Pro.local.codex-ur012"
+model: "sonnet"
+branch: "req/REQ-065"
+started_at: ""
+ended_at: "2026-07-09T05:33:05Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "estimated-sonnet"
+cost_estimate_num: 0.20
+pr_url: ""
+commands:
+  - "./vendor/bin/pest --filter=\"ShardCommand|TestFileFinder\""
+  - "php /Users/tomkaczocha/EA/projects/warp/.worktrees/req-065/bin/warp shard 1/2 tests --suffix="
+tests:
+  - "./vendor/bin/pest --filter=\"ShardCommand|TestFileFinder\""
+  - "php /Users/tomkaczocha/EA/projects/warp/.worktrees/req-065/bin/warp shard 1/2 tests --suffix="
+changed_files:
+  - "src/Cli/ShardCommand.php"
+  - "src/Shard/TestFileFinder.php"
+  - "tests/Unit/Cli/ShardCommandTest.php"
+  - "tests/Unit/Shard/TestFileFinderTest.php"

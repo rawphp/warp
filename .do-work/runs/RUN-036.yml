@@ -1,0 +1,28 @@
+run_id: RUN-036
+req: REQ-055
+ur: unknown
+agent_id: "Toms-MacBook-Pro.local.21409"
+model: "inherited"
+branch: "req/REQ-055"
+started_at: "2026-07-08T23:26:05Z"
+ended_at: "2026-07-08T23:42:00Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "tier-weighted estimate"
+cost_estimate_num: 0.15
+pr_url: ""
+commands:
+  - "./vendor/bin/pest tests/Unit/Timing/TestFileResolverTest.php tests/Unit/Shard/TestFileFinderTest.php tests/Unit/Cli/ShardCommandTest.php"
+  - "php bin/warp shard 1/2 tests > a.txt; php bin/warp shard 1/2 ./tests > b.txt; diff a.txt b.txt"
+  - "./vendor/bin/pest"
+tests:
+  - "./vendor/bin/pest tests/Unit/Timing/TestFileResolverTest.php tests/Unit/Shard/TestFileFinderTest.php tests/Unit/Cli/ShardCommandTest.php: 20 passed, 37 assertions"
+  - "./vendor/bin/pest: 197 passed, 464 assertions"
+changed_files:
+  - "src/Cli/ShardCommand.php"
+  - "src/Shard/TestFileFinder.php"
+  - "src/Support/Paths.php"
+  - "src/Timing/TestFileResolver.php"
+  - "tests/Unit/Cli/ShardCommandTest.php"
+  - "tests/Unit/Timing/TestFileResolverTest.php"

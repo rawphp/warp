@@ -1,0 +1,27 @@
+run_id: RUN-038
+req: REQ-050
+ur: unknown
+agent_id: "Toms-MacBook-Pro.local.21409"
+model: "inherited"
+branch: "req/REQ-050"
+started_at: "2026-07-08T23:51:41Z"
+ended_at: "2026-07-09T00:03:10Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "tier-weighted estimate"
+cost_estimate_num: 0.15
+pr_url: ""
+commands:
+  - "./vendor/bin/pest tests/Unit/Timing/TimingStoreTest.php tests/Unit/Timing/TimingCollectorTest.php"
+  - "./vendor/bin/pest"
+  - "! rg \"array_filter\" src/Timing/TimingStore.php"
+tests:
+  - "./vendor/bin/pest tests/Unit/Timing/TimingStoreTest.php tests/Unit/Timing/TimingCollectorTest.php: 26 passed, 48 assertions"
+  - "./vendor/bin/pest: 204 passed, 474 assertions"
+changed_files:
+  - "src/Timing/TimingCollector.php"
+  - "src/Timing/TimingExtension.php"
+  - "src/Timing/TimingStore.php"
+  - "tests/Unit/Timing/TimingCollectorTest.php"
+  - "tests/Unit/Timing/TimingStoreTest.php"

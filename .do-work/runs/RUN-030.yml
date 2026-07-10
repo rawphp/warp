@@ -1,0 +1,22 @@
+run_id: RUN-030
+req: REQ-031
+ur: UR-006
+agent_id: "Toms-MacBook-Pro.local.47146"
+model: "sonnet"
+branch: "req/REQ-031"
+started_at: "2026-07-07T08:41:49Z"
+ended_at: "2026-07-07T08:46:44Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "sonnet tier estimate"
+cost_estimate_num: 0.15
+pr_url: ""
+commands:
+  - "chmod +x bench/db-provision.sh && bash -n bench/db-provision.sh"
+  - "bench/db-provision.sh (no-args usage guard)"
+  - "./vendor/bin/pest"
+tests:
+  - "./vendor/bin/pest"
+changed_files:
+  - "bench/db-provision.sh"

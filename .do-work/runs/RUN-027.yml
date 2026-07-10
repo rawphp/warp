@@ -1,0 +1,22 @@
+run_id: RUN-027
+req: REQ-027
+ur: UR-006
+agent_id: "Toms-MacBook-Pro.local.47146"
+model: "sonnet"
+branch: "req/REQ-027"
+started_at: "2026-07-07T07:54:11Z"
+ended_at: "2026-07-07T07:58:54Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "sonnet tier estimate"
+cost_estimate_num: 0.30
+pr_url: ""
+commands:
+  - "./vendor/bin/pest tests/Integration/Db/GoldenSnapshotBuilderTest.php"
+  - "./vendor/bin/pest"
+tests:
+  - "./vendor/bin/pest"
+changed_files:
+  - "src/Db/GoldenSnapshotBuilder.php"
+  - "tests/Integration/Db/GoldenSnapshotBuilderTest.php"

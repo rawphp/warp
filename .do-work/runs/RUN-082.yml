@@ -1,0 +1,26 @@
+run_id: RUN-082
+req: REQ-092
+ur: UR-016
+agent_id: "Toms-MacBook-Pro.local.95040"
+model: "sonnet"
+branch: "req/REQ-092"
+started_at: "2026-07-10T02:14:56Z"
+ended_at: "2026-07-10T02:30:23Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "estimate: sonnet clean pass"
+cost_estimate_num: 0.15
+pr_url: ""
+commands:
+  []
+tests:
+  []
+changed_files:
+  - "/vendor/"
+  - "/.phpunit.cache/"
+  - "/.worktrees/"
+  - "composer.phar"
+  - "/.do-work/"
+  - "/docs/superpowers/"
+  - "/composer.lock"

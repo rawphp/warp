@@ -1,0 +1,26 @@
+run_id: RUN-071
+req: REQ-083
+ur: UR-015
+agent_id: "Toms-MacBook-Pro.local.82488"
+model: "sonnet"
+branch: "req/REQ-083"
+started_at: "2026-07-09T20:37:07Z"
+ended_at: "2026-07-09T20:48:31Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "tier-weighted estimate"
+cost_estimate_num: 0.25
+pr_url: ""
+commands:
+  - "./vendor/bin/pest --filter=\"ComposerConstraint|WarpBin\""
+  - "composer validate --strict"
+  - "./vendor/bin/pest"
+tests:
+  - "./vendor/bin/pest --filter=\"ComposerConstraint|WarpBin\""
+  - "composer validate --strict"
+  - "./vendor/bin/pest"
+changed_files:
+  - "composer.json"
+  - "composer.lock"
+  - "tests/Unit/ComposerConstraintTest.php"

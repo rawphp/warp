@@ -1,0 +1,23 @@
+run_id: RUN-052
+req: REQ-063
+ur: UR-012
+agent_id: "Toms-MacBook-Pro.local.codex-ur012"
+model: "sonnet"
+branch: "req/REQ-063"
+started_at: ""
+ended_at: "2026-07-09T05:32:15Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "estimated-sonnet"
+cost_estimate_num: 0.20
+pr_url: ""
+commands:
+  - "./vendor/bin/pest --filter=SnapshotStore"
+  - "php scratch command invoking SnapshotStore::promote() on a missing staging path and catching \RuntimeException"
+tests:
+  - "./vendor/bin/pest --filter=SnapshotStore"
+  - "php scratch command invoking SnapshotStore::promote() on a missing staging path and catching \RuntimeException"
+changed_files:
+  - "src/Db/SnapshotStore.php"
+  - "tests/Unit/Db/SnapshotStoreTest.php"

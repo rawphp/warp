@@ -1,0 +1,23 @@
+run_id: RUN-028
+req: REQ-029
+ur: UR-006
+agent_id: "Toms-MacBook-Pro.local.47146"
+model: "opus"
+branch: "req/REQ-029"
+started_at: "2026-07-07T08:04:04Z"
+ended_at: "2026-07-07T08:13:18Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "opus tier estimate"
+cost_estimate_num: 1.50
+pr_url: ""
+commands:
+  - "rm vendor && composer install"
+  - "./vendor/bin/pest tests/Integration/Db/SnapshotDatabaseManagerTest.php"
+  - "./vendor/bin/pest"
+tests:
+  - "./vendor/bin/pest"
+changed_files:
+  - "src/Db/SnapshotDatabaseManager.php"
+  - "tests/Integration/Db/SnapshotDatabaseManagerTest.php"

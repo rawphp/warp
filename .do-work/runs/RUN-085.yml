@@ -1,0 +1,20 @@
+run_id: RUN-085
+req: REQ-095
+ur: UR-016
+agent_id: "Toms-MacBook-Pro.local.95040"
+model: "opus"
+branch: "req/REQ-095"
+started_at: "2026-07-10T03:04:43Z"
+ended_at: "2026-07-10T03:15:34Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "estimate: opus clean pass"
+cost_estimate_num: 0.90
+pr_url: ""
+commands:
+  []
+tests:
+  []
+changed_files:
+  []
