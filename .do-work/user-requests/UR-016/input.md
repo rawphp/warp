@@ -1,10 +1,51 @@
 ---
 ur: UR-016
 received: 2026-07-10
-status: intake
+status: captured
+classification: bug-fix
+layers_in_scope: []
+layer_decisions: {}
+reqs:
+  - { id: REQ-092, layer: none, integration_confidence: n/a }
+  - { id: REQ-093, layer: none, integration_confidence: n/a }
+  - { id: REQ-094, layer: none, integration_confidence: n/a }
+  - { id: REQ-095, layer: none, integration_confidence: n/a }
+  - { id: REQ-096, layer: none, integration_confidence: n/a }
+  - { id: REQ-097, layer: none, integration_confidence: n/a }
+  - { id: REQ-098, layer: none, integration_confidence: n/a }
+  - { id: REQ-099, layer: none, integration_confidence: n/a }
+  - { id: REQ-100, layer: none, integration_confidence: n/a }
+  - { id: REQ-101, layer: none, integration_confidence: n/a }
+acknowledged_partials: []
 ---
 
 # UR-016: User Request
+
+<!-- capture-summary-start -->
+## Capture summary (2026-07-10)
+
+| Item | Value |
+|---|---|
+| Classification | bug-fix |
+| Layers in scope | (none — bug-fix) |
+| Layer decisions | (none — bug-fix) |
+| REQs generated | 10 |
+
+| REQ | Layer | Integration confidence |
+|---|---|---|
+| REQ-092 | none | n/a |
+| REQ-093 | none | n/a |
+| REQ-094 | none | n/a |
+| REQ-095 | none | n/a |
+| REQ-096 | none | n/a |
+| REQ-097 | none | n/a |
+| REQ-098 | none | n/a |
+| REQ-099 | none | n/a |
+| REQ-100 | none | n/a |
+| REQ-101 | none | n/a |
+
+Finding → REQ mapping: 8→092; 1→093; 9→094; 2,3,18→095; 6,7,20→096; 11,13,19→097; 12→098; 4,5,14,15,16→099; 17→100; 10→101.
+<!-- capture-summary-end -->
 
 ## Request
 
