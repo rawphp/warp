@@ -937,4 +937,71 @@ PHP,
             @unlink($script);
         }
     });
+
+    it('fromEnv absolutizes a relative WARP_TIMINGS_DIR against getcwd()', function () {
+        putenv('WARP_TIMINGS_DIR=relative/timings/dir');
+
+        $store = TimingStore::fromEnv();
+        $dir = (new ReflectionProperty(TimingStore::class, 'dir'))->getValue($store);
+
+        expect($dir)->toBe((getcwd() ?: '.').'/relative/timings/dir');
+    });
+
+    it('fromEnv stores an absolute WARP_TIMINGS_DIR unchanged', function () {
+        putenv('WARP_TIMINGS_DIR='.$this->dir);
+
+        $store = TimingStore::fromEnv();
+        $dir = (new ReflectionProperty(TimingStore::class, 'dir'))->getValue($store);
+
+        expect($dir)->toBe($this->dir);
+    });
+
+    it('reproduces the original bug: fromEnv with a relative dir still writes under the original cwd after a later chdir (regression, fails pre-fix)', function () {
+        $root = dirname(__DIR__, 3);
+        $projectDir = sys_get_temp_dir().'/warp-req094-project-'.bin2hex(random_bytes(4));
+        $elsewhere = sys_get_temp_dir().'/warp-req094-elsewhere-'.bin2hex(random_bytes(4));
+        mkdir($projectDir);
+        mkdir($elsewhere);
+
+        $script = sys_get_temp_dir().'/warp-req094-'.bin2hex(random_bytes(4)).'.php';
+        file_put_contents($script, sprintf(<<<'PHP'
+<?php
+
+require %s;
+
+use RawPHP\Warp\Timing\TimingStore;
+
+chdir(%s);
+putenv('WARP_TIMINGS_DIR=.warp/timings');
+$store = TimingStore::fromEnv();
+
+// Simulate a chdir that survives past test execution (tearDownAfterClass,
+// bootstrap, another shutdown handler, or a fatal that skips PHPUnit's
+// runBare cwd restore) before the shutdown-flush backstop fires.
+chdir(%s);
+
+$store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 1.5]]);
+PHP,
+            var_export($root.'/vendor/autoload.php', true),
+            var_export($projectDir, true),
+            var_export($elsewhere, true),
+        ));
+
+        try {
+            exec('php '.escapeshellarg($script).' 2>&1', $output, $exit);
+
+            expect($exit)->toBe(0, implode(PHP_EOL, $output))
+                ->and(glob($projectDir.'/.warp/timings/pending/*.json'))->toHaveCount(1)
+                ->and(is_dir($elsewhere.'/.warp/timings'))->toBeFalse();
+        } finally {
+            foreach (glob($projectDir.'/.warp/timings/pending/*.json') ?: [] as $file) {
+                @unlink($file);
+            }
+            @rmdir($projectDir.'/.warp/timings/pending');
+            @rmdir($projectDir.'/.warp/timings');
+            @rmdir($projectDir);
+            @rmdir($elsewhere);
+            @unlink($script);
+        }
+    });
 }
