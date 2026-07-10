@@ -38,8 +38,8 @@ if ($files === []) {
 }
 
 // Reuse the CLI's own canonicalization so the bench exercises the exact same
-// path-form contract (root-relative keys, outside-root rejection, dedup + sort)
-// that `warp shard` uses (finding 20) instead of forking it here.
+// path-form contract (root-relative keys, outside-root ../ relativization,
+// dedup + sort) that `warp shard` uses (finding 20) instead of forking it here.
 $root = getcwd() ?: '.';
 $files = ShardCommand::canonicalFiles($files, $root);
 

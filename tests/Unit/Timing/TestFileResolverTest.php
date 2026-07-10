@@ -176,15 +176,20 @@ it('returns null for files outside the project root', function () {
     expect(TestFileResolver::resolve(stdClass::class, '/elsewhere/tests/FooTest.php', '/proj'))->toBeNull();
 });
 
-it('uses stable absolute realpaths for existing files outside the project root', function () {
+it('emits a root-relative ../ key for existing files outside the project root (UR-017 key unification)', function () {
     $externalRoot = sys_get_temp_dir().'/warp-resolver-external-'.bin2hex(random_bytes(4));
     mkdir($externalRoot.'/tests', 0777, true);
     $externalFile = $externalRoot.'/tests/ExternalTest.php';
     file_put_contents($externalFile, '<?php');
 
     try {
+        // $this->root and $externalRoot are both direct siblings under
+        // sys_get_temp_dir(), so the key is one level up plus the external
+        // root's own name - stable across machines with the same layout.
+        $expected = '../'.basename($externalRoot).'/tests/ExternalTest.php';
+
         expect(TestFileResolver::resolve(stdClass::class, $externalFile, $this->root))
-            ->toBe((string) realpath($externalFile));
+            ->toBe($expected);
     } finally {
         unlink($externalFile);
         rmdir($externalRoot.'/tests');
@@ -237,7 +242,7 @@ it('delegates canonicalization to the shared Paths helper', function () {
 
     expect($source)
         ->toContain('use RawPHP\Warp\Support\Paths;')
-        ->toContain('Paths::canonical($path, $root, allowOutside: true)')
+        ->toContain('Paths::canonical($path, $root)')
         ->not->toContain('realpath($path)')
         ->not->toContain('str_replace(\'\\\\\', \'/\', $realPath)');
 });

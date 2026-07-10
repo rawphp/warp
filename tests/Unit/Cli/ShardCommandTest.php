@@ -245,6 +245,52 @@ it('falls back to tests with a stderr note when no phpunit xml exists', function
         ->and($stderr)->toContain('falling back to tests/Test.php');
 });
 
+it('shards an explicit outside-root path with no phpunit.xml present, without aborting (finding 8, explicit-path mode)', function () {
+    chdir($this->tmp);
+    $external = sys_get_temp_dir().'/warp-shardcmd-outside-explicit-'.bin2hex(random_bytes(4));
+    Dirs::ensure($external.'/tests');
+    file_put_contents($external.'/tests/OutsideTest.php', '<?php');
+
+    try {
+        // No phpunit.xml anywhere: rootConfigurationPath resolves null, so the
+        // canonical root stays cwd and the file is genuinely outside it. Pre-fix
+        // this exited 2 with "test path is outside project root".
+        [$exit, $stdout, $stderr] = ($this->run)(['1/1', $external.'/tests', '--timings-dir='.$this->tmp.'/timings']);
+
+        expect($exit)->toBe(0)
+            ->and($stderr)->not->toContain('outside project root')
+            ->and($stdout)->toBe('../'.basename($external)."/tests/OutsideTest.php\n");
+    } finally {
+        Dirs::delete($external);
+    }
+});
+
+it('shards a symlinked tests/ directory pointing outside the root with no phpunit.xml present, without aborting (finding 8, no-phpunit.xml fallback mode)', function () {
+    // Replace the beforeEach-created tests/ dir with a symlink to an external
+    // directory, so the tests/-fallback discovers files that resolve outside
+    // the project root. Pre-fix, this fallback branch left allowOutsideRoot
+    // false and exited 2, even though the exact same layout shards fine once a
+    // phpunit.xml is present (config-driven discovery already allowed it).
+    Dirs::delete($this->tmp.'/tests');
+    $external = sys_get_temp_dir().'/warp-shardcmd-outside-fallback-'.bin2hex(random_bytes(4));
+    Dirs::ensure($external);
+    file_put_contents($external.'/OutsideTest.php', '<?php');
+    symlink($external, $this->tmp.'/tests');
+
+    chdir($this->tmp);
+
+    try {
+        [$exit, $stdout, $stderr] = ($this->run)(['1/1', '--timings-dir='.$this->tmp.'/timings']);
+
+        expect($exit)->toBe(0)
+            ->and($stderr)->not->toContain('outside project root')
+            ->and($stderr)->toContain('no phpunit.xml found')
+            ->and($stdout)->toBe('../'.basename($external)."/OutsideTest.php\n");
+    } finally {
+        Dirs::delete($external);
+    }
+});
+
 it('does not fall back when suite discovery fails for a reason other than missing configuration', function () {
     chdir($this->tmp);
     writeShardPhpunitConfig($this->tmp.'/phpunit.xml', <<<'XML'
@@ -332,7 +378,7 @@ XML);
         ->and($stderr)->not->toContain('outside project root');
 });
 
-it('emits absolute realpaths for symlinked suite files outside the configuration root', function () {
+it('emits a root-relative ../ key for symlinked suite files outside the configuration root (finding 8, UR-017 key unification)', function () {
     chdir($this->tmp);
     $external = sys_get_temp_dir().'/warp-shardcmd-external-'.bin2hex(random_bytes(4));
     Dirs::ensure($external);
@@ -343,17 +389,20 @@ it('emits absolute realpaths for symlinked suite files outside the configuration
             <directory>tests/Shared</directory>
         </testsuite>
 XML);
-    $sharedRealpath = (string) realpath($external.'/SharedTest.php');
+    // Both $this->tmp and $external are direct siblings under sys_get_temp_dir(),
+    // so the relative key is one level up plus the external dir's own name -
+    // identical regardless of the absolute temp-dir prefix on another machine.
+    $sharedKey = '../'.basename($external).'/SharedTest.php';
 
     (new TimingStore($this->tmp.'/timings'))->writePending([
-        'shared' => ['file' => $sharedRealpath, 'ms' => 100.0],
+        'shared' => ['file' => $sharedKey, 'ms' => 100.0],
     ]);
 
     try {
         [$exit, $stdout, $stderr] = ($this->run)(['1/1', '--timings-dir='.$this->tmp.'/timings']);
 
         expect($exit)->toBe(0)
-            ->and($stdout)->toBe($sharedRealpath."\n")
+            ->and($stdout)->toBe($sharedKey."\n")
             ->and($stderr)->not->toContain('outside project root')
             ->and($stderr)->not->toContain('recorded timings match no discovered file');
     } finally {
@@ -467,7 +516,7 @@ it('bench reuses ShardCommand canonicalization instead of forking it (finding 20
 
     expect($bench)
         ->toContain('ShardCommand::canonicalFiles(')
-        ->not->toContain('test path is outside project root');
+        ->not->toContain('could not resolve real path for test file');
 
     // The exception string lives exactly once across src/ and bench/.
     $occurrences = 0;
@@ -477,7 +526,7 @@ it('bench reuses ShardCommand canonicalization instead of forking it (finding 20
         );
         foreach ($iterator as $file) {
             if ($file->getExtension() === 'php') {
-                $occurrences += substr_count((string) file_get_contents($file->getPathname()), 'test path is outside project root');
+                $occurrences += substr_count((string) file_get_contents($file->getPathname()), 'could not resolve real path for test file');
             }
         }
     }
@@ -625,14 +674,14 @@ XML);
     $configRoot = (string) realpath($realConfigDir);
 
     // The extension would stamp dirname(realpath(phpunit.xml)) = the REAL config
-    // dir. Record under exactly that root, with the same absolute keys the shard's
-    // canonicalizer produces for out-of-root files.
+    // dir. tests/ is a sibling of realconfig/, so both sides compute the same
+    // root-relative ../ key for it (UR-017 key unification).
     $store = (new TimingStore($this->tmp.'/timings'))->withRoot($configRoot);
     $store->writePending([
-        't1' => ['file' => (string) realpath($this->tmp.'/tests/ATest.php'), 'ms' => 100.0],
-        't2' => ['file' => (string) realpath($this->tmp.'/tests/BTest.php'), 'ms' => 10.0],
-        't3' => ['file' => (string) realpath($this->tmp.'/tests/CTest.php'), 'ms' => 10.0],
-        't4' => ['file' => (string) realpath($this->tmp.'/tests/DTest.php'), 'ms' => 10.0],
+        't1' => ['file' => '../tests/ATest.php', 'ms' => 100.0],
+        't2' => ['file' => '../tests/BTest.php', 'ms' => 10.0],
+        't3' => ['file' => '../tests/CTest.php', 'ms' => 10.0],
+        't4' => ['file' => '../tests/DTest.php', 'ms' => 10.0],
     ]);
     $store->mergeToDisk();
 
@@ -641,7 +690,7 @@ XML);
     expect($exit)->toBe(0)
         ->and($stderr)->not->toContain('root mismatch')
         ->and($stderr)->not->toContain('recorded timings match no discovered file')
-        ->and($stdout)->toContain((string) realpath($this->tmp.'/tests/ATest.php'));
+        ->and($stdout)->toContain('../tests/ATest.php');
 });
 
 it('honours --configuration for the timing-key root in explicit-path mode (finding 9)', function () {
@@ -658,13 +707,15 @@ XML);
 
     // Timings were recorded against the config dir (root=<project>/config). With
     // explicit paths the shard bypasses discovery but must still resolve keys
-    // against the config dir, so the recorded and shard-time roots agree.
+    // against the config dir, so the recorded and shard-time roots agree. tests/
+    // is a sibling of config/, so both sides compute the same root-relative ../
+    // key for it (UR-017 key unification).
     $store = (new TimingStore($this->tmp.'/timings'))->withRoot($configRoot);
     $store->writePending([
-        't1' => ['file' => (string) realpath($this->tmp.'/tests/ATest.php'), 'ms' => 100.0],
-        't2' => ['file' => (string) realpath($this->tmp.'/tests/BTest.php'), 'ms' => 10.0],
-        't3' => ['file' => (string) realpath($this->tmp.'/tests/CTest.php'), 'ms' => 10.0],
-        't4' => ['file' => (string) realpath($this->tmp.'/tests/DTest.php'), 'ms' => 10.0],
+        't1' => ['file' => '../tests/ATest.php', 'ms' => 100.0],
+        't2' => ['file' => '../tests/BTest.php', 'ms' => 10.0],
+        't3' => ['file' => '../tests/CTest.php', 'ms' => 10.0],
+        't4' => ['file' => '../tests/DTest.php', 'ms' => 10.0],
     ]);
     $store->mergeToDisk();
 
@@ -672,7 +723,7 @@ XML);
 
     expect($exit)->toBe(0)
         ->and($stdout)->not->toBe('')
-        ->and($stdout)->toContain((string) realpath($this->tmp.'/tests/ATest.php'))
+        ->and($stdout)->toContain('../tests/ATest.php')
         ->and($stderr)->toContain('ignored for suite discovery')
         ->and($stderr)->not->toContain('root mismatch')
         ->and($stderr)->not->toContain('recorded timings match no discovered file');
