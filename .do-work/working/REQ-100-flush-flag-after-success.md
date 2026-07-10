@@ -1,7 +1,13 @@
 # REQ-100: Set the flushed flag only after a successful write
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.95040
+**Claimed at:** 2026-07-10T04:34:01Z
+**Heartbeat:** 2026-07-10T04:34:01Z
+<!-- claimed-end -->
+
 **UR:** UR-016
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
