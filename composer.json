@@ -18,7 +18,7 @@
     ],
     "require": {
         "php": "^8.4",
-        "phpunit/php-file-iterator": "^6.0.1",
+        "phpunit/php-file-iterator": "^5.0 || ^6.0",
         "phpunit/phpunit": "^11.1 || ^12.0"
     },
     "autoload": {
@@ -40,7 +40,8 @@
     "require-dev": {
         "orchestra/testbench": "^11.1",
         "pestphp/pest": "^4.7",
-        "laravel/pint": "^1.29"
+        "laravel/pint": "^1.29",
+        "composer/semver": "^3.4"
     },
     "scripts": {
         "test": "pest",
