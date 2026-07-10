@@ -16,6 +16,8 @@ use PHPUnit\Event\Test\MarkedIncomplete;
 use PHPUnit\Event\Test\MarkedIncompleteSubscriber;
 use PHPUnit\Event\Test\PreparationStarted;
 use PHPUnit\Event\Test\PreparationStartedSubscriber;
+use PHPUnit\Event\Test\Prepared;
+use PHPUnit\Event\Test\PreparedSubscriber;
 use PHPUnit\Event\Test\Skipped;
 use PHPUnit\Event\Test\SkippedSubscriber;
 use PHPUnit\Event\TestRunner\ExecutionFinished;
@@ -85,6 +87,22 @@ final class TimingExtension implements Extension
             }
         });
 
+        // Test\Prepared fires only once setUp/hooks succeed - the same condition
+        // PHPUnit's own wasPrepared() gates Test\Finished on. Tracking it lets the
+        // Errored subscriber tell "errored before being prepared" (Finished will
+        // never fire; needs its duration from Errored's own telemetry) apart from
+        // "prepared, errored after running" (Finished still fires; recording here
+        // too would double-count it) - see finding 5.
+        $facade->registerSubscriber(new class($collector) implements PreparedSubscriber
+        {
+            public function __construct(private readonly TimingCollector $collector) {}
+
+            public function notify(Prepared $event): void
+            {
+                $this->collector->prepared($event->test()->id());
+            }
+        });
+
         $facade->registerSubscriber(new class($collector, $root) implements FinishedSubscriber
         {
             public function __construct(
@@ -109,9 +127,12 @@ final class TimingExtension implements Extension
             }
         });
 
-        // Every other terminal outcome closes an accounting entry without a
-        // duration: setUp/requirement skips, errors, and incomplete markings all
-        // reach one of these even when Test\Finished never fires (findings 5, 16).
+        // Every other terminal outcome closes an accounting entry: setUp/
+        // requirement skips and incomplete markings never carry a duration here
+        // (Test\Finished never fires for them either, but they aren't gated on
+        // wasPrepared() the same way - out of this fix's scope, findings 5, 16).
+        // Errored is the exception: it records a duration itself for the
+        // never-prepared case (finding 5), since Finished never fires for it.
         $facade->registerSubscriber(new class($collector, $root) implements SkippedSubscriber
         {
             public function __construct(
@@ -137,9 +158,10 @@ final class TimingExtension implements Extension
 
             public function notify(Errored $event): void
             {
-                $this->collector->terminated(
+                $this->collector->errored(
                     $event->test()->id(),
                     TimingExtension::fileFor($event->test(), $this->root),
+                    TimingExtension::seconds($event),
                 );
             }
         });
