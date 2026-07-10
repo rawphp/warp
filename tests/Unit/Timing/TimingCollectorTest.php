@@ -180,7 +180,7 @@ it('flush writes a single pending batch and only once', function () {
     Dirs::delete($dir);
 });
 
-it('marks flushed before a failed pending write so shutdown does not retry', function () {
+it('leaves hasFlushed false after a failed write so a retry can recover (REQ-100)', function () {
     $dir = sys_get_temp_dir().'/warp-collector-'.bin2hex(random_bytes(8));
     $store = new TimingStore($dir);
     $collector = new TimingCollector;
@@ -202,15 +202,20 @@ it('marks flushed before a failed pending write so shutdown does not retry', fun
             expect($e->getMessage())->toContain('[warp] cannot create directory');
         }
 
+        // The write threw before the flag was set: hasFlushed() must stay false so
+        // the shutdown backstop does not skip a retry (the original REQ-100 bug had
+        // the flag set true here, permanently losing the run's timings).
         expect($writeFailed)->toBeTrue()
-            ->and($collector->hasFlushed())->toBeTrue();
+            ->and($collector->hasFlushed())->toBeFalse();
 
         unlink($dir.'/pending');
 
+        // Backstop retry with the same collector and store: the transient failure
+        // is gone, so this call must actually write the batch.
         $collector->flush($store);
 
         expect($collector->hasFlushed())->toBeTrue()
-            ->and(glob($dir.'/pending/*.json'))->toHaveCount(0);
+            ->and(glob($dir.'/pending/*.json'))->toHaveCount(1);
     } finally {
         Dirs::delete($dir);
     }

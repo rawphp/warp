@@ -469,7 +469,7 @@ it('shutdown backstop capture with an in-flight test does not supersede sibling 
     Dirs::delete($dir);
 });
 
-it('keeps passing child runs green and warns once when timing flush fails', function () {
+it('keeps passing child runs green and warns per failed flush attempt (REQ-100)', function () {
     $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
     $fixture = writeTimingRestrictionFixture();
 
@@ -480,8 +480,14 @@ it('keeps passing child runs green and warns once when timing flush fails', func
         $result = runPestWithTimingsResult($dir, [$fixture]);
         $output = implode(PHP_EOL, $result['output']);
 
+        // The timings dir stays unwritable for the whole run, so both the
+        // ExecutionFinished flush and the shutdown-backstop retry genuinely fail
+        // (REQ-100: hasFlushed() only becomes true after a successful write, so
+        // the backstop no longer skips the retry). Two failed attempts, two
+        // warnings — the REQ-082 nonfatal contract holds per attempt, not once
+        // per run.
         expect($result['exit'])->toBe(0)
-            ->and(substr_count($output, '[warp] timing flush failed:'))->toBe(1)
+            ->and(substr_count($output, '[warp] timing flush failed:'))->toBe(2)
             ->and($output)->toContain('[warp] cannot create directory')
             ->and($output)->not->toContain('Fatal error')
             ->and($output)->not->toContain('exit code 255')
