@@ -59,3 +59,32 @@ Batch the 20 confirmed findings into do-work intake
 ### Design guidance accepted by the user
 
 Treat the run-completeness subsystem as ONE design fix rather than 6 patches: findings 4, 5, 14, 15, 16 (and the completeness aspects of 17) are all holes in the same completeness/supersede design built by REQ-050/069/073/081. Make "complete" file-scoped and event-driven rather than inferred from process-wide counters and stop-on sniffing — kill the class, not the instances.
+
+## Clarifications
+
+**Q:** Does the intended timing workflow stay as documented — record timings only on full unsharded runs, then `warp merge`, then shards restore the artifact read-only?
+**A:** Yes, the README workflow stands; finding severity/scoping is assessed against it. *(inferred, confirmed)*
+
+**Q:** Should capture append superseding decisions.md entries for the two collisions — UR-013's completeness semantics (replaced by the redesign) and UR-015's narrow-REQ precedent (deliberate exception for the completeness cluster)?
+**A:** Yes, both superseding entries are part of capture's output. *(inferred, confirmed)*
+
+**Q:** Finding 8 (.gitignore `.warp/` entry exists only as an uncommitted working-tree edit) — record as a tiny standalone chore REQ so it isn't lost?
+**A:** Yes. *(inferred, confirmed)*
+
+**Q:** Finding 6 — should a corrupt/undecodable timings.json degrade gracefully (warn + count-balanced sharding), consistent with the missing-file and wrong-version paths?
+**A:** Yes, degrade gracefully with a warning; never hard-fail the shard matrix over a corrupt timings artifact. *(inferred, confirmed)*
+
+**Q:** Finding 2 (load()'s reset-on-failed-read silently drops already-applied pending batches) collides with the UR-012 decision that dropped an equivalent finding as unreachable ("CI restores committed timings.json only, no pending present at shard time"). Rescope to warn-only, full fix, or drop?
+**A:** Full fix — re-litigate UR-012. Treat pending-at-shard-time as reachable (local parallel runs, misconfigured CI); supersede the UR-012 decision line and fix the divergence scenario fully.
+
+**Q:** Which concrete completeness design should capture decompose against, given the accepted "file-scoped and event-driven" guidance?
+**A:** Per-file event accounting: track per file the tests enumerated in this process vs tests that reached a terminal event (Finished, Skipped, Errored, MarkedIncomplete — subscribing to all terminal events fixes the skip/phpt leaks by construction). A file is complete when all its enumerated tests terminated. The batch payload carries per-file complete flags; supersede becomes per-file-when-that-file-complete. A paratest worker that saw only part of a file never marks it complete.
+
+**Q:** How should the discovery fixes (findings 11/12/13/19 — symlinks, config filename probing, .phpt suffix, hidden dirs) be shaped?
+**A:** Adopt PHPUnit's own iterator: replace TestFileFinder's RecursiveDirectoryIterator with sebastian/file-iterator (already a transitive dep) and extend SuiteDiscovery's probe list to PHPUnit's exact filename order. Parity by construction.
+
+**Q:** How should the CLI error boundary be fixed (findings 6/7/20 — four duplicated catch blocks missing JsonException and ValueError)?
+**A:** Hoist one try/catch(Throwable) boundary into WarpCli::run around command dispatch (message to injected stderr, exit 2), deleting the four duplicated blocks. Input validation (shard-total bounds, is_finite ms guard) still added at the source so errors are diagnostic.
+
+**Q:** Which root becomes canonical for timing keys (finding 1 — extension keys against getcwd(), shard against the config file's directory)?
+**A:** Config-dir root on both sides: the phpunit.xml directory is the canonical root everywhere; TimingExtension reads the Configuration source path in bootstrap() and keys against dirname(config). Also stamp the root into timings.json so mismatches are detected loudly instead of silently degrading.
