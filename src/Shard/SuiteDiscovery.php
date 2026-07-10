@@ -95,7 +95,10 @@ final class SuiteDiscovery
             return $path;
         }
 
-        foreach (['phpunit.xml', 'phpunit.xml.dist'] as $filename) {
+        // Probe order and precedence mirror PHPUnit's own
+        // vendor/phpunit/phpunit/src/TextUI/Configuration/Cli/XmlConfigurationFileFinder.php
+        // exactly, so warp discovers the same configuration file phpunit would.
+        foreach (['phpunit.xml', 'phpunit.dist.xml', 'phpunit.xml.dist'] as $filename) {
             $path = $root.DIRECTORY_SEPARATOR.$filename;
 
             if (is_file($path)) {

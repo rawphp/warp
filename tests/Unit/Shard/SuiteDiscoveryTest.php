@@ -72,6 +72,50 @@ XML);
     expect(SuiteDiscovery::configurationPath($this->tmp))->toBe($this->tmp.'/phpunit.xml');
 });
 
+it('discovers phpunit.dist.xml when it is the only configuration file present', function () {
+    file_put_contents($this->tmp.'/phpunit.dist.xml', <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>
+XML);
+
+    expect(SuiteDiscovery::configurationPath($this->tmp))->toBe($this->tmp.'/phpunit.dist.xml');
+});
+
+it('prefers phpunit.dist.xml over phpunit.xml.dist, matching PHPUnit precedence', function () {
+    file_put_contents($this->tmp.'/phpunit.xml.dist', discoveryConfigFixture());
+    file_put_contents($this->tmp.'/phpunit.dist.xml', discoveryConfigFixture());
+
+    expect(SuiteDiscovery::configurationPath($this->tmp))->toBe($this->tmp.'/phpunit.dist.xml');
+});
+
+it('prefers phpunit.xml over both dist variants, matching PHPUnit precedence', function () {
+    file_put_contents($this->tmp.'/phpunit.xml.dist', discoveryConfigFixture());
+    file_put_contents($this->tmp.'/phpunit.dist.xml', discoveryConfigFixture());
+    file_put_contents($this->tmp.'/phpunit.xml', discoveryConfigFixture());
+
+    expect(SuiteDiscovery::configurationPath($this->tmp))->toBe($this->tmp.'/phpunit.xml');
+});
+
+it('asserts the probe order matches the vendored PHPUnit XmlConfigurationFileFinder candidates', function () {
+    // Live parity check: this reads PHPUnit's own vendored source rather than a
+    // hardcoded copy, so a composer bump that reorders/renames candidates in
+    // vendor/phpunit/phpunit/src/TextUI/Configuration/Cli/XmlConfigurationFileFinder.php
+    // fails this test and forces a review of SuiteDiscovery::configurationPath().
+    $source = file_get_contents(
+        dirname(__DIR__, 3).'/vendor/phpunit/phpunit/src/TextUI/Configuration/Cli/XmlConfigurationFileFinder.php'
+    );
+
+    preg_match_all('/\$directory \. \'\/(phpunit[\w.]*)\'/', $source, $matches);
+
+    expect($matches[1])->toBe(['phpunit.xml', 'phpunit.dist.xml', 'phpunit.xml.dist']);
+});
+
 it('resolves explicit configuration paths relative to the project root', function () {
     file_put_contents($this->tmp.'/custom.xml', <<<'XML'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -91,4 +135,18 @@ function writeDiscoveryFile(string $path): void
 {
     Dirs::ensure(dirname($path));
     file_put_contents($path, '<?php');
+}
+
+function discoveryConfigFixture(): string
+{
+    return <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>
+XML;
 }
