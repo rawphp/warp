@@ -1,7 +1,13 @@
 # REQ-106: writePending must persist completeness even when no durations were recorded
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.dw17
+**Claimed at:** 2026-07-10T06:50:16Z
+**Heartbeat:** 2026-07-10T06:50:16Z
+<!-- claimed-end -->
+
 **UR:** UR-017
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
