@@ -26,7 +26,21 @@ final class TimingStore
     {
         $dir = getenv('WARP_TIMINGS_DIR');
 
-        return new self($dir !== false && $dir !== '' ? $dir : (getcwd() ?: '.').'/.warp/timings');
+        return new self($dir !== false && $dir !== '' ? self::absolutize($dir) : (getcwd() ?: '.').'/.warp/timings');
+    }
+
+    /**
+     * Resolve a relative WARP_TIMINGS_DIR against the cwd at construction time,
+     * so every later use (including the shutdown-flush backstop) resolves to
+     * the same directory regardless of any subsequent chdir().
+     */
+    private static function absolutize(string $dir): string
+    {
+        if (str_starts_with($dir, '/')) {
+            return $dir;
+        }
+
+        return (getcwd() ?: '.').'/'.$dir;
     }
 
     /**
