@@ -571,6 +571,37 @@ SH);
         ->and(timingArtifactSnapshot($timings))->toBe($beforeSnapshot);
 });
 
+it('prints a [warp] diagnostic and exits 2 when no autoload candidate exists, no PHP fatal', function () {
+    $root = dirname(__DIR__, 3);
+    $isolated = $this->dir.'/isolated';
+    Dirs::ensure($isolated.'/bin');
+    copy($root.'/bin/warp', $isolated.'/bin/warp');
+    chmod($isolated.'/bin/warp', 0755);
+
+    // Sanity: neither autoload candidate the copied bin/warp probes for exists
+    // anywhere in this isolated tree's ancestry.
+    expect(file_exists($isolated.'/vendor/autoload.php'))->toBeFalse()
+        ->and(file_exists(dirname($isolated, 2).'/autoload.php'))->toBeFalse();
+
+    $process = proc_open(
+        ['php', $isolated.'/bin/warp', 'shard', '1/2'],
+        [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+        $pipes,
+        $isolated,
+    );
+
+    $stdout = (string) stream_get_contents($pipes[1]);
+    $stderr = (string) stream_get_contents($pipes[2]);
+    $exit = proc_close($process);
+
+    expect($exit)->toBe(2)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toContain('[warp]')
+        ->and($stderr)->toContain('composer install')
+        ->and($stderr)->not->toContain('Fatal error')
+        ->and($stderr)->not->toContain('Stack trace');
+});
+
 it('bench shard spread continues after pest failure when the fresh run recorded timings', function () {
     $project = createWarpFixtureProject($this->dir, ['ATest.php', 'BTest.php']);
     $root = dirname(__DIR__, 3);

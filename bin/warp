@@ -4,12 +4,22 @@
 declare(strict_types=1);
 
 // Resolve the autoloader for installed vendor layout and this checkout.
+$autoloaded = false;
+
 foreach ([__DIR__.'/../../../autoload.php', __DIR__.'/../vendor/autoload.php'] as $autoload) {
     if (file_exists($autoload)) {
         require $autoload;
 
+        $autoloaded = true;
+
         break;
     }
+}
+
+if (! $autoloaded) {
+    fwrite(STDERR, "[warp] no autoloader found - run composer install\n");
+
+    exit(2);
 }
 
 exit(RawPHP\Warp\Cli\WarpCli::run($argv, STDOUT, STDERR));
