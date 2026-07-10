@@ -67,7 +67,7 @@ final class TestFileResolver
     {
         $file = self::fileForClass($className);
 
-        if ($file === null || Paths::canonical($file, $root) === null) {
+        if ($file === null || ! Paths::isInside($file, $root)) {
             return null;
         }
 
@@ -128,6 +128,6 @@ final class TestFileResolver
 
     private static function canonical(string $path, string $root): ?string
     {
-        return Paths::canonical($path, $root, allowOutside: true);
+        return Paths::canonical($path, $root);
     }
 }

@@ -135,6 +135,109 @@ XML,
     }
 });
 
+it('records an outside-root file under a root-relative ../ key that the shard side matches, byte-identically across two independently rooted copies of the same layout (finding 8 + UR-017 key parity)', function () {
+    $root = dirname(__DIR__, 3);
+    $bootstrap = writeTimingRestrictionBootstrap();
+    $keys = [];
+
+    try {
+        foreach (['machine-a', 'machine-b'] as $variant) {
+            $base = sys_get_temp_dir().'/warp-outside-'.$variant.'-'.bin2hex(random_bytes(4));
+            $configDir = $base.'/project';
+            $sharedDir = $base.'/shared/tests';
+            $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+
+            Dirs::ensure($configDir);
+            Dirs::ensure($sharedDir);
+            file_put_contents($sharedDir.'/FooTest.php', <<<'PHP'
+<?php
+
+it('outside-root timing', function () {
+    expect(true)->toBeTrue();
+});
+PHP);
+
+            $config = $configDir.'/phpunit.xml';
+            file_put_contents($config, sprintf(<<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="%s" colors="true">
+    <testsuites>
+        <testsuite name="Outside">
+            <directory>../shared/tests</directory>
+        </testsuite>
+    </testsuites>
+    <extensions>
+        <bootstrap class="RawPHP\Warp\Timing\TimingExtension"/>
+    </extensions>
+</phpunit>
+XML,
+                htmlspecialchars($bootstrap, ENT_XML1),
+            ));
+
+            try {
+                // Record with a cwd (the package root) that differs from both the
+                // config dir and the outside-root suite dir.
+                exec(sprintf(
+                    'cd %s && WARP_MODE=0 WARP_DB=0 WARP_TIMINGS=1 WARP_TIMINGS_DIR=%s ./vendor/bin/pest --configuration=%s 2>&1',
+                    escapeshellarg($root),
+                    escapeshellarg($dir),
+                    escapeshellarg($config),
+                ), $output, $exit);
+
+                expect($exit)->toBe(0, implode(PHP_EOL, $output));
+
+                $tests = (new TimingStore($dir))->load();
+                $files = array_values(array_unique(array_column($tests, 'file')));
+
+                expect($files)->toHaveCount(1)
+                    ->and($files[0])->toStartWith('../')
+                    ->and($files[0])->not->toContain(sys_get_temp_dir());
+
+                $keys[$variant] = $files[0];
+
+                (new TimingStore($dir))->mergeToDisk();
+
+                // Shard side: an explicit outside-root path bypasses discovery but
+                // must compute the identical key so the recorded weight applies.
+                $stdout = fopen('php://memory', 'r+');
+                $stderr = fopen('php://memory', 'r+');
+                $previous = getcwd();
+                chdir($configDir);
+
+                try {
+                    $shardExit = ShardCommand::run(
+                        ['1/1', $sharedDir, '--configuration='.$config, '--timings-dir='.$dir],
+                        $stdout,
+                        $stderr,
+                    );
+                } finally {
+                    chdir($previous);
+                }
+
+                rewind($stdout);
+                rewind($stderr);
+                $shardOut = trim(stream_get_contents($stdout));
+                $shardErr = stream_get_contents($stderr);
+
+                expect($shardExit)->toBe(0)
+                    ->and($shardOut)->toBe($keys[$variant])
+                    ->and($shardErr)->not->toContain('outside project root')
+                    ->and($shardErr)->not->toContain('recorded timings match no discovered file');
+            } finally {
+                Dirs::delete($dir);
+                Dirs::delete($base);
+            }
+        }
+
+        // Byte-identical key despite the two variants living under totally
+        // different absolute temp prefixes (two simulated machines, same layout).
+        expect($keys['machine-a'])->toBe($keys['machine-b'])
+            ->and($keys['machine-a'])->toBe('../shared/tests/FooTest.php');
+    } finally {
+        @unlink($bootstrap);
+    }
+});
+
 it('does not supersede sibling timings from method-filtered captures', function () {
     $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
     $fixture = writeTimingRestrictionFixture();

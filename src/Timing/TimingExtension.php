@@ -214,7 +214,7 @@ final class TimingExtension implements Extension
             return TestFileResolver::resolve($test->className(), $test->file(), $root);
         }
 
-        return Paths::canonical($test->file(), $root, allowOutside: true);
+        return Paths::canonical($test->file(), $root);
     }
 
     private static function flush(TimingCollector $collector, TimingStore $store): void

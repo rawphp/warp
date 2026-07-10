@@ -85,7 +85,6 @@ final class ShardCommand
 
         $root = getcwd() ?: '.';
         $canonicalRoot = $root;
-        $allowOutsideRoot = false;
 
         if ($paths === []) {
             try {
@@ -94,7 +93,6 @@ final class ShardCommand
                     fwrite($stderr, "[warp] --suffix={$suffixOption} ignored because phpunit.xml discovery controls test file suffixes\n");
                 }
                 $canonicalRoot = Paths::configRoot(SuiteDiscovery::rootConfigurationPath($root, $configuration), $root);
-                $allowOutsideRoot = true;
             } catch (MissingConfigurationException $exception) {
                 if ($configuration !== null) {
                     throw $exception;
@@ -116,13 +114,12 @@ final class ShardCommand
 
             if ($configPath !== null) {
                 $canonicalRoot = Paths::configRoot($configPath, $root);
-                $allowOutsideRoot = true;
             }
 
             $files = TestFileFinder::find($paths, $suffixOption ?? TestFileFinder::DEFAULT_SUFFIXES);
         }
 
-        $files = self::canonicalFiles($files, $canonicalRoot, $allowOutsideRoot);
+        $files = self::canonicalFiles($files, $canonicalRoot);
 
         if ($files === []) {
             fwrite($stderr, "[warp] no test files discovered - nothing to shard\n");
@@ -175,15 +172,15 @@ final class ShardCommand
      * @param  list<string>  $files
      * @return list<string>
      */
-    public static function canonicalFiles(array $files, string $root, bool $allowOutsideRoot = false): array
+    public static function canonicalFiles(array $files, string $root): array
     {
         $canonical = [];
 
         foreach ($files as $file) {
-            $path = Paths::canonical($file, $root, $allowOutsideRoot);
+            $path = Paths::canonical($file, $root);
 
             if ($path === null) {
-                throw new RuntimeException('[warp] test path is outside project root: '.$file);
+                throw new RuntimeException('[warp] could not resolve real path for test file: '.$file);
             }
 
             $canonical[] = $path;
