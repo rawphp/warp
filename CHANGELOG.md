@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.0 - 2026-07-10
+
 ### Added
 
 - **S3 — per-test timing capture + duration-balanced CI sharding**: a PHPUnit
