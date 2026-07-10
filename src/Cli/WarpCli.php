@@ -43,11 +43,15 @@ final class WarpCli
     /** @param resource $stderr */
     private static function usage($stderr): int
     {
-        fwrite($stderr, <<<'TXT'
+        // The shard line is sourced from ShardCommand::USAGE so the top-level and
+        // per-command usage strings cannot drift (finding 21).
+        $shard = ShardCommand::USAGE;
+
+        fwrite($stderr, <<<TXT
 warp - test engine CLI
 usage:
   warp merge [--timings-dir=DIR]
-  warp shard <index>/<total> [paths...] [--timings-dir=DIR] [--suffix=Test.php]
+  {$shard}
   warp timings [--timings-dir=DIR]
 
 TXT);

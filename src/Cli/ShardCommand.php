@@ -22,6 +22,12 @@ final class ShardCommand
     private const MAX_SHARD_TOTAL = 10_000;
 
     /**
+     * Single source of truth for the `warp shard` usage line, shared with
+     * WarpCli's top-level usage block so the two can never drift (finding 21).
+     */
+    public const USAGE = 'warp shard <index>/<total> [paths...] [--timings-dir=DIR] [--suffix=Test.php] [--configuration=FILE]';
+
+    /**
      * @param  list<string>  $args
      * @param  resource  $stdout
      * @param  resource  $stderr
@@ -30,16 +36,14 @@ final class ShardCommand
     {
         $spec = null;
         $paths = [];
-        $suffix = ['Test.php', '.phpt'];
         $suffixOption = null;
         $configuration = null;
 
-        $timings = TimingStoreArgumentParser::parse($args, function (string $arg) use (&$spec, &$paths, &$suffix, &$suffixOption, &$configuration): bool {
+        $timings = TimingStoreArgumentParser::parse($args, function (string $arg) use (&$spec, &$paths, &$suffixOption, &$configuration): bool {
             if (str_starts_with($arg, '--suffix=')) {
-                $suffix = substr($arg, strlen('--suffix='));
-                $suffixOption = $suffix;
+                $suffixOption = substr($arg, strlen('--suffix='));
 
-                if ($suffix === '') {
+                if ($suffixOption === '') {
                     throw new InvalidArgumentException('[warp] --suffix must not be empty');
                 }
 
@@ -68,7 +72,7 @@ final class ShardCommand
         }, $stderr);
 
         if ($spec === null) {
-            fwrite($stderr, "[warp] usage: warp shard <index>/<total> [paths...] [--timings-dir=DIR] [--suffix=Test.php]\n");
+            fwrite($stderr, '[warp] usage: '.self::USAGE."\n");
 
             return 2;
         }
@@ -97,7 +101,7 @@ final class ShardCommand
                 }
 
                 fwrite($stderr, "[warp] no phpunit.xml found - falling back to tests/Test.php discovery\n");
-                $files = TestFileFinder::find(['tests'], $suffix);
+                $files = TestFileFinder::find(['tests'], $suffixOption ?? TestFileFinder::DEFAULT_SUFFIXES);
             }
         } else {
             if ($configuration !== null) {
@@ -115,7 +119,7 @@ final class ShardCommand
                 $allowOutsideRoot = true;
             }
 
-            $files = TestFileFinder::find($paths, $suffix);
+            $files = TestFileFinder::find($paths, $suffixOption ?? TestFileFinder::DEFAULT_SUFFIXES);
         }
 
         $files = self::canonicalFiles($files, $canonicalRoot, $allowOutsideRoot);
@@ -171,7 +175,7 @@ final class ShardCommand
      * @param  list<string>  $files
      * @return list<string>
      */
-    private static function canonicalFiles(array $files, string $root, bool $allowOutsideRoot = false): array
+    public static function canonicalFiles(array $files, string $root, bool $allowOutsideRoot = false): array
     {
         $canonical = [];
 

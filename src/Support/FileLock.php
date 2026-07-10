@@ -13,7 +13,6 @@ final class FileLock
     {
         $warning = null;
 
-        error_clear_last();
         set_error_handler(function (int $severity, string $message) use (&$warning): bool {
             $warning = $message;
 
@@ -28,15 +27,12 @@ final class FileLock
 
         if ($handle === false) {
             $message = '[warp] cannot open file lock at '.$lockFile;
-            $error = error_get_last();
-            $reason = $warning;
 
-            if (! is_string($reason) && is_string($error['message'] ?? null)) {
-                $reason = $error['message'];
-            }
-
-            if (is_string($reason)) {
-                $message .= ': '.$reason;
+            // The scoped error handler above captured the @fopen warning; it is the
+            // only diagnostic source. The old last-PHP-error fallback that followed
+            // was unreachable - the handler returns true, so no PHP error was kept.
+            if (is_string($warning)) {
+                $message .= ': '.$warning;
             }
 
             throw new RuntimeException($message);

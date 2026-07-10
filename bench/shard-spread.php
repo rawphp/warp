@@ -8,9 +8,9 @@ declare(strict_types=1);
 
 require __DIR__.'/../vendor/autoload.php';
 
+use RawPHP\Warp\Cli\ShardCommand;
 use RawPHP\Warp\Shard\DurationBalancedSharder;
 use RawPHP\Warp\Shard\TestFileFinder;
-use RawPHP\Warp\Support\Paths;
 use RawPHP\Warp\Timing\TimingStore;
 
 $dir = $argv[1] ?? null;
@@ -37,18 +37,11 @@ if ($files === []) {
     exit(1);
 }
 
+// Reuse the CLI's own canonicalization so the bench exercises the exact same
+// path-form contract (root-relative keys, outside-root rejection, dedup + sort)
+// that `warp shard` uses (finding 20) instead of forking it here.
 $root = getcwd() ?: '.';
-$files = array_map(static function (string $file) use ($root): string {
-    $path = Paths::canonical($file, $root);
-
-    if ($path === null) {
-        throw new RuntimeException('[warp] test path is outside project root: '.$file);
-    }
-
-    return $path;
-}, $files);
-$files = array_values(array_unique($files));
-sort($files);
+$files = ShardCommand::canonicalFiles($files, $root);
 
 if (array_intersect_key($totals, array_flip($files)) === []) {
     fwrite(STDERR, "[warp] recorded timings match no discovered file - likely path-form or stale-artifact mismatch; sharding count-balanced\n");
