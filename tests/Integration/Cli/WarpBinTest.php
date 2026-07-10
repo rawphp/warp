@@ -209,6 +209,67 @@ it('shards agree, are disjoint, and cover every discovered file', function () {
         ->and(count($union))->toBe(count(array_unique($union)));
 });
 
+it('rejects an oversized shard total through the real binary without a fatal or stack trace', function () {
+    $project = createWarpFixtureProject($this->dir);
+    $timings = $project.'/timings';
+
+    [$hugeExit, $hugeStdout, $hugeStderr] = warpBinRun(
+        ['shard', '1/99999999999999999999', 'tests', '--timings-dir='.$timings],
+        $project,
+    );
+    [$bigExit, $bigStdout, $bigStderr] = warpBinRun(
+        ['shard', '1/2000000000', 'tests', '--timings-dir='.$timings],
+        $project,
+    );
+
+    expect($hugeExit)->toBe(2)
+        ->and($hugeStdout)->toBe('')
+        ->and($hugeStderr)->toContain('[warp] shard total out of range')
+        ->and($hugeStderr)->toContain('10000')
+        ->and($hugeStderr)->not->toContain('Stack trace')
+        ->and($bigExit)->toBe(2)
+        ->and($bigStdout)->toBe('')
+        ->and($bigStderr)->toContain('[warp] shard total out of range')
+        ->and($bigStderr)->not->toContain('Fatal error');
+});
+
+it('degrades to count-balanced sharding with a warning when timings.json is undecodable', function () {
+    $project = createWarpFixtureProject($this->dir);
+    $timings = $project.'/timings';
+    Dirs::ensure($timings);
+    // A CI cache artifact truncated mid-file: valid prefix, undecodable as a whole.
+    file_put_contents($timings.'/timings.json', '{"version":2,"tests":{"ATest::one":{"file":"tests/ATest.p');
+
+    [$exit, $stdout, $stderr] = warpBinRun(
+        ['shard', '1/2', 'tests', '--timings-dir='.$timings],
+        $project,
+    );
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->not->toBe('')
+        ->and($stderr)->toContain('[warp] cannot decode timings')
+        ->and($stderr)->not->toContain('Stack trace');
+});
+
+it('merges a non-finite ms pending batch to exit 0, cleans it up, and lets later merges succeed', function () {
+    $project = createWarpFixtureProject($this->dir);
+    $timings = $project.'/timings';
+    Dirs::ensure($timings.'/pending');
+    file_put_contents($timings.'/pending/100-1-aabbccdd.json', json_encode([
+        'complete' => true,
+        'tests' => ['poison' => ['file' => 'tests/ATest.php', 'ms' => '1e999']],
+    ], JSON_THROW_ON_ERROR));
+
+    [$firstExit, , $firstStderr] = warpBinRun(['merge', '--timings-dir='.$timings], $project);
+    [$secondExit, $secondStdout] = warpBinRun(['merge', '--timings-dir='.$timings], $project);
+
+    expect($firstExit)->toBe(0)
+        ->and(glob($timings.'/pending/*.json'))->toBe([])
+        ->and($firstStderr)->not->toContain('Stack trace')
+        ->and($secondExit)->toBe(0)
+        ->and($secondStdout)->toContain('nothing to merge');
+});
+
 it('prints usage and exits 2 without a command', function () {
     [$exit, $stdout, $stderr] = warpBinRun([]);
 

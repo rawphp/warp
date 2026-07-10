@@ -1013,6 +1013,40 @@ PHP);
         expect(array_keys($this->store->load()))->toBe(['good']);
     });
 
+    it('degrades an undecodable merged timings file to empty without throwing', function () {
+        Dirs::ensure($this->dir);
+        file_put_contents($this->dir.'/timings.json', 'not json');
+
+        expect($this->store->load())->toBe([]);
+    });
+
+    it('rejects a non-finite ms entry during sanitization so merges never wedge on Infinity', function () {
+        Dirs::ensure($this->dir.'/pending');
+        file_put_contents($this->dir.'/pending/100-1-aabbccdd.json', json_encode([
+            'complete' => true,
+            'tests' => [
+                'poison' => ['file' => 'tests/PoisonTest.php', 'ms' => '1e999'],
+                'ok' => ['file' => 'tests/OkTest.php', 'ms' => 12.0],
+            ],
+        ]));
+
+        expect(array_keys($this->store->load()))->toBe(['ok'])
+            ->and($this->store->mergeToDisk())->toBe(1)
+            ->and(glob($this->dir.'/pending/*.json'))->toBe([]);
+
+        $merged = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
+
+        expect(array_keys($merged['tests'] ?? []))->toBe(['ok'])
+            ->and($merged['tests']['ok']['file'] ?? null)->toBe('tests/OkTest.php');
+    });
+
+    it('drops a non-finite ms entry when reading merged timings', function () {
+        Dirs::ensure($this->dir);
+        file_put_contents($this->dir.'/timings.json', '{"version":2,"tests":{"poison":{"file":"tests/PoisonTest.php","ms":1e999},"ok":{"file":"tests/OkTest.php","ms":9.0}}}');
+
+        expect(array_keys($this->store->load()))->toBe(['ok']);
+    });
+
     it('treats a merged file with an unknown version as empty', function () {
         Dirs::ensure($this->dir);
         file_put_contents($this->dir.'/timings.json', json_encode([

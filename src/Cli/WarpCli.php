@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace RawPHP\Warp\Cli;
 
+use Throwable;
+
 final class WarpCli
 {
     /**
@@ -13,14 +15,29 @@ final class WarpCli
      */
     public static function run(array $argv, $stdout, $stderr): int
     {
-        $rest = array_slice($argv, 2);
+        try {
+            $rest = array_slice($argv, 2);
 
-        return match ($argv[1] ?? null) {
-            'merge' => MergeCommand::run($rest, $stdout, $stderr),
-            'shard' => ShardCommand::run($rest, $stdout, $stderr),
-            'timings' => TimingsCommand::run($rest, $stdout, $stderr),
-            default => self::usage($stderr),
-        };
+            return match ($argv[1] ?? null) {
+                'merge' => MergeCommand::run($rest, $stdout, $stderr),
+                'shard' => ShardCommand::run($rest, $stdout, $stderr),
+                'timings' => TimingsCommand::run($rest, $stdout, $stderr),
+                default => self::usage($stderr),
+            };
+        } catch (Throwable $exception) {
+            // Single error boundary: any Throwable from a command (including the
+            // JsonException and ValueError the per-command catches used to miss)
+            // becomes a diagnostic on the injected stderr and exit 2.
+            $message = $exception->getMessage();
+
+            if (! str_starts_with($message, '[warp]')) {
+                $message = '[warp] '.$message;
+            }
+
+            fwrite($stderr, $message."\n");
+
+            return 2;
+        }
     }
 
     /** @param resource $stderr */

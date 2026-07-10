@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use RawPHP\Warp\Cli\ShardCommand;
+use RawPHP\Warp\Cli\WarpCli;
 use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Shard\MissingConfigurationException;
 use RawPHP\Warp\Shard\SuiteDiscovery;
@@ -20,7 +20,7 @@ beforeEach(function () {
     $this->run = function (array $args): array {
         $stdout = fopen('php://memory', 'r+');
         $stderr = fopen('php://memory', 'r+');
-        $exit = ShardCommand::run($args, $stdout, $stderr);
+        $exit = WarpCli::run(['warp', 'shard', ...$args], $stdout, $stderr);
         rewind($stdout);
         rewind($stderr);
 
@@ -451,6 +451,29 @@ it('returns 2 on an out-of-range shard index', function () {
 
     expect($exit)->toBe(2)
         ->and($stderr)->toContain('[warp] shard index out of range');
+});
+
+it('rejects a shard total above the sane ceiling with a bounds diagnostic', function () {
+    chdir($this->tmp);
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/20000', 'tests', '--timings-dir='.$this->tmp.'/timings']);
+
+    expect($exit)->toBe(2)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toContain('[warp] shard total out of range')
+        ->and($stderr)->toContain('10000');
+});
+
+it('keeps range diagnostics for out-of-range indices within a valid total', function () {
+    chdir($this->tmp);
+
+    [$lowExit, , $lowStderr] = ($this->run)(['0/4', $this->tmp.'/tests', '--timings-dir='.$this->tmp.'/timings']);
+    [$highExit, , $highStderr] = ($this->run)(['5/4', $this->tmp.'/tests', '--timings-dir='.$this->tmp.'/timings']);
+
+    expect($lowExit)->toBe(2)
+        ->and($lowStderr)->toContain('[warp] shard index out of range')
+        ->and($highExit)->toBe(2)
+        ->and($highStderr)->toContain('[warp] shard index out of range');
 });
 
 it('rejects unknown options instead of treating them as paths', function () {
