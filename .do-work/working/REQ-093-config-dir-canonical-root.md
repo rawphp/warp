@@ -1,7 +1,13 @@
 # REQ-093: Config-dir canonical root for timing keys with root stamp
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.95040
+**Claimed at:** 2026-07-10T02:31:34Z
+**Heartbeat:** 2026-07-10T02:31:34Z
+<!-- claimed-end -->
+
 **UR:** UR-016
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
