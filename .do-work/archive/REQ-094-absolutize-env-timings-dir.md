@@ -1,19 +1,13 @@
 # REQ-094: Absolutize WARP_TIMINGS_DIR at construction
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.95040
-**Claimed at:** 2026-07-10T02:57:30Z
-**Heartbeat:** 2026-07-10T02:57:30Z
-<!-- claimed-end -->
-
 **UR:** UR-016
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:21a9422
 **Criteria approved:** agent-drafted
 **Size:** S
 **Files:** src/Timing/TimingStore.php, tests/Unit/Timing/TimingStoreTest.php
@@ -29,10 +23,10 @@ Finding 9 (UR-016), verified CONFIRMED: with `WARP_TIMINGS_DIR=.warp/timings`, a
 
 ## Acceptance Criteria
 
-- [ ] A relative `WARP_TIMINGS_DIR` value is converted to an absolute path at `fromEnv()` time (prefixed with `getcwd()`), before being stored
-- [ ] An absolute `WARP_TIMINGS_DIR` value is stored unchanged
-- [ ] A store constructed with a relative env dir, followed by `chdir()` to another directory, still writes pending batches under the original directory (regression test simulating the shutdown-after-chdir scenario)
-- [ ] The REQ-089 deleted-cwd fallback behavior is preserved (its existing test stays green)
+- [x] A relative `WARP_TIMINGS_DIR` value is converted to an absolute path at `fromEnv()` time (prefixed with `getcwd()`), before being stored
+- [x] An absolute `WARP_TIMINGS_DIR` value is stored unchanged
+- [x] A store constructed with a relative env dir, followed by `chdir()` to another directory, still writes pending batches under the original directory (regression test simulating the shutdown-after-chdir scenario)
+- [x] The REQ-089 deleted-cwd fallback behavior is preserved (its existing test stays green)
 
 ## Verification Steps
 
@@ -42,3 +36,8 @@ Finding 9 (UR-016), verified CONFIRMED: with `WARP_TIMINGS_DIR=.warp/timings`, a
    - Expected: batch file exists under the original directory, nothing written under the new cwd
 2. **test** `./vendor/bin/pest --filter=TimingStoreTest`
    - Expected: all pass, including the REQ-089 fallback tests
+
+## Outputs
+
+- src/Timing/TimingStore.php — fromEnv() routes non-empty WARP_TIMINGS_DIR through absolutize(): relative prefixed with getcwd(), absolute unchanged
+- tests/Unit/Timing/TimingStoreTest.php — 3 new tests: relative absolutization, absolute passthrough, subprocess chdir regression
