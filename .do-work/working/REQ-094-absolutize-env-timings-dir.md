@@ -1,7 +1,13 @@
 # REQ-094: Absolutize WARP_TIMINGS_DIR at construction
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.95040
+**Claimed at:** 2026-07-10T02:57:30Z
+**Heartbeat:** 2026-07-10T02:57:30Z
+<!-- claimed-end -->
+
 **UR:** UR-016
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
