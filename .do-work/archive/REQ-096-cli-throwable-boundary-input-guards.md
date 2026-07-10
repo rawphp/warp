@@ -1,19 +1,13 @@
 # REQ-096: CLI Throwable boundary, graceful corrupt-timings degrade, input guards
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.95040
-**Claimed at:** 2026-07-10T03:16:14Z
-**Heartbeat:** 2026-07-10T03:16:14Z
-<!-- claimed-end -->
-
 **UR:** UR-016
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:6c94ab1
 **Criteria approved:** agent-drafted
 **Size:** L
 **Files:** src/Cli/WarpCli.php, src/Cli/ShardCommand.php, src/Cli/MergeCommand.php, src/Cli/TimingsCommand.php, src/Timing/TimingStore.php, tests/Unit/Cli/ShardCommandTest.php, tests/Unit/Cli/MergeCommandTest.php, tests/Unit/Cli/TimingsCommandTest.php, tests/Unit/Timing/TimingStoreTest.php, tests/Integration/Cli/WarpBinTest.php
@@ -36,12 +30,12 @@ Findings 6, 7, 20 (UR-016), all verified CONFIRMED (20 empirically against the r
 
 ## Acceptance Criteria
 
-- [ ] `WarpCli::run` catches Throwable from any command, writes `[warp] `-prefixed message to the injected stderr stream, and returns 2; the four per-command catch blocks are gone
-- [ ] A truncated/undecodable `timings.json` makes `warp shard i/N` print a warning and shard count-balanced with exit 0 (matrix keeps running); missing and wrong-version behavior unchanged
-- [ ] A pending batch with `"ms": "1e999"` (or any non-finite numeric) is rejected during sanitization: `warp merge` completes with exit 0, the poison batch is cleaned up via the junk path, and subsequent merges succeed
-- [ ] `warp shard 1/2000000000 tests` and `warp shard 1/99999999999999999999 tests` both exit 2 with a bounds diagnostic naming the limit — no fatal, no stack trace
-- [ ] `warp shard 0/4` and `warp shard 5/4` still produce their existing range diagnostics
-- [ ] Full CLI test files green
+- [x] `WarpCli::run` catches Throwable from any command, writes `[warp] `-prefixed message to the injected stderr stream, and returns 2; the four per-command catch blocks are gone
+- [x] A truncated/undecodable `timings.json` makes `warp shard i/N` print a warning and shard count-balanced with exit 0 (matrix keeps running); missing and wrong-version behavior unchanged
+- [x] A pending batch with `"ms": "1e999"` (or any non-finite numeric) is rejected during sanitization: `warp merge` completes with exit 0, the poison batch is cleaned up via the junk path, and subsequent merges succeed
+- [x] `warp shard 1/2000000000 tests` and `warp shard 1/99999999999999999999 tests` both exit 2 with a bounds diagnostic naming the limit — no fatal, no stack trace
+- [x] `warp shard 0/4` and `warp shard 5/4` still produce their existing range diagnostics
+- [x] Full CLI test files green
 
 ## Verification Steps
 
@@ -55,3 +49,16 @@ Findings 6, 7, 20 (UR-016), all verified CONFIRMED (20 empirically against the r
    - Expected: exit 0, count-balanced shard output, stderr warning about undecodable timings (pre-fix: exit 2)
 4. **test** `./vendor/bin/pest --filter=ShardCommandTest && ./vendor/bin/pest --filter=MergeCommandTest && ./vendor/bin/pest --filter=TimingsCommandTest && ./vendor/bin/pest --filter=WarpBinTest`
    - Expected: all green
+
+## Outputs
+
+- src/Cli/WarpCli.php — Single try/catch(Throwable) boundary; [warp]-prefixed message to injected stderr, exit 2
+- src/Cli/ShardCommand.php — Removed two catch blocks; MAX_SHARD_TOTAL=10000 bounds guard before allocation
+- src/Cli/MergeCommand.php — Removed catch block and unused imports
+- src/Cli/TimingsCommand.php — Removed catch block and unused imports
+- src/Timing/TimingStore.php — Undecodable timings.json warns-and-returns-empty; is_finite ms guard in apply() and readMergedData()
+- tests/Unit/Cli/ShardCommandTest.php — Harness via WarpCli::run; ceiling + range tests
+- tests/Unit/Cli/MergeCommandTest.php — Harness via WarpCli::run
+- tests/Unit/Cli/TimingsCommandTest.php — Harness via WarpCli::run; corrupt-file graceful-degrade test
+- tests/Unit/Timing/TimingStoreTest.php — Undecodable-degrade + non-finite-ms rejection tests
+- tests/Integration/Cli/WarpBinTest.php — Real-binary tests: oversized total, undecodable degrade, poison-ms merge
