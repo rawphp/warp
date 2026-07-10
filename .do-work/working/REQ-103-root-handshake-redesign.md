@@ -1,7 +1,13 @@
 # REQ-103: Root-handshake redesign — shared resolver, root-scoped merge, middle-path mismatch policy
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.dw17
+**Claimed at:** 2026-07-10T05:58:12Z
+**Heartbeat:** 2026-07-10T05:58:12Z
+<!-- claimed-end -->
+
 **UR:** UR-017
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
