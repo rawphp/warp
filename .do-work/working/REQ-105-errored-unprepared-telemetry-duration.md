@@ -1,7 +1,13 @@
 # REQ-105: Record telemetry duration for errored-unprepared tests
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.dw17
+**Claimed at:** 2026-07-10T06:27:20Z
+**Heartbeat:** 2026-07-10T06:27:20Z
+<!-- claimed-end -->
+
 **UR:** UR-017
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
