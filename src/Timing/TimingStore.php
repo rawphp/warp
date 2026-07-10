@@ -245,7 +245,12 @@ final class TimingStore
     /** @return list<string> */
     private function pendingFiles(): array
     {
-        $entries = scandir($this->dir.'/pending');
+        // @-suppressed: pending/ can vanish or become unreadable between the
+        // is_dir() check in readSnapshot() and this scandir() call (finding 11).
+        // A failure degrades to "no pending batches found" below; suppression
+        // only silences PHP's native diagnostic so it never leaks onto the
+        // process's real STDERR, bypassing the injected warn sink.
+        $entries = @scandir($this->dir.'/pending');
 
         if ($entries === false) {
             return [];
@@ -312,7 +317,12 @@ final class TimingStore
         $mergedPending = [];
 
         foreach ($pending as $path) {
-            $contents = file_get_contents($path);
+            // @-suppressed: a batch enumerated by pendingFiles() can vanish or become
+            // unreadable before this read runs (finding 11) - a race the code already
+            // anticipates via the is_file() check below. Suppression only silences
+            // PHP's native diagnostic; the explicit false-handling and the store's own
+            // injected warning immediately below are unchanged.
+            $contents = @file_get_contents($path);
 
             if ($contents === false) {
                 // A read failure is never treated as junk and never resets the accumulator:
