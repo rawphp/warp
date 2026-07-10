@@ -206,11 +206,16 @@ final class TimingStore
         foreach ($pending as $path) {
             $contents = file_get_contents($path);
 
-            if ($contents === false && (! $cleanupJunk || ! is_file($path))) {
-                $merged = $this->readMergedData();
-                $tests = $merged['tests'];
-                $root = $merged['root'];
-                $fileIndex = self::indexByFile($tests);
+            if ($contents === false) {
+                // A read failure is never treated as junk and never resets the accumulator:
+                // an existing-but-unreadable batch (e.g. EACCES) is left on disk for the next
+                // merge, a vanished batch is simply gone, and either way every batch already
+                // applied in this pass is preserved. Both load() and mergeToDisk() only skip.
+                Stderr::write(
+                    (is_file($path)
+                        ? '[warp] skipped unreadable pending timings batch: '
+                        : '[warp] skipped vanished pending timings batch: ').$path.PHP_EOL
+                );
 
                 continue;
             }

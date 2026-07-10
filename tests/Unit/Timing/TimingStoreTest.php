@@ -443,7 +443,7 @@ namespace {
         expect($this->store->fileTotals())->toBe(['tests/FooTest.php' => 50.0]);
     });
 
-    it('keeps file totals when a pending batch is merged while it is being read', function () {
+    it('skips a pending batch that vanishes mid-read on load without resurrecting it via reset', function () {
         Dirs::ensure($this->dir.'/pending');
         $pending = $this->dir.'/pending/100-1-aabbccdd.json';
         file_put_contents($pending, json_encode([
@@ -453,10 +453,13 @@ namespace {
 
         TimingStorePendingReadRace::enable($this->dir, $pending);
 
+        // load() is read-only and never resets: a batch that disappears mid-read is
+        // skipped-and-warned, not resurrected by re-reading merged data. Its contribution
+        // is absent from this load but survives on disk (timings.json) for the next one.
         $totals = $this->store->fileTotals();
 
         expect(TimingStorePendingReadRace::triggered())->toBeTrue()
-            ->and($totals)->toBe(['tests/RaceTest.php' => 42.0])
+            ->and($totals)->toBe([])
             ->and(glob($this->dir.'/pending/*.json'))->toBe([])
             ->and(is_file($this->dir.'/timings.json'))->toBeTrue();
     });
@@ -518,8 +521,204 @@ PHP);
         fclose($pipes[2]);
 
         expect(proc_close($process))->toBe(0)
-            ->and(json_decode($stdout, true))->toBe(['tests/RaceTest.php' => 42])
+            ->and(json_decode($stdout, true))->toBe([])
+            ->and($stderr)->not->toContain('skipped undecodable pending timings batch')
+            ->and($stderr)->toContain('skipped vanished pending timings batch');
+    });
+
+    it('keeps an unreadable pending batch on disk during merge and warns without corrupting timings', function () {
+        Dirs::ensure($this->dir.'/pending');
+        $unreadable = $this->dir.'/pending/100-1-aabbccdd.json';
+        file_put_contents($unreadable, json_encode([
+            'complete' => true,
+            'tests' => ['u' => ['file' => 'tests/UnreadableTest.php', 'ms' => 99.0]],
+        ]));
+        file_put_contents($this->dir.'/pending/200-1-bbbbbbbb.json', json_encode([
+            'complete' => true,
+            'tests' => ['ok' => ['file' => 'tests/OkTest.php', 'ms' => 10.0]],
+        ]));
+
+        $script = $this->dir.'/merge-unreadable.php';
+        file_put_contents($script, <<<'PHP'
+<?php
+
+namespace RawPHP\Warp\Timing {
+    function file_get_contents($filename, $use_include_path = false, $context = null, $offset = 0, $length = null): string|false
+    {
+        if ($filename === $GLOBALS['argv'][2]) {
+            return false; // EACCES: file exists but is unreadable; it is NOT unlinked
+        }
+
+        if ($length === null) {
+            return \file_get_contents($filename, $use_include_path, $context, $offset);
+        }
+
+        return \file_get_contents($filename, $use_include_path, $context, $offset, $length);
+    }
+}
+
+namespace {
+    require getcwd().'/vendor/autoload.php';
+
+    (new RawPHP\Warp\Timing\TimingStore($argv[1]))->mergeToDisk();
+}
+PHP);
+
+        $process = proc_open([PHP_BINARY, $script, $this->dir, $unreadable], [
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $pipes, getcwd());
+
+        expect($process)->not->toBeFalse();
+
+        $stderr = stream_get_contents($pipes[2]);
+
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        expect(proc_close($process))->toBe(0);
+
+        $merged = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
+
+        expect(is_file($unreadable))->toBeTrue()
+            ->and($merged['tests'] ?? [])->toHaveKey('ok')
+            ->and($merged['tests'] ?? [])->not->toHaveKey('u')
+            ->and($stderr)->toContain('skipped unreadable pending timings batch')
+            ->and($stderr)->toContain('100-1-aabbccdd.json')
             ->and($stderr)->not->toContain('skipped undecodable pending timings batch');
+    });
+
+    it('does not discard already-applied batches when a pending batch vanishes mid-merge', function () {
+        Dirs::ensure($this->dir.'/pending');
+        $b1 = $this->dir.'/pending/100-1-aabbccdd.json';
+        $b2 = $this->dir.'/pending/200-1-bbbbbbbb.json';
+        file_put_contents($b1, json_encode([
+            'complete' => true,
+            'tests' => ['b1' => ['file' => 'tests/B1Test.php', 'ms' => 11.0]],
+        ]));
+        file_put_contents($b2, json_encode([
+            'complete' => true,
+            'tests' => ['b2' => ['file' => 'tests/B2Test.php', 'ms' => 22.0]],
+        ]));
+
+        $script = $this->dir.'/merge-vanish.php';
+        file_put_contents($script, <<<'PHP'
+<?php
+
+namespace RawPHP\Warp\Timing {
+    function file_get_contents($filename, $use_include_path = false, $context = null, $offset = 0, $length = null): string|false
+    {
+        if ($filename === $GLOBALS['argv'][2]) {
+            \unlink($filename); // vanished externally between glob and read
+            return false;
+        }
+
+        if ($length === null) {
+            return \file_get_contents($filename, $use_include_path, $context, $offset);
+        }
+
+        return \file_get_contents($filename, $use_include_path, $context, $offset, $length);
+    }
+}
+
+namespace {
+    require getcwd().'/vendor/autoload.php';
+
+    (new RawPHP\Warp\Timing\TimingStore($argv[1]))->mergeToDisk();
+}
+PHP);
+
+        $process = proc_open([PHP_BINARY, $script, $this->dir, $b2], [
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $pipes, getcwd());
+
+        expect($process)->not->toBeFalse();
+
+        $stderr = stream_get_contents($pipes[2]);
+
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        expect(proc_close($process))->toBe(0);
+
+        $merged = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
+
+        expect($merged['tests'] ?? [])->toHaveKey('b1')
+            ->and(is_file($b1))->toBeFalse()
+            ->and(is_file($b2))->toBeFalse()
+            ->and($stderr)->toContain('skipped vanished pending timings batch')
+            ->and($stderr)->toContain('200-1-bbbbbbbb.json');
+    });
+
+    it('skips only the unreadable batch on load and keeps earlier applied batches', function () {
+        Dirs::ensure($this->dir.'/pending');
+        $a = $this->dir.'/pending/100-1-aaaaaaaa.json';
+        $b = $this->dir.'/pending/200-1-bbbbbbbb.json';
+        $c = $this->dir.'/pending/300-1-cccccccc.json';
+        file_put_contents($a, json_encode([
+            'complete' => true,
+            'tests' => ['a' => ['file' => 'tests/ATest.php', 'ms' => 1.0]],
+        ]));
+        file_put_contents($b, json_encode([
+            'complete' => true,
+            'tests' => ['b' => ['file' => 'tests/BTest.php', 'ms' => 2.0]],
+        ]));
+        file_put_contents($c, json_encode([
+            'complete' => true,
+            'tests' => ['c' => ['file' => 'tests/CTest.php', 'ms' => 3.0]],
+        ]));
+
+        $script = $this->dir.'/load-unreadable.php';
+        file_put_contents($script, <<<'PHP'
+<?php
+
+namespace RawPHP\Warp\Timing {
+    function file_get_contents($filename, $use_include_path = false, $context = null, $offset = 0, $length = null): string|false
+    {
+        if ($filename === $GLOBALS['argv'][2]) {
+            return false; // EACCES: unreadable, stays on disk (load is read-only)
+        }
+
+        if ($length === null) {
+            return \file_get_contents($filename, $use_include_path, $context, $offset);
+        }
+
+        return \file_get_contents($filename, $use_include_path, $context, $offset, $length);
+    }
+}
+
+namespace {
+    require getcwd().'/vendor/autoload.php';
+
+    $totals = (new RawPHP\Warp\Timing\TimingStore($argv[1]))->fileTotals();
+    fwrite(STDOUT, json_encode($totals, JSON_THROW_ON_ERROR));
+}
+PHP);
+
+        $process = proc_open([PHP_BINARY, $script, $this->dir, $c], [
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $pipes, getcwd());
+
+        expect($process)->not->toBeFalse();
+
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        expect(proc_close($process))->toBe(0);
+
+        $totals = json_decode($stdout, true);
+
+        expect($totals)->toHaveKey('tests/ATest.php')
+            ->and($totals)->toHaveKey('tests/BTest.php')
+            ->and($totals)->not->toHaveKey('tests/CTest.php')
+            ->and(is_file($c))->toBeTrue()
+            ->and($stderr)->toContain('skipped unreadable pending timings batch')
+            ->and($stderr)->toContain('300-1-cccccccc.json');
     });
 
     it('warns and continues when one merged pending batch cannot be deleted', function () {
