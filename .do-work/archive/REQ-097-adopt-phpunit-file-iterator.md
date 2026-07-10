@@ -1,22 +1,16 @@
 # REQ-097: Adopt PHPUnit's file iterator in TestFileFinder
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.95040
-**Claimed at:** 2026-07-10T03:35:10Z
-**Heartbeat:** 2026-07-10T03:35:10Z
-<!-- claimed-end -->
-
 **UR:** UR-016
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:b633465
 **Criteria approved:** agent-drafted
 **Size:** M
-**Files:** src/Shard/TestFileFinder.php, composer.json, tests/Unit/Shard/TestFileFinderTest.php, tests/Unit/Cli/ShardCommandTest.php
+**Files:** src/Shard/TestFileFinder.php, src/Cli/ShardCommand.php, composer.json, composer.lock, tests/Unit/Shard/TestFileFinderTest.php, tests/Unit/Cli/ShardCommandTest.php
 **Depends on:**
 
 ## Task
@@ -35,12 +29,12 @@ Findings 11, 13, 19 (UR-016), all verified CONFIRMED empirically against PHPUnit
 
 ## Acceptance Criteria
 
-- [ ] A fixture tree with a symlinked test directory yields the symlinked test files in `TestFileFinder::find` output, matching PHPUnit's `sebastian/file-iterator` result for the same tree
-- [ ] `.phpt` files are discovered by default alongside `*Test.php`; an explicit `--suffix=` value still narrows discovery to that suffix
-- [ ] Files under dot-directories (e.g. `tests/.cache/StaleTest.php`) are excluded from discovery
-- [ ] Output remains sorted and deterministic across repeated invocations
-- [ ] `composer.json` declares `sebastian/file-iterator` explicitly; `composer validate` passes
-- [ ] Union-of-shards coverage over a fixture tree containing a symlink, a `.phpt` file, and a hidden-dir decoy equals the hardcoded expected file list (independently constructed, not derived from TestFileFinder)
+- [x] A fixture tree with a symlinked test directory yields the symlinked test files in `TestFileFinder::find` output, matching PHPUnit's `sebastian/file-iterator` result for the same tree
+- [x] `.phpt` files are discovered by default alongside `*Test.php`; an explicit `--suffix=` value still narrows discovery to that suffix
+- [x] Files under dot-directories (e.g. `tests/.cache/StaleTest.php`) are excluded from discovery
+- [x] Output remains sorted and deterministic across repeated invocations
+- [x] `composer.json` declares `sebastian/file-iterator` explicitly; `composer validate` passes
+- [x] Union-of-shards coverage over a fixture tree containing a symlink, a `.phpt` file, and a hidden-dir decoy equals the hardcoded expected file list (independently constructed, not derived from TestFileFinder)
 
 ## Verification Steps
 
@@ -52,3 +46,14 @@ Findings 11, 13, 19 (UR-016), all verified CONFIRMED empirically against PHPUnit
    - Expected: all green
 3. **build** `composer validate && composer install --dry-run`
    - Expected: valid manifest; no dependency conflicts from the explicit require
+
+## Outputs
+
+- src/Shard/TestFileFinder.php — php-file-iterator Iterator+ExcludeIterator with FOLLOW_SYMLINKS, hidden-dir exclusion, multi-suffix (given-path-form output contract preserved)
+- src/Cli/ShardCommand.php — Default suffix ['Test.php', '.phpt']; --suffix= still narrows
+- composer.json — Explicit require phpunit/php-file-iterator ^6.0.1 (current published name of the package cited as sebastian/file-iterator)
+- composer.lock — Regenerated to record the explicit require (no version change)
+- tests/Unit/Shard/TestFileFinderTest.php — Red-then-green fixture tests + PHPUnit Facade parity test
+- tests/Unit/Cli/ShardCommandTest.php — Union-of-shards coverage test with symlink/.phpt/hidden-dir decoy
+
+Review note (advisory): README fallback-discovery text and ShardCommand's no-config stderr message still describe Test.php-only default discovery; now stale since .phpt is discovered by default.
