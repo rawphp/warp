@@ -15,6 +15,13 @@ use RuntimeException;
 final class ShardCommand
 {
     /**
+     * Reject shard totals large enough to make DurationBalancedSharder::plan's
+     * array_fill either throw an uncatchable memory fatal or a ValueError before
+     * any allocation happens. No real suite needs anywhere near this many shards.
+     */
+    private const MAX_SHARD_TOTAL = 10_000;
+
+    /**
      * @param  list<string>  $args
      * @param  resource  $stdout
      * @param  resource  $stderr
@@ -27,44 +34,38 @@ final class ShardCommand
         $suffixOption = null;
         $configuration = null;
 
-        try {
-            $timings = TimingStoreArgumentParser::parse($args, function (string $arg) use (&$spec, &$paths, &$suffix, &$suffixOption, &$configuration): bool {
-                if (str_starts_with($arg, '--suffix=')) {
-                    $suffix = substr($arg, strlen('--suffix='));
-                    $suffixOption = $suffix;
+        $timings = TimingStoreArgumentParser::parse($args, function (string $arg) use (&$spec, &$paths, &$suffix, &$suffixOption, &$configuration): bool {
+            if (str_starts_with($arg, '--suffix=')) {
+                $suffix = substr($arg, strlen('--suffix='));
+                $suffixOption = $suffix;
 
-                    if ($suffix === '') {
-                        throw new InvalidArgumentException('[warp] --suffix must not be empty');
-                    }
-
-                    return true;
+                if ($suffix === '') {
+                    throw new InvalidArgumentException('[warp] --suffix must not be empty');
                 }
-
-                if (str_starts_with($arg, '--configuration=')) {
-                    $configuration = substr($arg, strlen('--configuration='));
-
-                    return true;
-                }
-
-                if ($spec === null && preg_match('#^(\d+)/(\d+)$#', $arg, $matches) === 1) {
-                    $spec = [(int) $matches[1], (int) $matches[2]];
-
-                    return true;
-                }
-
-                if (str_starts_with($arg, '--')) {
-                    return false;
-                }
-
-                $paths[] = $arg;
 
                 return true;
-            });
-        } catch (InvalidArgumentException|RuntimeException $exception) {
-            fwrite($stderr, $exception->getMessage()."\n");
+            }
 
-            return 2;
-        }
+            if (str_starts_with($arg, '--configuration=')) {
+                $configuration = substr($arg, strlen('--configuration='));
+
+                return true;
+            }
+
+            if ($spec === null && preg_match('#^(\d+)/(\d+)$#', $arg, $matches) === 1) {
+                $spec = [(int) $matches[1], (int) $matches[2]];
+
+                return true;
+            }
+
+            if (str_starts_with($arg, '--')) {
+                return false;
+            }
+
+            $paths[] = $arg;
+
+            return true;
+        });
 
         if ($spec === null) {
             fwrite($stderr, "[warp] usage: warp shard <index>/<total> [paths...] [--timings-dir=DIR] [--suffix=Test.php]\n");
@@ -72,64 +73,64 @@ final class ShardCommand
             return 2;
         }
 
-        try {
-            $root = getcwd() ?: '.';
-            $canonicalRoot = $root;
-            $allowOutsideRoot = false;
-
-            if ($paths === []) {
-                try {
-                    $files = SuiteDiscovery::discover($root, $configuration);
-                    if ($suffixOption !== null) {
-                        fwrite($stderr, "[warp] --suffix={$suffixOption} ignored because phpunit.xml discovery controls test file suffixes\n");
-                    }
-                    $canonicalRoot = self::suiteRoot($root, $configuration);
-                    $allowOutsideRoot = true;
-                } catch (MissingConfigurationException $exception) {
-                    if ($configuration !== null) {
-                        throw $exception;
-                    }
-
-                    fwrite($stderr, "[warp] no phpunit.xml found - falling back to tests/Test.php discovery\n");
-                    $files = TestFileFinder::find(['tests'], $suffix);
-                }
-            } else {
-                if ($configuration !== null) {
-                    fwrite($stderr, "[warp] --configuration={$configuration} ignored because explicit test paths bypass suite discovery\n");
-                }
-                $files = TestFileFinder::find($paths, $suffix);
-            }
-
-            $files = self::canonicalFiles($files, $canonicalRoot, $allowOutsideRoot);
-
-            if ($files === []) {
-                fwrite($stderr, "[warp] no test files discovered - nothing to shard\n");
-
-                return 2;
-            }
-
-            $storedRoot = $timings->store->storedRoot();
-
-            if ($storedRoot !== null && $storedRoot !== $canonicalRoot) {
-                fwrite($stderr, "[warp] timings root mismatch: recorded against '{$storedRoot}' but this shard resolves keys against '{$canonicalRoot}' - re-record timings from the same config dir or pass the matching --configuration\n");
-
-                return 2;
-            }
-
-            $totals = $timings->store->fileTotals();
-
-            if ($totals === []) {
-                fwrite($stderr, "[warp] no recorded timings under {$timings->dirLabel} - sharding count-balanced\n");
-            } elseif (array_intersect_key($totals, array_flip($files)) === []) {
-                fwrite($stderr, "[warp] recorded timings match no discovered file - likely path-form or stale-artifact mismatch; sharding count-balanced\n");
-            }
-
-            $shard = DurationBalancedSharder::assign($files, $totals, $spec[0], $spec[1]);
-        } catch (InvalidArgumentException|RuntimeException $exception) {
-            fwrite($stderr, $exception->getMessage()."\n");
+        if ($spec[1] < 1 || $spec[1] > self::MAX_SHARD_TOTAL) {
+            fwrite($stderr, "[warp] shard total out of range: {$spec[0]}/{$spec[1]} - total must be between 1 and ".self::MAX_SHARD_TOTAL."\n");
 
             return 2;
         }
+
+        $root = getcwd() ?: '.';
+        $canonicalRoot = $root;
+        $allowOutsideRoot = false;
+
+        if ($paths === []) {
+            try {
+                $files = SuiteDiscovery::discover($root, $configuration);
+                if ($suffixOption !== null) {
+                    fwrite($stderr, "[warp] --suffix={$suffixOption} ignored because phpunit.xml discovery controls test file suffixes\n");
+                }
+                $canonicalRoot = self::suiteRoot($root, $configuration);
+                $allowOutsideRoot = true;
+            } catch (MissingConfigurationException $exception) {
+                if ($configuration !== null) {
+                    throw $exception;
+                }
+
+                fwrite($stderr, "[warp] no phpunit.xml found - falling back to tests/Test.php discovery\n");
+                $files = TestFileFinder::find(['tests'], $suffix);
+            }
+        } else {
+            if ($configuration !== null) {
+                fwrite($stderr, "[warp] --configuration={$configuration} ignored because explicit test paths bypass suite discovery\n");
+            }
+            $files = TestFileFinder::find($paths, $suffix);
+        }
+
+        $files = self::canonicalFiles($files, $canonicalRoot, $allowOutsideRoot);
+
+        if ($files === []) {
+            fwrite($stderr, "[warp] no test files discovered - nothing to shard\n");
+
+            return 2;
+        }
+
+        $storedRoot = $timings->store->storedRoot();
+
+        if ($storedRoot !== null && $storedRoot !== $canonicalRoot) {
+            fwrite($stderr, "[warp] timings root mismatch: recorded against '{$storedRoot}' but this shard resolves keys against '{$canonicalRoot}' - re-record timings from the same config dir or pass the matching --configuration\n");
+
+            return 2;
+        }
+
+        $totals = $timings->store->fileTotals();
+
+        if ($totals === []) {
+            fwrite($stderr, "[warp] no recorded timings under {$timings->dirLabel} - sharding count-balanced\n");
+        } elseif (array_intersect_key($totals, array_flip($files)) === []) {
+            fwrite($stderr, "[warp] recorded timings match no discovered file - likely path-form or stale-artifact mismatch; sharding count-balanced\n");
+        }
+
+        $shard = DurationBalancedSharder::assign($files, $totals, $spec[0], $spec[1]);
 
         if ($shard === []) {
             fwrite($stderr, "[warp] shard {$spec[0]}/{$spec[1]} is empty - more shards than test files\n");

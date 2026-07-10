@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use RawPHP\Warp\Cli\TimingsCommand;
+use RawPHP\Warp\Cli\WarpCli;
 use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Timing\TimingStore;
 
@@ -12,7 +12,7 @@ beforeEach(function () {
     $this->run = function (array $args): array {
         $stdout = fopen('php://memory', 'r+');
         $stderr = fopen('php://memory', 'r+');
-        $exit = TimingsCommand::run($args, $stdout, $stderr);
+        $exit = WarpCli::run(['warp', 'timings', ...$args], $stdout, $stderr);
         rewind($stdout);
         rewind($stderr);
 
@@ -104,14 +104,29 @@ it('rejects unknown options', function () {
         ->and($stderr)->toContain('[warp] unknown option: --bogus');
 });
 
-it('returns 2 without a stack trace when the merged timings file is corrupt', function () {
+it('degrades gracefully with a warning and no stack trace when the merged timings file is corrupt', function () {
     Dirs::ensure($this->tmp);
     file_put_contents($this->tmp.'/timings.json', 'not json');
 
-    [$exit, $stdout, $stderr] = ($this->run)(['--timings-dir='.$this->tmp]);
+    // The warning is emitted on the process STDERR, so drive the real binary to observe it.
+    $root = dirname(__DIR__, 3);
+    $process = proc_open(
+        ['php', $root.'/bin/warp', 'timings', '--timings-dir='.$this->tmp],
+        [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+        $pipes,
+        $root,
+    );
 
-    expect($exit)->toBe(2)
-        ->and($stdout)->toBe('')
+    expect($process)->not->toBeFalse();
+
+    $stdout = stream_get_contents($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $exit = proc_close($process);
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->toContain('no timings recorded yet')
         ->and($stderr)->toContain('[warp] cannot decode timings')
         ->and($stderr)->not->toContain('Stack trace');
 });

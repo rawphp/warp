@@ -289,7 +289,8 @@ final class TimingStore
 
         foreach ($batchTests as $id => $entry) {
             if (is_string($id) && is_array($entry)
-                && is_string($entry['file'] ?? null) && is_numeric($entry['ms'] ?? null)) {
+                && is_string($entry['file'] ?? null) && is_numeric($entry['ms'] ?? null)
+                && is_finite((float) $entry['ms'])) {
                 $clean[$id] = ['file' => $entry['file'], 'ms' => (float) $entry['ms']];
             }
         }
@@ -368,7 +369,13 @@ final class TimingStore
         $data = json_decode($contents, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new RuntimeException('[warp] cannot decode timings from '.$this->dir.'/timings.json: '.json_last_error_msg());
+            // A corrupt/truncated artifact (e.g. a partial CI cache restore) must never
+            // hard-fail the shard matrix: degrade to empty with a warning, consistent
+            // with the missing-file and wrong-version paths. Sharding falls back to
+            // count-balanced; `warp timings` reports nothing recorded.
+            Stderr::write('[warp] cannot decode timings from '.$this->dir.'/timings.json: '.json_last_error_msg().' - sharding count-balanced'.PHP_EOL);
+
+            return ['root' => null, 'tests' => []];
         }
 
         if (! is_array($data) || ($data['version'] ?? null) !== self::VERSION || ! is_array($data['tests'] ?? null)) {
@@ -379,7 +386,8 @@ final class TimingStore
 
         foreach ($data['tests'] as $id => $entry) {
             if (is_string($id) && is_array($entry)
-                && is_string($entry['file'] ?? null) && is_numeric($entry['ms'] ?? null)) {
+                && is_string($entry['file'] ?? null) && is_numeric($entry['ms'] ?? null)
+                && is_finite((float) $entry['ms'])) {
                 $tests[$id] = ['file' => $entry['file'], 'ms' => (float) $entry['ms']];
             }
         }

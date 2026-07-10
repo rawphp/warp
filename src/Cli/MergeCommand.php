@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace RawPHP\Warp\Cli;
 
-use InvalidArgumentException;
-use RuntimeException;
-
 final class MergeCommand
 {
     /**
@@ -16,14 +13,8 @@ final class MergeCommand
      */
     public static function run(array $args, $stdout, $stderr): int
     {
-        try {
-            $timings = TimingStoreArgumentParser::parse($args, static fn (string $arg): bool => false);
-            $merged = $timings->store->mergeToDisk();
-        } catch (InvalidArgumentException|RuntimeException $exception) {
-            fwrite($stderr, $exception->getMessage()."\n");
-
-            return 2;
-        }
+        $timings = TimingStoreArgumentParser::parse($args, static fn (string $arg): bool => false);
+        $merged = $timings->store->mergeToDisk();
 
         if ($merged === 0) {
             fwrite($stdout, "[warp] nothing to merge\n");

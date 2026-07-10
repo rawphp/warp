@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace RawPHP\Warp\Cli;
 
-use InvalidArgumentException;
 use RawPHP\Warp\Timing\TimingStore;
-use RuntimeException;
 
 final class TimingsCommand
 {
@@ -17,14 +15,8 @@ final class TimingsCommand
      */
     public static function run(array $args, $stdout, $stderr): int
     {
-        try {
-            $timings = TimingStoreArgumentParser::parse($args, static fn (string $arg): bool => false);
-            $tests = $timings->store->load();
-        } catch (InvalidArgumentException|RuntimeException $exception) {
-            fwrite($stderr, $exception->getMessage()."\n");
-
-            return 2;
-        }
+        $timings = TimingStoreArgumentParser::parse($args, static fn (string $arg): bool => false);
+        $tests = $timings->store->load();
 
         if ($tests === []) {
             fwrite($stdout, "[warp] no timings recorded yet - run the suite with WARP_TIMINGS=1\n");

@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use RawPHP\Warp\Cli\MergeCommand;
 use RawPHP\Warp\Cli\TimingStoreArgumentParser;
 use RawPHP\Warp\Cli\WarpCli;
 use RawPHP\Warp\Db\Dirs;
@@ -14,7 +13,7 @@ beforeEach(function () {
     $this->run = function (array $args): array {
         $stdout = fopen('php://memory', 'r+');
         $stderr = fopen('php://memory', 'r+');
-        $exit = MergeCommand::run($args, $stdout, $stderr);
+        $exit = WarpCli::run(['warp', 'merge', ...$args], $stdout, $stderr);
         rewind($stdout);
         rewind($stderr);
 
