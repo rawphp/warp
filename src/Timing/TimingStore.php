@@ -13,17 +13,29 @@ use RuntimeException;
 final class TimingStore
 {
     /** Bump to discard every stored timing when the on-disk format changes. */
-    private const VERSION = 1;
+    private const VERSION = 2;
 
     private static int $lastPendingTimestamp = 0;
 
-    public function __construct(private readonly string $dir) {}
+    public function __construct(
+        private readonly string $dir,
+        private readonly ?string $root = null,
+    ) {}
 
     public static function fromEnv(): self
     {
         $dir = getenv('WARP_TIMINGS_DIR');
 
         return new self($dir !== false && $dir !== '' ? $dir : (getcwd() ?: '.').'/.warp/timings');
+    }
+
+    /**
+     * Bind the canonical timing-key root stamped into every batch this store writes.
+     * The root is the phpunit config file's directory (see TimingExtension).
+     */
+    public function withRoot(?string $root): self
+    {
+        return new self($this->dir, $root);
     }
 
     /**
@@ -41,7 +53,7 @@ final class TimingStore
 
         $path = $this->dir.'/pending/'.self::nextPendingTimestamp().'-'.getmypid().'-'.bin2hex(random_bytes(4)).'.json';
 
-        $encoded = json_encode(['complete' => $complete, 'tests' => $tests], JSON_THROW_ON_ERROR);
+        $encoded = json_encode(['complete' => $complete, 'root' => $this->root, 'tests' => $tests], JSON_THROW_ON_ERROR);
         AtomicFile::write(
             $path,
             $encoded,
@@ -63,11 +75,11 @@ final class TimingStore
                 return 0;
             }
 
-            [$tests, $mergedPending] = $this->mergedWithPending($pending, true);
+            [$tests, $mergedPending, $root] = $this->mergedWithPending($pending, true);
 
             AtomicFile::write(
                 $this->dir.'/timings.json',
-                json_encode(['version' => self::VERSION, 'tests' => $tests], JSON_THROW_ON_ERROR),
+                json_encode(['version' => self::VERSION, 'root' => $root, 'tests' => $tests], JSON_THROW_ON_ERROR),
                 '[warp] cannot write merged timings',
                 '[warp] cannot publish merged timings',
             );
@@ -92,6 +104,19 @@ final class TimingStore
         [$tests] = $this->mergedWithPending($this->pendingFiles());
 
         return $tests;
+    }
+
+    /**
+     * The canonical timing-key root stamped into the artifact (merged plus any
+     * pending overlay), or null when timings were recorded without one.
+     */
+    public function storedRoot(): ?string
+    {
+        if (! is_dir($this->dir.'/pending')) {
+            return $this->readMergedData()['root'];
+        }
+
+        return $this->mergedWithPending($this->pendingFiles())[2];
     }
 
     /** @return array<string, float> file => total ms, path-sorted */
@@ -154,11 +179,13 @@ final class TimingStore
 
     /**
      * @param  list<string>  $pending
-     * @return array{0: array<string, array{file: string, ms: float}>, 1: list<string>}
+     * @return array{0: array<string, array{file: string, ms: float}>, 1: list<string>, 2: string|null}
      */
     private function mergedWithPending(array $pending, bool $cleanupJunk = false): array
     {
-        $tests = $this->readMerged();
+        $merged = $this->readMergedData();
+        $tests = $merged['tests'];
+        $root = $merged['root'];
         $fileIndex = self::indexByFile($tests);
         $mergedPending = [];
 
@@ -166,7 +193,9 @@ final class TimingStore
             $contents = file_get_contents($path);
 
             if ($contents === false && (! $cleanupJunk || ! is_file($path))) {
-                $tests = $this->readMerged();
+                $merged = $this->readMergedData();
+                $tests = $merged['tests'];
+                $root = $merged['root'];
                 $fileIndex = self::indexByFile($tests);
 
                 continue;
@@ -194,11 +223,15 @@ final class TimingStore
                 continue;
             }
 
+            if (isset($batch['root']) && is_string($batch['root'])) {
+                $root = $batch['root'];
+            }
+
             $tests = self::apply($tests, $fileIndex, $batch);
             $mergedPending[] = $path;
         }
 
-        return [$tests, $mergedPending];
+        return [$tests, $mergedPending, $root];
     }
 
     /**
@@ -297,8 +330,14 @@ final class TimingStore
     /** @return array<string, array{file: string, ms: float}> */
     private function readMerged(): array
     {
+        return $this->readMergedData()['tests'];
+    }
+
+    /** @return array{root: string|null, tests: array<string, array{file: string, ms: float}>} */
+    private function readMergedData(): array
+    {
         if (! is_file($this->dir.'/timings.json')) {
-            return [];
+            return ['root' => null, 'tests' => []];
         }
 
         $contents = file_get_contents($this->dir.'/timings.json');
@@ -314,7 +353,7 @@ final class TimingStore
         }
 
         if (! is_array($data) || ($data['version'] ?? null) !== self::VERSION || ! is_array($data['tests'] ?? null)) {
-            return [];
+            return ['root' => null, 'tests' => []];
         }
 
         $tests = [];
@@ -326,6 +365,9 @@ final class TimingStore
             }
         }
 
-        return $tests;
+        return [
+            'root' => isset($data['root']) && is_string($data['root']) ? $data['root'] : null,
+            'tests' => $tests,
+        ];
     }
 }

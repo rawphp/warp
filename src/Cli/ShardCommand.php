@@ -108,6 +108,14 @@ final class ShardCommand
                 return 2;
             }
 
+            $storedRoot = $timings->store->storedRoot();
+
+            if ($storedRoot !== null && $storedRoot !== $canonicalRoot) {
+                fwrite($stderr, "[warp] timings root mismatch: recorded against '{$storedRoot}' but this shard resolves keys against '{$canonicalRoot}' - re-record timings from the same config dir or pass the matching --configuration\n");
+
+                return 2;
+            }
+
             $totals = $timings->store->fileTotals();
 
             if ($totals === []) {

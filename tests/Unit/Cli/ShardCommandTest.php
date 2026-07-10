@@ -358,6 +358,27 @@ XML);
     }
 });
 
+it('exits non-zero and names both roots when the recorded root differs from the shard-time root', function () {
+    chdir($this->tmp);
+    writeShardPhpunitConfig($this->tmp.'/phpunit.xml', <<<'XML'
+        <testsuite name="Unit">
+            <directory>tests</directory>
+        </testsuite>
+XML);
+
+    $store = (new TimingStore($this->tmp.'/timings'))->withRoot('/recorded/elsewhere');
+    $store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 100.0]]);
+    $store->mergeToDisk();
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/2', '--configuration=phpunit.xml', '--timings-dir='.$this->tmp.'/timings']);
+
+    expect($exit)->not->toBe(0)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toContain('/recorded/elsewhere')
+        ->and($stderr)->toContain((string) realpath($this->tmp))
+        ->and($stderr)->toContain('root');
+});
+
 it('uses WARP_TIMINGS_DIR when no timings-dir flag is provided', function () {
     chdir($this->tmp);
     $envDir = $this->tmp.'/env-timings';

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use RawPHP\Warp\Cli\ShardCommand;
 use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Timing\TimingCollector;
 use RawPHP\Warp\Timing\TimingExtension;
@@ -38,6 +39,97 @@ it('records per-test timings with file attribution from a real pest run', functi
         ->and(is_file($dir.'/merge.lock'))->toBeFalse();
 
     Dirs::delete($dir);
+});
+
+it('keys timings against the config dir so a cross-cwd shard intersects (finding 1)', function () {
+    $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+    $suite = sys_get_temp_dir().'/warp-suite-'.bin2hex(random_bytes(4));
+    $root = dirname(__DIR__, 3);
+    $bootstrap = writeTimingRestrictionBootstrap();
+
+    Dirs::ensure($suite.'/tests');
+    file_put_contents($suite.'/tests/AlphaTest.php', <<<'PHP'
+<?php
+
+it('alpha timing', function () {
+    expect(true)->toBeTrue();
+});
+PHP);
+    file_put_contents($suite.'/tests/BetaTest.php', <<<'PHP'
+<?php
+
+it('beta timing', function () {
+    expect(true)->toBeTrue();
+});
+PHP);
+
+    $config = $suite.'/phpunit.xml';
+    file_put_contents($config, sprintf(<<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="%s" colors="true">
+    <testsuites>
+        <testsuite name="CrossDir">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    <extensions>
+        <bootstrap class="RawPHP\Warp\Timing\TimingExtension"/>
+    </extensions>
+</phpunit>
+XML,
+        htmlspecialchars($bootstrap, ENT_XML1),
+    ));
+
+    try {
+        // Record with a cwd (the package root) that differs from the config dir.
+        exec(sprintf(
+            'cd %s && WARP_MODE=0 WARP_DB=0 WARP_TIMINGS=1 WARP_TIMINGS_DIR=%s ./vendor/bin/pest --configuration=%s 2>&1',
+            escapeshellarg($root),
+            escapeshellarg($dir),
+            escapeshellarg($config),
+        ), $output, $exit);
+
+        expect($exit)->toBe(0, implode(PHP_EOL, $output));
+
+        // Keys are relative to the config dir, not the record-time cwd.
+        $tests = (new TimingStore($dir))->load();
+        $files = array_values(array_unique(array_column($tests, 'file')));
+        sort($files);
+
+        expect($files)->toBe(['tests/AlphaTest.php', 'tests/BetaTest.php']);
+
+        (new TimingStore($dir))->mergeToDisk();
+
+        // Shard from the same cwd with the same --configuration: keys must intersect.
+        $stdout = fopen('php://memory', 'r+');
+        $stderr = fopen('php://memory', 'r+');
+        $previous = getcwd();
+        chdir($root);
+
+        try {
+            $shardExit = ShardCommand::run(
+                ['1/2', '--configuration='.$config, '--timings-dir='.$dir],
+                $stdout,
+                $stderr,
+            );
+        } finally {
+            chdir($previous);
+        }
+
+        rewind($stdout);
+        rewind($stderr);
+        $shardOut = stream_get_contents($stdout);
+        $shardErr = stream_get_contents($stderr);
+
+        expect($shardExit)->toBe(0)
+            ->and($shardOut)->not->toBe('')
+            ->and($shardErr)->not->toContain('recorded timings match no discovered file')
+            ->and($shardErr)->not->toContain('root mismatch');
+    } finally {
+        Dirs::delete($dir);
+        Dirs::delete($suite);
+        @unlink($bootstrap);
+    }
 });
 
 it('does not supersede sibling timings from method-filtered captures', function () {
@@ -308,7 +400,7 @@ it('shutdown backstop capture supersedes stale entries for fully observed files'
 
     Dirs::ensure($dir);
     file_put_contents($dir.'/timings.json', json_encode([
-        'version' => 1,
+        'version' => 2,
         'tests' => [
             'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
             'FileA::staleRenamed' => ['file' => 'tests/FileATest.php', 'ms' => 5000.0],
@@ -344,7 +436,7 @@ it('shutdown backstop capture with an in-flight test does not supersede sibling 
 
     Dirs::ensure($dir);
     file_put_contents($dir.'/timings.json', json_encode([
-        'version' => 1,
+        'version' => 2,
         'tests' => [
             'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
             'FileA::sibling' => ['file' => 'tests/FileATest.php', 'ms' => 5000.0],
@@ -424,7 +516,7 @@ function seedTimings(string $dir, array $tests): void
 {
     Dirs::ensure($dir);
     file_put_contents($dir.'/timings.json', json_encode([
-        'version' => 1,
+        'version' => 2,
         'tests' => $tests,
     ], JSON_THROW_ON_ERROR));
 }
@@ -450,7 +542,7 @@ PHP);
 
 function writeTimingRestrictionPhpunitConfig(string $fixture): string
 {
-    $path = sys_get_temp_dir().'/warp-phpunit-'.bin2hex(random_bytes(4)).'.xml';
+    $path = dirname(__DIR__, 3).'/warp-phpunit-'.bin2hex(random_bytes(4)).'.xml';
     $bootstrap = writeTimingRestrictionBootstrap($path.'.php');
 
     file_put_contents($path, sprintf(<<<'XML'
@@ -542,7 +634,7 @@ PHP,
 
 function writeTimingInheritedPhpunitConfig(string $one, string $two): string
 {
-    $path = sys_get_temp_dir().'/warp-phpunit-'.bin2hex(random_bytes(4)).'.xml';
+    $path = dirname(__DIR__, 3).'/warp-phpunit-'.bin2hex(random_bytes(4)).'.xml';
     $bootstrap = writeTimingRestrictionBootstrap($path.'.php');
 
     file_put_contents($path, sprintf(<<<'XML'
@@ -634,7 +726,7 @@ function writeTimingEarlyStopPhpunitConfig(
     string $stopAttribute = 'stopOnFailure',
     string $suiteName = 'EarlyStopFixture',
 ): string {
-    $path = sys_get_temp_dir().'/warp-phpunit-'.bin2hex(random_bytes(4)).'.xml';
+    $path = dirname(__DIR__, 3).'/warp-phpunit-'.bin2hex(random_bytes(4)).'.xml';
     $bootstrap = writeTimingRestrictionBootstrap($path.'.php');
 
     file_put_contents($path, sprintf(<<<'XML'

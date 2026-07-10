@@ -229,6 +229,18 @@ persisting `.warp/timings/` as a CI artifact/cache, and refresh that artifact
 on scheduled full runs. Record on **full** runs — a `--filter` run replaces a
 file's entries with just the filtered subset.
 
+**Canonical root.** Timing keys are anchored to the directory of the
+`phpunit.xml` actually used (its `--configuration` value, or the auto-discovered
+config), not to the working directory the run was launched from. This is the
+same root `warp shard` resolves discovered files against, so recording with
+`pest -c sub/phpunit.xml` from a parent directory and sharding with
+`warp shard N/M --configuration=sub/phpunit.xml` from that same parent produce
+intersecting keys. Only pure CLI-path runs with no XML config fall back to the
+current directory. The canonical root is stamped (absolute, `realpath`'d) into
+`timings.json` and every pending batch, and `warp shard` fails loudly (non-zero
+exit, naming both roots) rather than silently degrading if the artifact's root
+does not match the shard-time root.
+
 `warp shard` and `warp timings` are read-only: they overlay pending batches in
 memory and do not rewrite the artifact, so read-only CI artifact restores are
 supported. `WARP_TIMINGS_DIR` is honored by every timing subcommand
@@ -255,11 +267,18 @@ to `tests/` discovery with the `Test.php` suffix; pass paths explicitly or use
 
 `warp shard` weighs each discovered file by recorded duration (unmeasured
 files get the average) and LPT-packs them into equal-duration bins. Timing keys
-are canonical root-relative paths, so `tests`, `./tests`, and absolute paths
-inside the project resolve to the same shard plan. All CI nodes for a run must
-use the same Warp version: mixed versions across the canonical-key format
-change can compute divergent plans. Restore the **same** timings artifact on
-every shard of a run.
+are paths relative to the canonical root — the `phpunit.xml` directory (see
+[Record timings](#2-record-timings-on-full-runs)) — so `tests`, `./tests`, and
+absolute paths inside the config root resolve to the same shard plan. The
+printed shard paths are relative to that same root, so they are directly
+runnable by PHPUnit/Pest when you invoke it from the same working directory with
+the same `--configuration` value you passed to `warp shard`. All CI nodes for a
+run must use the same Warp version: mixed versions across the canonical-key
+format change can compute divergent plans. Restore the **same** timings artifact
+on every shard of a run; if its stamped root does not match the shard-time root
+(for example, a `--configuration` pointing at a different config directory than
+the one recorded against), `warp shard` exits non-zero and names both roots
+instead of silently falling back to count-balanced.
 
 With no timings recorded it degrades gracefully to count-balanced sharding
 (warning on stderr; stdout stays clean for `$( )` consumption). Shard exit
