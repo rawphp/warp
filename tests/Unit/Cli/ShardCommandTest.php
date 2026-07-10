@@ -640,6 +640,70 @@ XML);
         ->and($stderr)->toContain('count-balanced');
 });
 
+it('shards via the lockless fallback when the timings dir is read-only, producing the same plan as a writable dir (UR-011 guarantee)', function () {
+    chdir($this->tmp);
+
+    $seedTimings = function (string $dir): void {
+        Dirs::ensure($dir.'/pending');
+        file_put_contents($dir.'/timings.json', json_encode([
+            'version' => 3,
+            'tests' => ['old' => ['file' => 'tests/ATest.php', 'ms' => 100.0]],
+        ]));
+        file_put_contents($dir.'/pending/100-1-aaaaaaaa.json', json_encode([
+            'complete' => true,
+            'tests' => ['fresh' => ['file' => 'tests/BTest.php', 'ms' => 60.0]],
+        ]));
+    };
+
+    $writableDir = $this->tmp.'/timings-writable';
+    $readOnlyDir = $this->tmp.'/timings-readonly';
+    $seedTimings($writableDir);
+    $seedTimings($readOnlyDir);
+
+    $before = shardTimingsDirDigest($readOnlyDir);
+
+    chmod($readOnlyDir.'/pending', 0555);
+    chmod($readOnlyDir, 0555);
+
+    try {
+        $writableRun = ($this->run)(['1/2', 'tests', '--timings-dir='.$writableDir]);
+        $readOnlyRun = ($this->run)(['1/2', 'tests', '--timings-dir='.$readOnlyDir]);
+    } finally {
+        chmod($readOnlyDir, 0755);
+        chmod($readOnlyDir.'/pending', 0755);
+    }
+
+    $after = shardTimingsDirDigest($readOnlyDir);
+
+    // The read-only dir (UR-011 CI-artifact-restore guarantee) must produce
+    // exit 0 via the lockless fallback with the identical duration-balanced
+    // plan a writable dir with the same contents would produce, and must be
+    // byte-identical afterwards - no merge.lock, no pending mutation.
+    expect($readOnlyRun[0])->toBe(0)
+        ->and($readOnlyRun)->toBe($writableRun)
+        ->and($after)->toBe($before)
+        ->and(is_file($readOnlyDir.'/merge.lock'))->toBeFalse();
+});
+
+function shardTimingsDirDigest(string $dir): string
+{
+    $entries = [];
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST,
+    );
+
+    foreach ($iterator as $path => $info) {
+        $relative = substr((string) $path, strlen($dir));
+        $entries[$relative] = $info->isDir() ? 'DIR' : md5_file((string) $path);
+    }
+
+    ksort($entries);
+
+    return md5(json_encode($entries, JSON_THROW_ON_ERROR));
+}
+
 function writeShardPhpunitConfig(string $path, string $testsuite): void
 {
     file_put_contents($path, <<<XML

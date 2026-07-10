@@ -6,6 +6,8 @@ namespace RawPHP\Warp\Timing {
     if (! function_exists(__NAMESPACE__.'\\file_get_contents')) {
         function file_get_contents($filename, $use_include_path = false, $context = null, $offset = 0, $length = null): string|false
         {
+            \PendingReadCounter::trackIfPending($filename);
+
             if (\TimingStorePendingReadRace::enabledFor($filename)) {
                 return \TimingStorePendingReadRace::read($filename);
             }
@@ -15,6 +17,15 @@ namespace RawPHP\Warp\Timing {
             }
 
             return \file_get_contents($filename, $use_include_path, $context, $offset, $length);
+        }
+    }
+
+    if (! function_exists(__NAMESPACE__.'\\scandir')) {
+        function scandir($directory, $sorting_order = SCANDIR_SORT_ASCENDING, $context = null)
+        {
+            \PendingScanCounter::trackIfPending($directory);
+
+            return \scandir($directory, $sorting_order, $context);
         }
     }
 
@@ -135,6 +146,75 @@ namespace {
         }
     }
 
+    // Spies for REQ-104 (finding 17): count how many times pending/ is scanned
+    // and how many pending batch files are read, so a single command-scoped
+    // read (storedRoot() + fileTotals() sharing one snapshot) is provably one
+    // scandir() and one file_get_contents() per batch - not two independent
+    // passes. Guarded by enable()/disable() so other tests are unaffected.
+    if (! class_exists(PendingScanCounter::class, false)) {
+        final class PendingScanCounter
+        {
+            private static bool $enabled = false;
+
+            private static int $count = 0;
+
+            public static function enable(): void
+            {
+                self::$enabled = true;
+                self::$count = 0;
+            }
+
+            public static function disable(): void
+            {
+                self::$enabled = false;
+            }
+
+            public static function trackIfPending(string $directory): void
+            {
+                if (self::$enabled && str_ends_with($directory, '/pending')) {
+                    self::$count++;
+                }
+            }
+
+            public static function count(): int
+            {
+                return self::$count;
+            }
+        }
+    }
+
+    if (! class_exists(PendingReadCounter::class, false)) {
+        final class PendingReadCounter
+        {
+            private static bool $enabled = false;
+
+            private static int $count = 0;
+
+            public static function enable(): void
+            {
+                self::$enabled = true;
+                self::$count = 0;
+            }
+
+            public static function disable(): void
+            {
+                self::$enabled = false;
+            }
+
+            public static function trackIfPending(string $path): void
+            {
+                if (self::$enabled && str_contains($path, '/pending/') && str_ends_with($path, '.json')) {
+                    self::$count++;
+                }
+            }
+
+            public static function count(): int
+            {
+                return self::$count;
+            }
+        }
+    }
+
     beforeEach(function () {
         $this->dir = sys_get_temp_dir().'/warp-timings-'.bin2hex(random_bytes(4));
         $this->store = new TimingStore($this->dir);
@@ -143,6 +223,8 @@ namespace {
     afterEach(function () {
         AtomicWriteShortWrite::disable();
         TimingStorePendingReadRace::disable();
+        PendingScanCounter::disable();
+        PendingReadCounter::disable();
         putenv('WARP_TIMINGS_DIR');
         Dirs::delete($this->dir);
     });
@@ -165,9 +247,12 @@ namespace {
 
         $tests = $this->store->load();
 
+        // A writable timings dir means the read snapshot holds merge.lock
+        // (REQ-104, finding 2), so the lock file now exists after load() -
+        // pending batches themselves are still left untouched (read-only).
         expect($tests)->toBe(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]])
             ->and(glob($this->dir.'/pending/*.json'))->toHaveCount(1)
-            ->and(is_file($this->dir.'/merge.lock'))->toBeFalse()
+            ->and(is_file($this->dir.'/merge.lock'))->toBeTrue()
             ->and(is_file($this->dir.'/timings.json'))->toBeFalse();
     });
 
@@ -958,10 +1043,13 @@ PHP);
 
         expect(proc_close($process))->toBe(0);
 
+        // Writable dir: the read snapshot holds merge.lock (REQ-104), so the
+        // lock file now exists - the pending junk files remain untouched
+        // (load() stays read-only regardless of the lock).
         expect(is_file($badPath))->toBeTrue()
             ->and(is_file($scalarPath))->toBeTrue()
             ->and(is_file($this->dir.'/timings.json'))->toBeFalse()
-            ->and(is_file($this->dir.'/merge.lock'))->toBeFalse()
+            ->and(is_file($this->dir.'/merge.lock'))->toBeTrue()
             ->and($stderr)->toContain('skipped undecodable pending timings batch')
             ->and($stderr)->toContain('100-0-badbad00.json')
             ->and($stderr)->toContain('skipped invalid pending timings batch')
@@ -1345,5 +1433,80 @@ PHP,
             @rmdir($elsewhere);
             @unlink($script);
         }
+    });
+
+    it('scans pending/ and parses each batch exactly once when storedRoot and fileTotals share one snapshot (finding 17)', function () {
+        Dirs::ensure($this->dir.'/pending');
+        file_put_contents($this->dir.'/pending/100-1-aaaaaaaa.json', json_encode([
+            'root' => '/config/root',
+            'tests' => ['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.0]],
+        ]));
+
+        $store = new TimingStore($this->dir);
+
+        PendingScanCounter::enable();
+        PendingReadCounter::enable();
+
+        // Mirrors ShardCommand: one store instance, storedRoot() then
+        // fileTotals() within a single command invocation. Pre-fix, each
+        // call independently rescans pending/ and re-parses every batch
+        // (scandir x2, file_get_contents x2) and could observe two different
+        // store states (the TOCTOU half of finding 17/finding 2). Post-fix,
+        // both consume one memoized snapshot: exactly one scan, one parse.
+        $root = $store->storedRoot();
+        $totals = $store->fileTotals();
+
+        expect($root)->toBe('/config/root')
+            ->and($totals)->toBe(['tests/ATest.php' => 10.0])
+            ->and(PendingScanCounter::count())->toBe(1)
+            ->and(PendingReadCounter::count())->toBe(1);
+    });
+
+    it('waits for a concurrent merge holding merge.lock before producing a snapshot (finding 2)', function () {
+        Dirs::ensure($this->dir.'/pending');
+        file_put_contents($this->dir.'/pending/100-1-aaaaaaaa.json', json_encode([
+            'tests' => ['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.0]],
+        ]));
+
+        $holdScript = $this->dir.'/hold-merge-lock.php';
+        file_put_contents($holdScript, <<<'PHP'
+<?php
+
+$dir = $argv[1];
+$handle = fopen($dir.'/merge.lock', 'c');
+flock($handle, LOCK_EX);
+fwrite(STDOUT, "locked\n");
+fflush(STDOUT);
+usleep(400000);
+flock($handle, LOCK_UN);
+fclose($handle);
+PHP);
+
+        $process = proc_open([PHP_BINARY, $holdScript, $this->dir], [
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $pipes, getcwd());
+
+        expect($process)->not->toBeFalse();
+
+        // Block until the child confirms it actually holds the lock before
+        // racing it - otherwise this test would be timing-dependent on
+        // process startup rather than on lock contention.
+        expect(trim((string) fgets($pipes[1])))->toBe('locked');
+
+        $start = microtime(true);
+        $totals = $this->store->fileTotals();
+        $elapsed = microtime(true) - $start;
+
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        proc_close($process);
+
+        // Pre-fix (no lock on the read path) this returns near-instantly
+        // while the child still holds merge.lock. Post-fix, the snapshot
+        // read blocks on flock(LOCK_EX) until the simulated merge releases
+        // it, so the elapsed time must span (most of) the held duration.
+        expect($elapsed)->toBeGreaterThan(0.3)
+            ->and($totals)->toBe(['tests/ATest.php' => 10.0]);
     });
 }

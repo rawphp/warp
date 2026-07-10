@@ -126,6 +126,10 @@ final class ShardCommand
             return 2;
         }
 
+        // Both calls hit the same store instance, so TimingStore memoizes one
+        // locked snapshot read across them (REQ-104, findings 2/17): pending/
+        // is scanned once and storedRoot/totals can never observe two
+        // different store states, even under a concurrent `warp merge`.
         $storedRoot = $timings->store->storedRoot();
         $totals = $timings->store->fileTotals();
 

@@ -34,9 +34,12 @@ it('records per-test timings with file attribution from a real pest run', functi
 
     $pending = glob($dir.'/pending/*.json');
 
+    // The read is against a writable dir, so load() now holds merge.lock
+    // across the snapshot (REQ-104, finding 2) - the lock file exists, but
+    // pending batches themselves remain untouched (load() stays read-only).
     expect($pending)->toHaveCount(1)
         ->and(is_file($dir.'/timings.json'))->toBeFalse()
-        ->and(is_file($dir.'/merge.lock'))->toBeFalse();
+        ->and(is_file($dir.'/merge.lock'))->toBeTrue();
 
     Dirs::delete($dir);
 });

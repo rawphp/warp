@@ -19,6 +19,18 @@ final class TimingStore
     private static int $lastPendingTimestamp = 0;
 
     /**
+     * One read pass over pending/ + timings.json, computed at most once per
+     * instance and shared by load(), storedRoot(), and fileTotals() so a
+     * single command invocation scans pending/ and parses every batch
+     * exactly once (finding 17), and the three can never observe different
+     * store states - the TOCTOU half of finding 2/17. null means "not yet
+     * computed"; a genuinely empty store still caches an array.
+     *
+     * @var array{tests: array<string, array{file: string, ms: float}>, root: string|null}|null
+     */
+    private ?array $snapshotCache = null;
+
+    /**
      * @param  Closure(string): void|null  $warn  Warning sink for non-fatal diagnostics.
      *                                            CLI commands inject one that writes to their captured $stderr stream so an
      *                                            embedded WarpCli::run never leaks onto the host process's real STDERR; the
@@ -150,13 +162,7 @@ final class TimingStore
     /** @return array<string, array{file: string, ms: float}> */
     public function load(): array
     {
-        if (! is_dir($this->dir.'/pending')) {
-            return $this->readMerged();
-        }
-
-        [$tests] = $this->mergedWithPending($this->pendingFiles());
-
-        return $tests;
+        return $this->snapshot()['tests'];
     }
 
     /**
@@ -165,17 +171,68 @@ final class TimingStore
      */
     public function storedRoot(): ?string
     {
-        if (! is_dir($this->dir.'/pending')) {
-            return $this->readMergedData()['root'];
-        }
-
-        return $this->mergedWithPending($this->pendingFiles())[2];
+        return $this->snapshot()['root'];
     }
 
     /** @return array<string, float> file => total ms, path-sorted */
     public function fileTotals(): array
     {
-        return self::aggregate($this->load());
+        return self::aggregate($this->snapshot()['tests']);
+    }
+
+    /**
+     * @return array{tests: array<string, array{file: string, ms: float}>, root: string|null}
+     */
+    private function snapshot(): array
+    {
+        return $this->snapshotCache ??= $this->readSnapshot();
+    }
+
+    /**
+     * @return array{tests: array<string, array{file: string, ms: float}>, root: string|null}
+     */
+    private function readSnapshot(): array
+    {
+        if (! is_dir($this->dir.'/pending')) {
+            $merged = $this->readMergedData();
+
+            return ['tests' => $merged['tests'], 'root' => $merged['root']];
+        }
+
+        $read = function (): array {
+            [$tests, , $root] = $this->mergedWithPending($this->pendingFiles());
+
+            return ['tests' => $tests, 'root' => $root];
+        };
+
+        // Hold merge.lock across the whole read so a concurrent `warp merge`
+        // cannot publish timings.json mid-scan (finding 2): without it, a
+        // shard invocation could see pre-merge pending batches for one part
+        // of the snapshot and post-merge timings.json for another, producing
+        // a divergent LPT plan. When the lock file itself cannot be created
+        // - a read-only timings dir restored from a CI cache (UR-011
+        // guarantee) - fall back to today's lockless read with its existing
+        // vanished-batch tolerance. The read path never creates or modifies
+        // files besides this lock attempt.
+        $lockFile = $this->dir.'/merge.lock';
+        $handle = @fopen($lockFile, 'c');
+
+        if ($handle === false) {
+            return $read();
+        }
+
+        if (! flock($handle, LOCK_EX)) {
+            fclose($handle);
+
+            throw new RuntimeException('[warp] cannot acquire merge lock for timings read at '.$lockFile);
+        }
+
+        try {
+            return $read();
+        } finally {
+            flock($handle, LOCK_UN);
+            fclose($handle);
+        }
     }
 
     /** @return list<string> */
@@ -427,12 +484,6 @@ final class TimingStore
         }
 
         return $index;
-    }
-
-    /** @return array<string, array{file: string, ms: float}> */
-    private function readMerged(): array
-    {
-        return $this->readMergedData()['tests'];
     }
 
     /** @return array{root: string|null, tests: array<string, array{file: string, ms: float}>} */
