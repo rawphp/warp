@@ -5,3 +5,4 @@ composer.phar
 /.do-work/
 /docs/superpowers/
 /composer.lock
+.warp/
