@@ -790,6 +790,153 @@ PHP);
             ->and($stderr)->toContain('200-1-bbbbbbbb.json');
     });
 
+    it('suppresses the native PHP warning when a pending batch vanishes mid-read (finding 11)', function () {
+        Dirs::ensure($this->dir.'/pending');
+        $pending = $this->dir.'/pending/100-1-aabbccdd.json';
+        file_put_contents($pending, json_encode([
+            'complete' => true,
+            'tests' => ['race' => ['file' => 'tests/RaceTest.php', 'ms' => 42.0]],
+        ]));
+
+        // Unlike the mocked-return-false race doubles elsewhere in this file, this
+        // override actually unlinks the file and then falls through to the real
+        // global file_get_contents(), so PHP's engine genuinely emits its native
+        // E_WARNING for the vanished path - this is the only way to reproduce
+        // finding 11 (a fake `return false` never touches the native diagnostic).
+        $script = $this->dir.'/native-warning-vanish.php';
+        file_put_contents($script, <<<'PHP'
+<?php
+
+namespace RawPHP\Warp\Timing {
+    function file_get_contents($filename, $use_include_path = false, $context = null, $offset = 0, $length = null): string|false
+    {
+        if ($filename === $GLOBALS['argv'][2] && empty($GLOBALS['triggered'])) {
+            $GLOBALS['triggered'] = true;
+            \unlink($filename);
+        }
+
+        if ($length === null) {
+            return \file_get_contents($filename, $use_include_path, $context, $offset);
+        }
+
+        return \file_get_contents($filename, $use_include_path, $context, $offset, $length);
+    }
+}
+
+namespace {
+    // Force native diagnostics onto the real stderr stream regardless of host
+    // ini defaults, so this reproduces finding 11 deterministically everywhere.
+    ini_set('display_errors', 'stderr');
+    ini_set('error_reporting', (string) E_ALL);
+
+    require getcwd().'/vendor/autoload.php';
+
+    (new RawPHP\Warp\Timing\TimingStore($argv[1]))->fileTotals();
+}
+PHP);
+
+        $process = proc_open([PHP_BINARY, $script, $this->dir, $pending], [
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $pipes, getcwd());
+
+        expect($process)->not->toBeFalse();
+
+        $stderr = stream_get_contents($pipes[2]);
+
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        expect(proc_close($process))->toBe(0)
+            ->and($stderr)->toContain('skipped vanished pending timings batch')
+            ->and($stderr)->not->toContain('Failed to open stream')
+            ->and($stderr)->not->toContain('Warning:');
+    });
+
+    it('suppresses the native PHP warning when an existing pending batch is unreadable (finding 11)', function () {
+        Dirs::ensure($this->dir.'/pending');
+        $unreadable = $this->dir.'/pending/100-1-aabbccdd.json';
+        file_put_contents($unreadable, json_encode([
+            'complete' => true,
+            'tests' => ['u' => ['file' => 'tests/UnreadableTest.php', 'ms' => 99.0]],
+        ]));
+        chmod($unreadable, 0000);
+
+        $script = $this->dir.'/native-warning-unreadable.php';
+        file_put_contents($script, <<<'PHP'
+<?php
+
+ini_set('display_errors', 'stderr');
+ini_set('error_reporting', (string) E_ALL);
+
+require getcwd().'/vendor/autoload.php';
+
+(new RawPHP\Warp\Timing\TimingStore($argv[1]))->fileTotals();
+PHP);
+
+        try {
+            $process = proc_open([PHP_BINARY, $script, $this->dir], [
+                1 => ['pipe', 'w'],
+                2 => ['pipe', 'w'],
+            ], $pipes, getcwd());
+
+            expect($process)->not->toBeFalse();
+
+            $stderr = stream_get_contents($pipes[2]);
+
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+
+            expect(proc_close($process))->toBe(0)
+                ->and($stderr)->toContain('skipped unreadable pending timings batch')
+                ->and($stderr)->not->toContain('Permission denied')
+                ->and($stderr)->not->toContain('Warning:');
+        } finally {
+            chmod($unreadable, 0644);
+        }
+    });
+
+    it('suppresses the native PHP warning when the pending directory itself is unreadable (finding 11)', function () {
+        Dirs::ensure($this->dir.'/pending');
+        file_put_contents($this->dir.'/pending/100-1-aabbccdd.json', json_encode([
+            'complete' => true,
+            'tests' => ['a' => ['file' => 'tests/ATest.php', 'ms' => 1.0]],
+        ]));
+        chmod($this->dir.'/pending', 0000);
+
+        $script = $this->dir.'/native-warning-scandir.php';
+        file_put_contents($script, <<<'PHP'
+<?php
+
+ini_set('display_errors', 'stderr');
+ini_set('error_reporting', (string) E_ALL);
+
+require getcwd().'/vendor/autoload.php';
+
+(new RawPHP\Warp\Timing\TimingStore($argv[1]))->fileTotals();
+PHP);
+
+        try {
+            $process = proc_open([PHP_BINARY, $script, $this->dir], [
+                1 => ['pipe', 'w'],
+                2 => ['pipe', 'w'],
+            ], $pipes, getcwd());
+
+            expect($process)->not->toBeFalse();
+
+            $stderr = stream_get_contents($pipes[2]);
+
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+
+            expect(proc_close($process))->toBe(0)
+                ->and($stderr)->not->toContain('Permission denied')
+                ->and($stderr)->not->toContain('Warning:');
+        } finally {
+            chmod($this->dir.'/pending', 0755);
+        }
+    });
+
     it('skips only the unreadable batch on load and keeps earlier applied batches', function () {
         Dirs::ensure($this->dir.'/pending');
         $a = $this->dir.'/pending/100-1-aaaaaaaa.json';
