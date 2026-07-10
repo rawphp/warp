@@ -32,8 +32,8 @@ final class TimingExtension implements Extension
         }
 
         $collector = new TimingCollector;
-        $store = TimingStore::fromEnv();
-        $root = (string) getcwd();
+        $root = self::canonicalRoot($configuration);
+        $store = TimingStore::fromEnv()->withRoot($root);
         $completeSelection = ! self::hasIncompleteSelectionConfiguration($configuration);
         $runCompleteness = new class(self::hasStopOnConfiguration($configuration))
         {
@@ -168,6 +168,24 @@ final class TimingExtension implements Extension
         if ($unattributed > 0) {
             Stderr::write("[warp] {$unattributed} test(s) could not be attributed to a file; their timings were not recorded".PHP_EOL);
         }
+    }
+
+    /**
+     * Canonical timing-key root: the directory of the phpunit.xml actually used,
+     * so keys line up with `warp shard --configuration=` (which resolves against
+     * dirname(config)). Falls back to the cwd only for pure CLI-path runs with no
+     * XML configuration. Mirrors ShardCommand::suiteRoot's dirname(realpath()) form.
+     */
+    private static function canonicalRoot(Configuration $configuration): string
+    {
+        if ($configuration->hasConfigurationFile()) {
+            $configFile = $configuration->configurationFile();
+            $realpath = realpath($configFile);
+
+            return dirname($realpath === false ? $configFile : $realpath);
+        }
+
+        return (string) getcwd();
     }
 
     private static function hasIncompleteSelectionConfiguration(Configuration $configuration): bool

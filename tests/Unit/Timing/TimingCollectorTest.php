@@ -144,6 +144,7 @@ it('flush marks normally completed batches complete by default', function () {
 
     expect($payload)->toEqual([
         'complete' => true,
+        'root' => null,
         'tests' => ['t::one' => ['file' => 'tests/OneTest.php', 'ms' => 500.0]],
     ]);
 

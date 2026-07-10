@@ -89,7 +89,7 @@ namespace {
 
                 $batch = json_decode((string) \file_get_contents($path), true);
                 \file_put_contents(self::$dir.'/timings.json', json_encode([
-                    'version' => 1,
+                    'version' => 2,
                     'tests' => is_array($batch) && is_array($batch['tests'] ?? null) ? $batch['tests'] : [],
                 ], JSON_THROW_ON_ERROR));
                 \unlink($path);
@@ -209,7 +209,7 @@ namespace {
         Dirs::ensure($this->dir.'/pending');
 
         file_put_contents($this->dir.'/timings.json', json_encode([
-            'version' => 1,
+            'version' => 2,
             'tests' => [
                 'old' => ['file' => 'tests/OldTest.php', 'ms' => 100.0],
                 'stale' => ['file' => 'tests/FooTest.php', 'ms' => 5000.0],
@@ -251,6 +251,7 @@ namespace {
             ->and($files[0])->not->toEndWith('.tmp')
             ->and(json_decode((string) file_get_contents($this->dir.'/pending/'.$files[0]), true))->toBe([
                 'complete' => true,
+                'root' => null,
                 'tests' => ['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]],
             ]);
     });
@@ -270,7 +271,7 @@ namespace {
     it('treats a short merged timings write as a failed write and does not publish it', function () {
         Dirs::ensure($this->dir.'/pending');
         file_put_contents($this->dir.'/timings.json', json_encode([
-            'version' => 1,
+            'version' => 2,
             'tests' => ['old' => ['file' => 'tests/OldTest.php', 'ms' => 99.0]],
         ]));
         file_put_contents($this->dir.'/pending/100-1-aabbccdd.json', json_encode([
@@ -329,7 +330,7 @@ namespace {
     it('incomplete pending batches merge by test id without superseding a whole file', function () {
         Dirs::ensure($this->dir);
         file_put_contents($this->dir.'/timings.json', json_encode([
-            'version' => 1,
+            'version' => 2,
             'tests' => [
                 'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
                 'FileA::two' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
@@ -355,7 +356,7 @@ namespace {
     it('complete pending batches keep superseding all previous entries for covered files', function () {
         Dirs::ensure($this->dir);
         file_put_contents($this->dir.'/timings.json', json_encode([
-            'version' => 1,
+            'version' => 2,
             'tests' => [
                 'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
                 'FileA::two' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
@@ -378,7 +379,7 @@ namespace {
 
     it('mergeToDisk and load produce identical merged data for the same fixture', function () {
         $seed = [
-            'version' => 1,
+            'version' => 2,
             'tests' => [
                 'FileA::old' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
                 'FileB::old' => ['file' => 'tests/FileBTest.php', 'ms' => 2000.0],
@@ -479,7 +480,7 @@ namespace RawPHP\Warp\Timing {
             $GLOBALS['triggered'] = true;
             $batch = json_decode((string) \file_get_contents($filename), true);
             \file_put_contents($GLOBALS['argv'][1].'/timings.json', json_encode([
-                'version' => 1,
+                'version' => 2,
                 'tests' => is_array($batch) && is_array($batch['tests'] ?? null) ? $batch['tests'] : [],
             ], JSON_THROW_ON_ERROR));
             \unlink($filename);
@@ -840,6 +841,51 @@ PHP);
         ]);
 
         expect($this->store->fileTotals())->toBe(['tests/ATest.php' => 3.5]);
+    });
+
+    it('stamps the bumped schema version into merged timings', function () {
+        $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
+        $this->store->mergeToDisk();
+
+        $merged = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
+
+        expect($merged['version'])->toBe(2);
+    });
+
+    it('stamps the canonical root into pending batches, merged timings, and storedRoot', function () {
+        $store = (new TimingStore($this->dir))->withRoot('/abs/config/root');
+        $store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
+
+        $pending = glob($this->dir.'/pending/*.json');
+        $batch = json_decode((string) file_get_contents($pending[0]), true);
+
+        expect($batch['root'])->toBe('/abs/config/root');
+
+        $store->mergeToDisk();
+
+        $merged = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
+
+        expect($merged['root'])->toBe('/abs/config/root')
+            ->and((new TimingStore($this->dir))->storedRoot())->toBe('/abs/config/root');
+    });
+
+    it('exposes a stored root from a pending overlay before any merge', function () {
+        $store = (new TimingStore($this->dir))->withRoot('/abs/config/root');
+        $store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
+
+        expect((new TimingStore($this->dir))->storedRoot())->toBe('/abs/config/root')
+            ->and(is_file($this->dir.'/timings.json'))->toBeFalse();
+    });
+
+    it('has no stored root when timings were recorded without one', function () {
+        $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
+        $this->store->mergeToDisk();
+
+        expect($this->store->storedRoot())->toBeNull();
+    });
+
+    it('reports no stored root when nothing was recorded', function () {
+        expect($this->store->storedRoot())->toBeNull();
     });
 
     it('fromEnv honours WARP_TIMINGS_DIR', function () {
