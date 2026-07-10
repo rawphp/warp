@@ -1,19 +1,13 @@
 # REQ-098: PHPUnit-exact configuration filename probing in SuiteDiscovery
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.95040
-**Claimed at:** 2026-07-10T03:51:02Z
-**Heartbeat:** 2026-07-10T03:51:02Z
-<!-- claimed-end -->
-
 **UR:** UR-016
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:79b0cfc
 **Criteria approved:** agent-drafted
 **Size:** S
 **Files:** src/Shard/SuiteDiscovery.php, tests/Unit/Shard/SuiteDiscoveryTest.php
@@ -29,10 +23,10 @@ Finding 12 (UR-016), verified CONFIRMED: a project using the documented `phpunit
 
 ## Acceptance Criteria
 
-- [ ] A root containing only `phpunit.dist.xml` is discovered (no fallback warning, suites parsed from it)
-- [ ] A root containing both `phpunit.dist.xml` and `phpunit.xml.dist` resolves to `phpunit.dist.xml` (PHPUnit's precedence)
-- [ ] A root containing `phpunit.xml` still wins over both dist variants
-- [ ] The probe order is asserted against the vendored `XmlConfigurationFileFinder` source order in a test comment or fixture, so future PHPUnit changes surface as a test-review prompt
+- [x] A root containing only `phpunit.dist.xml` is discovered (no fallback warning, suites parsed from it)
+- [x] A root containing both `phpunit.dist.xml` and `phpunit.xml.dist` resolves to `phpunit.dist.xml` (PHPUnit's precedence)
+- [x] A root containing `phpunit.xml` still wins over both dist variants
+- [x] The probe order is asserted against the vendored `XmlConfigurationFileFinder` source order in a test comment or fixture, so future PHPUnit changes surface as a test-review prompt
 
 ## Verification Steps
 
@@ -44,3 +38,8 @@ Finding 12 (UR-016), verified CONFIRMED: a project using the documented `phpunit
    - Expected: matches PHPUnit's XmlConfigurationFileFinder order
 3. **test** `./vendor/bin/pest --filter=SuiteDiscoveryTest`
    - Expected: all green
+
+## Outputs
+
+- src/Shard/SuiteDiscovery.php — configurationPath() probes phpunit.xml, phpunit.dist.xml, phpunit.xml.dist in PHPUnit-exact order
+- tests/Unit/Shard/SuiteDiscoveryTest.php — bug-repro, precedence, and live vendored-source parity tests
