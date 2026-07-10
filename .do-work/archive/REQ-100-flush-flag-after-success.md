@@ -1,22 +1,16 @@
 # REQ-100: Set the flushed flag only after a successful write
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.95040
-**Claimed at:** 2026-07-10T04:34:01Z
-**Heartbeat:** 2026-07-10T04:34:01Z
-<!-- claimed-end -->
-
 **UR:** UR-016
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:2b6ed81
 **Criteria approved:** agent-drafted
 **Size:** S
-**Files:** src/Timing/TimingCollector.php, src/Timing/TimingExtension.php, tests/Unit/Timing/TimingCollectorTest.php
+**Files:** src/Timing/TimingCollector.php, src/Timing/TimingExtension.php, tests/Unit/Timing/TimingCollectorTest.php, tests/Integration/Timing/TimingCaptureTest.php
 **Depends on:** REQ-099
 
 ## Task
@@ -29,10 +23,10 @@ Finding 17 (UR-016), verified CONFIRMED: `writePending` genuinely throws on tran
 
 ## Acceptance Criteria
 
-- [ ] `flushed` becomes true only after `writePending` returns without throwing
-- [ ] A first flush whose write throws leaves `hasFlushed()` false; a subsequent (backstop) flush retries the write and, on success, the run's timings are on disk
-- [ ] A successful first flush still makes the backstop a no-op (no duplicate batch)
-- [ ] The REQ-082 nonfatal contract holds: flush failures never abort the test run; warnings are emitted per failed attempt
+- [x] `flushed` becomes true only after `writePending` returns without throwing
+- [x] A first flush whose write throws leaves `hasFlushed()` false; a subsequent (backstop) flush retries the write and, on success, the run's timings are on disk
+- [x] A successful first flush still makes the backstop a no-op (no duplicate batch)
+- [x] The REQ-082 nonfatal contract holds: flush failures never abort the test run; warnings are emitted per failed attempt
 
 ## Verification Steps
 
@@ -44,3 +38,9 @@ Finding 17 (UR-016), verified CONFIRMED: `writePending` genuinely throws on tran
    - Expected: no duplicates
 3. **test** `./vendor/bin/pest --filter=TimingCollectorTest && ./vendor/bin/pest --filter=TimingCaptureTest`
    - Expected: all green
+
+## Outputs
+
+- src/Timing/TimingCollector.php — flush() sets flushed=true only after writePending() succeeds
+- tests/Unit/Timing/TimingCollectorTest.php — Retry-recovery test replaces the old guarded-out behavior test
+- tests/Integration/Timing/TimingCaptureTest.php — REQ-082 persistent-failure test now expects one warning per genuinely failed attempt (retry also fails → 2 warnings)
