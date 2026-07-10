@@ -642,6 +642,101 @@ XML,
     }
 });
 
+it('clears a fully-skipped class\'s stale timings after merge, from a real child run (finding 6)', function () {
+    $root = dirname(__DIR__, 3);
+    $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+    $suite = sys_get_temp_dir().'/warp-all-skipped-suite-'.bin2hex(random_bytes(4));
+    $bootstrap = writeTimingRestrictionBootstrap();
+    $fixtureKey = 'AllSkippedFixtureTest.php';
+
+    Dirs::ensure($suite);
+    file_put_contents($suite.'/AllSkippedFixtureTest.php', <<<'PHP'
+<?php
+
+use PHPUnit\Framework\TestCase;
+
+final class WarpAllSkippedFixtureTest extends TestCase
+{
+    protected function setUp(): void
+    {
+        $this->markTestSkipped('every test in this file is skipped');
+    }
+
+    public function testSkippedOne(): void
+    {
+        $this->fail('should never run');
+    }
+
+    public function testSkippedTwo(): void
+    {
+        $this->fail('should never run');
+    }
+}
+PHP);
+
+    $config = $suite.'/phpunit.xml';
+    file_put_contents($config, sprintf(<<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="%s" colors="true">
+    <testsuites>
+        <testsuite name="AllSkippedFixture">
+            <directory>.</directory>
+        </testsuite>
+    </testsuites>
+    <extensions>
+        <bootstrap class="RawPHP\Warp\Timing\TimingExtension"/>
+    </extensions>
+</phpunit>
+XML,
+        htmlspecialchars($bootstrap, ENT_XML1),
+    ));
+
+    // Prior real timings for the file, seeded before the run - this is exactly
+    // what finding 6's early-return-on-empty-tests defect would leave stale
+    // forever (the batch is discarded, so apply()'s supersede path never runs).
+    Dirs::ensure($dir);
+    file_put_contents($dir.'/timings.json', json_encode([
+        'version' => 3,
+        'tests' => [
+            'Seeded::stale' => ['file' => $fixtureKey, 'ms' => 30000.0],
+        ],
+    ], JSON_THROW_ON_ERROR));
+
+    try {
+        exec(sprintf(
+            'cd %s && WARP_MODE=0 WARP_DB=0 WARP_TIMINGS=1 WARP_TIMINGS_DIR=%s %s --configuration=%s 2>&1',
+            escapeshellarg($suite),
+            escapeshellarg($dir),
+            escapeshellarg($root.'/vendor/bin/phpunit'),
+            escapeshellarg($config),
+        ), $output, $exit);
+
+        expect($exit)->toBe(0, implode(PHP_EOL, $output));
+
+        // Every enumerated test in the file terminated (skipped), none produced a
+        // Finished event, so the collector's tests map is empty but the file is
+        // flagged complete - the pending batch must still have been written.
+        $map = pendingCompleteMaps($dir)[0] ?? null;
+        $tests = pendingPayloads($dir)[0]['tests'] ?? [];
+
+        expect($map[$fixtureKey] ?? null)->toBeTrue()
+            ->and($tests)->toBe([]);
+
+        $store = new TimingStore($dir);
+        $store->mergeToDisk();
+
+        $merged = $store->load();
+
+        expect($merged)->not->toHaveKey('Seeded::stale')
+            ->and(array_column($merged, 'file'))->not->toContain($fixtureKey);
+    } finally {
+        @unlink($config);
+        Dirs::delete($suite);
+        Dirs::delete($dir);
+        @unlink($bootstrap);
+    }
+});
+
 it('flushes a pending batch through the shutdown backstop when a test exits mid-run (untested backstop gap)', function () {
     $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
     $fixture = writeTimingExitMidRunFixture();

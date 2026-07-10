@@ -105,12 +105,19 @@ final class TimingStore
      * `$completeFiles` maps each file this process fully accounted for to whether
      * every enumerated test terminated; `apply()` supersedes only complete files.
      *
+     * A run whose tests all skipped (or all errored before preparation) produces
+     * an empty `$tests` with a non-empty `$completeFiles` - there is still
+     * something to say (the file is complete, its stale entries must go), so the
+     * write only skips when BOTH are empty (finding 6). Discarding a batch that
+     * carries only completeness silently loses the supersede signal and lets a
+     * fully-skipped file's stale timings persist forever.
+     *
      * @param  array<string, array{file: string, ms: float}>  $tests
      * @param  array<string, bool>  $completeFiles
      */
     public function writePending(array $tests, array $completeFiles = []): void
     {
-        if ($tests === []) {
+        if ($tests === [] && $completeFiles === []) {
             return;
         }
 

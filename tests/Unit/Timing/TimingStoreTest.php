@@ -240,6 +240,36 @@ namespace {
         expect(is_dir($this->dir))->toBeFalse();
     });
 
+    it('writePending is a no-op when both tests and completeFiles are empty', function () {
+        $this->store->writePending([], []);
+
+        expect(is_dir($this->dir))->toBeFalse();
+    });
+
+    it('writePending writes a batch when tests is empty but completeFiles is not, so an all-skipped file still supersedes (finding 6)', function () {
+        Dirs::ensure($this->dir);
+        file_put_contents($this->dir.'/timings.json', json_encode([
+            'version' => 3,
+            'tests' => [
+                'Foo::old' => ['file' => 'tests/FooTest.php', 'ms' => 30000.0],
+            ],
+        ], JSON_THROW_ON_ERROR));
+
+        // A fully-skipped class: every enumerated test terminated (skipped), none
+        // produced a Finished event, so the collector's $tests map is empty but
+        // completeFiles flags the file complete.
+        $this->store->writePending([], ['tests/FooTest.php' => true]);
+
+        expect(glob($this->dir.'/pending/*.json'))->toHaveCount(1);
+
+        $this->store->mergeToDisk();
+
+        $tests = $this->store->load();
+
+        expect($tests)->not->toHaveKey('Foo::old')
+            ->and($tests)->toBe([]);
+    });
+
     it('loads pending batches as an in-memory overlay without clearing them', function () {
         $this->store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 10.5]]);
 
