@@ -1,19 +1,13 @@
 # REQ-095: Pending-batch read-failure hardening in load and merge
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.95040
-**Claimed at:** 2026-07-10T03:04:43Z
-**Heartbeat:** 2026-07-10T03:04:43Z
-<!-- claimed-end -->
-
 **UR:** UR-016
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:83647fd
 **Criteria approved:** agent-drafted
 **Size:** M
 **Files:** src/Timing/TimingStore.php, tests/Unit/Timing/TimingStoreTest.php, tests/Unit/Cli/MergeCommandTest.php
@@ -35,11 +29,11 @@ Findings 2, 3, 18 (UR-016), all verified CONFIRMED — three distinct failure pa
 
 ## Acceptance Criteria
 
-- [ ] An existing-but-unreadable pending batch during `mergeToDisk` is skipped with a warning, survives on disk after the merge, and its data is absent from (not corrupted into) the published timings.json
-- [ ] A pending batch that vanishes between glob and read during `mergeToDisk` does not cause already-applied batches to be discarded; the published timings.json contains every successfully-applied batch, and only actually-merged batch files are unlinked
-- [ ] A failed pending read during `load()` skips only the failed batch, keeps all previously-applied batches in the returned totals, and emits a stderr warning (no silent divergence)
-- [ ] Undecodable-JSON handling (genuinely corrupt content that reads successfully) is unchanged: warned, junk-classified, and cleaned only in `mergeToDisk`
-- [ ] All existing TimingStore and MergeCommand tests remain green
+- [x] An existing-but-unreadable pending batch during `mergeToDisk` is skipped with a warning, survives on disk after the merge, and its data is absent from (not corrupted into) the published timings.json
+- [x] A pending batch that vanishes between glob and read during `mergeToDisk` does not cause already-applied batches to be discarded; the published timings.json contains every successfully-applied batch, and only actually-merged batch files are unlinked
+- [x] A failed pending read during `load()` skips only the failed batch, keeps all previously-applied batches in the returned totals, and emits a stderr warning (no silent divergence)
+- [x] Undecodable-JSON handling (genuinely corrupt content that reads successfully) is unchanged: warned, junk-classified, and cleaned only in `mergeToDisk`
+- [x] All existing TimingStore and MergeCommand tests remain green
 
 ## Verification Steps
 
@@ -53,3 +47,8 @@ Findings 2, 3, 18 (UR-016), all verified CONFIRMED — three distinct failure pa
    - Expected: only C skipped; A/B totals present
 4. **test** `./vendor/bin/pest --filter=TimingStoreTest && ./vendor/bin/pest --filter=MergeCommandTest`
    - Expected: all green
+
+## Outputs
+
+- src/Timing/TimingStore.php — Unified read-failure handling in mergedWithPending(): skip-and-warn (unreadable vs vanished), no reset, no junk-classify, no unlink
+- tests/Unit/Timing/TimingStoreTest.php — 3 new subprocess tests (findings 3/18/2) + 2 REQ-084 race tests rewritten to the skip-and-warn contract (reversal endorsed by the UR-016 finding-2 superseding decision; warned + self-healing)
