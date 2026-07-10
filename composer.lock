@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b871c70bb06ccea24808214ee237b7ea",
+    "content-hash": "ef714c198f68849dd6d1494474eecafc",
     "packages": [
         {
             "name": "myclabs/deep-copy",
