@@ -18,7 +18,7 @@ final class TestFileFinder
      *
      * @var list<string>
      */
-    private const DEFAULT_SUFFIXES = ['Test.php', '.phpt'];
+    public const DEFAULT_SUFFIXES = ['Test.php', '.phpt'];
 
     /**
      * Paths come back in the form they were given. Consumers that compare

@@ -56,6 +56,29 @@ it('registers a Prepared subscriber so Errored can gate on wasPrepared (finding 
     expect($source)->toContain('PreparedSubscriber');
 });
 
+it('shares one terminate closure across the terminal subscribers instead of copy-pasting them (finding 16)', function () {
+    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Timing/TimingExtension.php');
+
+    // The (collector, root) constructor is no longer copy-pasted into every
+    // subscriber: the terminal subscribers (Skipped/Errored/MarkedIncomplete)
+    // delegate to shared closures rather than each redeclaring it.
+    expect(substr_count($source, 'private readonly TimingCollector $collector,'))->toBeLessThan(6);
+
+    // The terminate() call that closes an accounting entry is declared once, in
+    // the shared closure - Finished keeps its own $this->collector->terminated.
+    expect(substr_count($source, '$collector->terminated('))->toBe(1);
+});
+
+it('still records the errored-unprepared duration via the Errored telemetry after the dedup (REQ-105)', function () {
+    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Timing/TimingExtension.php');
+
+    // The dedup must not regress REQ-105: Errored still routes through errored()
+    // with the event's telemetry seconds, and the Prepared subscriber survives.
+    expect($source)
+        ->toContain('$collector->errored(')
+        ->toContain('PreparedSubscriber');
+});
+
 it('resolves a non-method (.phpt) event to its canonical root-relative file key', function () {
     $root = dirname(__DIR__, 3);
     $phpt = __DIR__.'/warp-filefor-'.bin2hex(random_bytes(4)).'.phpt';

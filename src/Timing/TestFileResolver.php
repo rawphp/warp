@@ -20,9 +20,6 @@ final class TestFileResolver
     /** @var array<class-string, string|null> */
     private static array $fileByClass = [];
 
-    /** @var array<class-string, bool> */
-    private static array $cacheableByClass = [];
-
     /**
      * Pest evaluates its test classes, so PHPUnit reports "...eval()'d code" as
      * the file; the generated class carries the real path in a static instead.
@@ -31,7 +28,11 @@ final class TestFileResolver
      */
     public static function resolve(string $className, string $reportedFile, string $root): ?string
     {
-        $cacheable = self::cacheableClass($className);
+        // A class is cacheable when it resolves to a real file on disk. fileForClass
+        // caches its one ReflectionClass, reused by classFileInsideRoot below, so no
+        // extra reflection happens per resolve. Internal classes with no file are
+        // not memoized - the same semantics the old duplicate helper enforced.
+        $cacheable = self::fileForClass($className) !== null;
         $cacheKey = $root."\0".$className;
 
         if ($cacheable && array_key_exists($cacheKey, self::$resolvedByClass)) {
@@ -122,22 +123,6 @@ final class TestFileResolver
             return self::$fileByClass[$className] = is_string($file) ? $file : null;
         } catch (Throwable) {
             return self::$fileByClass[$className] = null;
-        }
-    }
-
-    /**
-     * @param  class-string  $className
-     */
-    private static function cacheableClass(string $className): bool
-    {
-        if (array_key_exists($className, self::$cacheableByClass)) {
-            return self::$cacheableByClass[$className];
-        }
-
-        try {
-            return self::$cacheableByClass[$className] = (new ReflectionClass($className))->getFileName() !== false;
-        } catch (Throwable) {
-            return self::$cacheableByClass[$className] = false;
         }
     }
 

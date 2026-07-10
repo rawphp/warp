@@ -48,6 +48,21 @@ final class TimingExtension implements Extension
             self::flush($collector, $store);
         };
 
+        // Terminal-outcome handlers declared once and shared by the closure-based
+        // subscribers below, so the (TimingCollector, string $root) constructor and
+        // the fileFor()+collector-call body are not copy-pasted per event (finding
+        // 16). Skipped and MarkedIncomplete both just close an accounting entry;
+        // Errored additionally records its own duration for the never-prepared case.
+        $terminate = static function (Test $test) use ($collector, $root): void {
+            $collector->terminated($test->id(), self::fileFor($test, $root));
+        };
+        $errored = static function (Errored $event) use ($collector, $root): void {
+            // Errored records the telemetry duration for the never-prepared case
+            // (finding 5, REQ-105): Test\Finished never fires for it, so these
+            // seconds are the only weight the file would otherwise get.
+            $collector->errored($event->test()->id(), self::fileFor($event->test(), $root), self::seconds($event));
+        };
+
         // Enumerate every test of the full, pre-filter suite. Paratest injects a
         // per-method filter AFTER TestSuite\Loaded fires, so a --functional worker
         // still enumerates the whole file here and can never flag it complete when
@@ -133,52 +148,33 @@ final class TimingExtension implements Extension
         // wasPrepared() the same way - out of this fix's scope, findings 5, 16).
         // Errored is the exception: it records a duration itself for the
         // never-prepared case (finding 5), since Finished never fires for it.
-        $facade->registerSubscriber(new class($collector, $root) implements SkippedSubscriber
+        $facade->registerSubscriber(new class($terminate) implements SkippedSubscriber
         {
-            public function __construct(
-                private readonly TimingCollector $collector,
-                private readonly string $root,
-            ) {}
+            public function __construct(private readonly Closure $terminate) {}
 
             public function notify(Skipped $event): void
             {
-                $this->collector->terminated(
-                    $event->test()->id(),
-                    TimingExtension::fileFor($event->test(), $this->root),
-                );
+                ($this->terminate)($event->test());
             }
         });
 
-        $facade->registerSubscriber(new class($collector, $root) implements ErroredSubscriber
+        $facade->registerSubscriber(new class($errored) implements ErroredSubscriber
         {
-            public function __construct(
-                private readonly TimingCollector $collector,
-                private readonly string $root,
-            ) {}
+            public function __construct(private readonly Closure $errored) {}
 
             public function notify(Errored $event): void
             {
-                $this->collector->errored(
-                    $event->test()->id(),
-                    TimingExtension::fileFor($event->test(), $this->root),
-                    TimingExtension::seconds($event),
-                );
+                ($this->errored)($event);
             }
         });
 
-        $facade->registerSubscriber(new class($collector, $root) implements MarkedIncompleteSubscriber
+        $facade->registerSubscriber(new class($terminate) implements MarkedIncompleteSubscriber
         {
-            public function __construct(
-                private readonly TimingCollector $collector,
-                private readonly string $root,
-            ) {}
+            public function __construct(private readonly Closure $terminate) {}
 
             public function notify(MarkedIncomplete $event): void
             {
-                $this->collector->terminated(
-                    $event->test()->id(),
-                    TimingExtension::fileFor($event->test(), $this->root),
-                );
+                ($this->terminate)($event->test());
             }
         });
 

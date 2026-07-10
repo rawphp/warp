@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use RawPHP\Warp\Cli\ShardCommand;
 use RawPHP\Warp\Cli\WarpCli;
 use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Shard\MissingConfigurationException;
 use RawPHP\Warp\Shard\SuiteDiscovery;
+use RawPHP\Warp\Shard\TestFileFinder;
 use RawPHP\Warp\Timing\TimingStore;
 
 beforeEach(function () {
@@ -434,6 +436,65 @@ it('returns 2 with usage when the shard spec is missing', function () {
     expect($exit)->toBe(2)
         ->and($stdout)->toBe('')
         ->and($stderr)->toContain('usage: warp shard');
+});
+
+it('documents --configuration in the shard usage output (finding 21)', function () {
+    [$exit, $stdout, $stderr] = ($this->run)([$this->tmp.'/tests']);
+
+    expect($exit)->toBe(2)
+        ->and($stderr)->toContain('usage: warp shard')
+        ->and($stderr)->toContain('--configuration=');
+});
+
+it('sources both usage strings from one shared definition that documents --configuration (finding 21)', function () {
+    $root = dirname(__DIR__, 3);
+    $shardSrc = (string) file_get_contents($root.'/src/Cli/ShardCommand.php');
+    $cliSrc = (string) file_get_contents($root.'/src/Cli/WarpCli.php');
+
+    // One shared constant, documenting --configuration, referenced by both.
+    expect(ShardCommand::USAGE)
+        ->toContain('warp shard')
+        ->toContain('--configuration=');
+    expect($cliSrc)
+        ->toContain('ShardCommand::USAGE')
+        ->not->toContain('warp shard <index>/<total>');
+    expect($shardSrc)->toContain('const USAGE');
+});
+
+it('bench reuses ShardCommand canonicalization instead of forking it (finding 20)', function () {
+    $root = dirname(__DIR__, 3);
+    $bench = (string) file_get_contents($root.'/bench/shard-spread.php');
+
+    expect($bench)
+        ->toContain('ShardCommand::canonicalFiles(')
+        ->not->toContain('test path is outside project root');
+
+    // The exception string lives exactly once across src/ and bench/.
+    $occurrences = 0;
+    foreach (['src', 'bench'] as $dir) {
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($root.'/'.$dir, FilesystemIterator::SKIP_DOTS),
+        );
+        foreach ($iterator as $file) {
+            if ($file->getExtension() === 'php') {
+                $occurrences += substr_count((string) file_get_contents($file->getPathname()), 'test path is outside project root');
+            }
+        }
+    }
+
+    expect($occurrences)->toBe(1);
+});
+
+it('sources default shard suffixes from TestFileFinder::DEFAULT_SUFFIXES rather than a copy (finding 22)', function () {
+    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Cli/ShardCommand.php');
+
+    expect($source)
+        ->toContain('TestFileFinder::DEFAULT_SUFFIXES')
+        ->not->toContain("['Test.php', '.phpt']");
+
+    $const = new ReflectionClassConstant(TestFileFinder::class, 'DEFAULT_SUFFIXES');
+    expect($const->isPublic())->toBeTrue()
+        ->and(TestFileFinder::DEFAULT_SUFFIXES)->toBe(['Test.php', '.phpt']);
 });
 
 it('returns 2 on a missing test path', function () {

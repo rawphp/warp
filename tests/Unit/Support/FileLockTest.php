@@ -77,6 +77,14 @@ it('throws without invoking the callback when flock fails', function () {
         ->and(FailingLockStream::$closed)->toBe(1);
 });
 
+it('contains no dead error_get_last fallback (finding 19)', function () {
+    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Support/FileLock.php');
+
+    // The scoped error handler already captures the fopen warning, so the
+    // error_get_last() fallback after it was unreachable dead code.
+    expect($source)->not->toContain('error_get_last');
+});
+
 it('reports the underlying fopen warning when the lock file cannot be opened', function () {
     $called = false;
     $lockFile = $this->root.'/missing/test.lock';

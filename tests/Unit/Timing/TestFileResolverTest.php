@@ -220,6 +220,18 @@ it('produces the same keys as shard-time path canonicalization', function (strin
     'at project root' => ['{root}', '{root}'],
 ]);
 
+it('has no cacheableClass duplicate and at most three static caches (finding 18)', function () {
+    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Timing/TestFileResolver.php');
+
+    expect($source)
+        ->not->toContain('cacheableClass')
+        ->not->toContain('cacheableByClass');
+
+    // resolvedByClass, filenameByClass, fileByClass - the fourth parallel cache
+    // (cacheableByClass) is gone; cacheable === fileForClass() !== null.
+    expect(substr_count($source, 'private static array $'))->toBeLessThanOrEqual(3);
+});
+
 it('delegates canonicalization to the shared Paths helper', function () {
     $source = file_get_contents(dirname(__DIR__, 3).'/src/Timing/TestFileResolver.php');
 
