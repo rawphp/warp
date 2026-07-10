@@ -66,3 +66,26 @@ ok, run intake + ideate + capture
 - Errored-unprepared tests: **record the telemetry duration from the Errored event** so slow-but-failing files keep realistic weight.
 
 Sequencing: Stream 1 before Stream 3's key-policy change to avoid churning the same files twice. Streams 2 and 4 are independent.
+
+## Clarifications
+
+**Q:** Lock-on-read (finding 2) — how does the fix coexist with the UR-011 read-only CI-artifact-restore guarantee, given FileLock opens its lock file for writing?
+**A:** Attempt merge.lock in the read path; fall back to today's lockless read (with vanished-batch tolerance) when the lock file can't be created. One acquisition covers storedRoot + fileTotals together, also killing the TOCTOU between them (finding 17). *(inferred, confirmed)*
+
+**Q:** Root-scoped merge (finding 3) — what happens to pending batches whose root differs from the artifact's?
+**A:** Warn-and-delete under the merge lock, never left pending forever — consistent with the UR-013 junk-batch precedent (deletions only in mergeToDisk under the merge lock; load() stays read-only). The authoritative root is the existing artifact's root (or the first batch's when no artifact exists yet). *(inferred, confirmed)*
+
+**Q:** Errored-duration fix (finding 5) — when is the Errored event's telemetry duration recorded?
+**A:** Only when the test was never prepared (wasPrepared false). Prepared failing tests already record via Test\Finished; unconditional recording would double-count. A test must prove no double-record. *(inferred, confirmed)*
+
+**Q:** Windows fixes (findings 10/14) — what is the acceptance bar given no Windows CI exists?
+**A:** Unit tests with simulated drive-letter inputs; no platform-support claim. *(inferred, confirmed)*
+
+**Q:** REQ grouping — one design REQ or narrow finding-level REQs?
+**A:** Stream 1 (root handshake: findings 3/4/7/9/15) is ONE design REQ per the UR-016 completeness precedent ("point-fixes on this subsystem repeatedly left adjacent holes"). Streams 2–4 and the quick win are narrow REQs per the UR-015 precedent, with footprint arbitration and only real hard deps. *(inferred, confirmed)*
+
+**Q:** The brief accepts "root mismatch degrades to count-balanced with a warning" (finding 7), but at yesterday's UR-016 question gate you chose "mismatch fails loudly". Which policy stands when `warp shard` finds storedRoot ≠ canonicalRoot?
+**A:** Middle path: degrade to count-balanced with a warning ONLY when zero stored keys would match discovered files anyway (pure stale/foreign artifact, e.g. restored cache from a renamed workspace); fail loudly (exit 2) when keys WOULD match — a real misconfiguration worth stopping for. Supersedes the 2026-07-10 UR-016 unconditional fail-loudly line; capture must append the superseding decisions.md entry.
+
+**Q:** Stream 3 widens allowOutsideRoot to all three discovery modes (finding 8) — what key form do outside-root test files get, given absolute keys never match across machines?
+**A:** Root-relative keys with ../ segments (e.g. `../shared/tests/FooTest.php`) in all modes — stable across machines with the same layout, one key domain everywhere.
