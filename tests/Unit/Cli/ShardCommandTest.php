@@ -487,6 +487,48 @@ it('rejects unknown options instead of treating them as paths', function () {
         ->and($stderr)->not->toContain('no such test path');
 });
 
+it('covers a symlink, a .phpt file, and excludes a hidden-dir decoy across the union of shards', function () {
+    chdir($this->tmp);
+
+    Dirs::ensure($this->tmp.'/shared');
+    file_put_contents($this->tmp.'/shared/SharedTest.php', '<?php');
+    symlink($this->tmp.'/shared', $this->tmp.'/tests/Linked');
+
+    file_put_contents($this->tmp.'/tests/example.phpt', "--TEST--\nExample\n--FILE--\n<?php\n--EXPECT--\n");
+
+    Dirs::ensure($this->tmp.'/tests/.cache');
+    file_put_contents($this->tmp.'/tests/.cache/StaleTest.php', '<?php');
+
+    $runs = [
+        ($this->run)(['1/3', 'tests', '--timings-dir='.$this->tmp.'/timings']),
+        ($this->run)(['2/3', 'tests', '--timings-dir='.$this->tmp.'/timings']),
+        ($this->run)(['3/3', 'tests', '--timings-dir='.$this->tmp.'/timings']),
+    ];
+
+    expect(array_column($runs, 0))->toBe([0, 0, 0]);
+
+    $union = array_values(array_filter(array_merge(
+        explode("\n", trim($runs[0][1])),
+        explode("\n", trim($runs[1][1])),
+        explode("\n", trim($runs[2][1])),
+    )));
+    sort($union);
+
+    // ShardCommand canonicalizes discovered files via realpath() against the
+    // project root (Paths::canonical), so a file reached through a symlinked
+    // directory is reported under its real (target) path, not the symlink
+    // name it was discovered through.
+    expect($union)->toBe([
+        'shared/SharedTest.php',
+        'tests/ATest.php',
+        'tests/BTest.php',
+        'tests/CTest.php',
+        'tests/DTest.php',
+        'tests/example.phpt',
+    ])
+        ->and(count($union))->toBe(count(array_unique($union)));
+});
+
 it('returns 3 and prints nothing when the shard is empty', function () {
     chdir($this->tmp);
 
