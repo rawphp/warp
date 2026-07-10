@@ -1,7 +1,13 @@
 # REQ-107: One shared Paths::absolute() — kill the three drifted resolvers
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.dw17
+**Claimed at:** 2026-07-10T07:23:55Z
+**Heartbeat:** 2026-07-10T07:23:55Z
+<!-- claimed-end -->
+
 **UR:** UR-017
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
