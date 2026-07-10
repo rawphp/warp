@@ -30,11 +30,11 @@ Review finding 1 (most severe — deterministic install failure for PHPUnit 11 c
 
 ## Acceptance Criteria
 
-- [ ] `composer.json` requires `phpunit/php-file-iterator: ^5.0 || ^6.0` and `composer why-not phpunit/phpunit 11.5.0` no longer reports a conflict caused by rawphp/warp's file-iterator constraint
-- [ ] `composer/semver` appears in `require-dev` and `composer why composer/semver` lists rawphp/warp as a direct dependent
-- [ ] ComposerConstraintTest asserts phpunit ^11 and the file-iterator constraint are co-satisfiable, and fails if the file-iterator constraint is re-tightened to ^6-only
-- [ ] `composer validate` passes and the lock file is regenerated consistently (`composer install` from clean state succeeds)
-- [ ] Full suite green: `./vendor/bin/pest`
+- [x] `composer.json` requires `phpunit/php-file-iterator: ^5.0 || ^6.0` and `composer why-not phpunit/phpunit 11.5.0` no longer reports a conflict caused by rawphp/warp's file-iterator constraint
+- [x] `composer/semver` appears in `require-dev` and `composer why composer/semver` lists rawphp/warp as a direct dependent
+- [x] ComposerConstraintTest asserts phpunit ^11 and the file-iterator constraint are co-satisfiable, and fails if the file-iterator constraint is re-tightened to ^6-only
+- [x] `composer validate` passes and the lock file is regenerated consistently (`composer install` from clean state succeeds)
+- [x] Full suite green: `./vendor/bin/pest`
 
 ## Verification Steps
 
