@@ -115,15 +115,21 @@ final class TimingCollector
         return $complete;
     }
 
-    /** Idempotent: the ExecutionFinished subscriber and the shutdown backstop may both call this. */
+    /**
+     * Idempotent: the ExecutionFinished subscriber and the shutdown backstop may
+     * both call this. The flag is set only after writePending() returns without
+     * throwing, so a transient write failure leaves hasFlushed() false and a
+     * later backstop retry can still publish the run's timings.
+     */
     public function flush(TimingStore $store): void
     {
         if ($this->flushed) {
             return;
         }
 
-        $this->flushed = true;
         $store->writePending($this->tests, $this->completeFiles());
+
+        $this->flushed = true;
     }
 
     private function enumerate(string $id, ?string $file): void
