@@ -109,6 +109,24 @@ final class SuiteDiscovery
         return null;
     }
 
+    /**
+     * The configuration file that governs timing-key root computation, exposed so
+     * ShardCommand feeds the shared resolver the same file the timing extension
+     * saw — without loading the suite twice. An explicit --configuration is
+     * resolved to an absolute path (its existence is not required here: root
+     * computation tolerates a missing file, and explicit-path mode uses the flag
+     * only for the root, never for discovery). Otherwise the implicit phpunit.xml
+     * probe order is used; null when neither resolves.
+     */
+    public static function rootConfigurationPath(string $root, ?string $configuration = null): ?string
+    {
+        try {
+            return self::configurationPath($root, $configuration);
+        } catch (RuntimeException) {
+            return self::resolve(rtrim($root, DIRECTORY_SEPARATOR), (string) $configuration);
+        }
+    }
+
     private static function resolve(string $root, string $path): string
     {
         if (str_starts_with($path, DIRECTORY_SEPARATOR)) {

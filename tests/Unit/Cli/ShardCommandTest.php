@@ -285,7 +285,8 @@ XML);
     expect($exit)->toBe(0)
         ->and($stdout)->toBe("tests/ATest.php\ntests/BTest.php\ntests/CTest.php\ntests/DTest.php\n")
         ->and($stdout)->not->toContain('configuration')
-        ->and($stderr)->toContain('[warp] --configuration=custom.xml ignored because explicit test paths bypass suite discovery')
+        ->and($stderr)->toContain('[warp] --configuration=custom.xml ignored for suite discovery')
+        ->and($stderr)->toContain('discovery')
         ->and($stderr)->toContain('no recorded timings')
         ->and($stdout)->not->toContain('checks/HealthCheck.php');
 });
@@ -537,6 +538,106 @@ it('returns 3 and prints nothing when the shard is empty', function () {
     expect($exit)->toBe(3)
         ->and($stdout)->toBe('')
         ->and($stderr)->toContain('is empty');
+});
+
+it('records and shards with identical roots for a symlinked implicit phpunit.xml (finding 4)', function () {
+    // The real config lives in a sibling dir; cwd exposes it through a symlink.
+    // Pre-fix, the read side used raw getcwd() while the write side stamped
+    // dirname(realpath(configFile)), so the symlink diverged the two roots and
+    // every shard exited 2 on a false mismatch.
+    $realConfigDir = $this->tmp.'/realconfig';
+    Dirs::ensure($realConfigDir);
+    file_put_contents($realConfigDir.'/phpunit.xml', <<<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit>
+    <testsuites>
+        <testsuite name="Linked">
+            <directory>{$this->tmp}/tests</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>
+XML);
+
+    chdir($this->tmp);
+    symlink($realConfigDir.'/phpunit.xml', $this->tmp.'/phpunit.xml');
+
+    $configRoot = (string) realpath($realConfigDir);
+
+    // The extension would stamp dirname(realpath(phpunit.xml)) = the REAL config
+    // dir. Record under exactly that root, with the same absolute keys the shard's
+    // canonicalizer produces for out-of-root files.
+    $store = (new TimingStore($this->tmp.'/timings'))->withRoot($configRoot);
+    $store->writePending([
+        't1' => ['file' => (string) realpath($this->tmp.'/tests/ATest.php'), 'ms' => 100.0],
+        't2' => ['file' => (string) realpath($this->tmp.'/tests/BTest.php'), 'ms' => 10.0],
+        't3' => ['file' => (string) realpath($this->tmp.'/tests/CTest.php'), 'ms' => 10.0],
+        't4' => ['file' => (string) realpath($this->tmp.'/tests/DTest.php'), 'ms' => 10.0],
+    ]);
+    $store->mergeToDisk();
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/2', '--timings-dir='.$this->tmp.'/timings']);
+
+    expect($exit)->toBe(0)
+        ->and($stderr)->not->toContain('root mismatch')
+        ->and($stderr)->not->toContain('recorded timings match no discovered file')
+        ->and($stdout)->toContain((string) realpath($this->tmp.'/tests/ATest.php'));
+});
+
+it('honours --configuration for the timing-key root in explicit-path mode (finding 9)', function () {
+    Dirs::ensure($this->tmp.'/config');
+    writeShardPhpunitConfig($this->tmp.'/config/phpunit.xml', <<<'XML'
+        <testsuite name="Unit">
+            <directory>../tests</directory>
+        </testsuite>
+XML);
+
+    chdir($this->tmp);
+
+    $configRoot = (string) realpath($this->tmp.'/config');
+
+    // Timings were recorded against the config dir (root=<project>/config). With
+    // explicit paths the shard bypasses discovery but must still resolve keys
+    // against the config dir, so the recorded and shard-time roots agree.
+    $store = (new TimingStore($this->tmp.'/timings'))->withRoot($configRoot);
+    $store->writePending([
+        't1' => ['file' => (string) realpath($this->tmp.'/tests/ATest.php'), 'ms' => 100.0],
+        't2' => ['file' => (string) realpath($this->tmp.'/tests/BTest.php'), 'ms' => 10.0],
+        't3' => ['file' => (string) realpath($this->tmp.'/tests/CTest.php'), 'ms' => 10.0],
+        't4' => ['file' => (string) realpath($this->tmp.'/tests/DTest.php'), 'ms' => 10.0],
+    ]);
+    $store->mergeToDisk();
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/2', 'tests', '--configuration=config/phpunit.xml', '--timings-dir='.$this->tmp.'/timings']);
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->not->toBe('')
+        ->and($stdout)->toContain((string) realpath($this->tmp.'/tests/ATest.php'))
+        ->and($stderr)->toContain('ignored for suite discovery')
+        ->and($stderr)->not->toContain('root mismatch')
+        ->and($stderr)->not->toContain('recorded timings match no discovered file');
+});
+
+it('degrades to count-balanced with a warning when a stale artifact root matches no discovered file (finding 7)', function () {
+    chdir($this->tmp);
+    writeShardPhpunitConfig($this->tmp.'/phpunit.xml', <<<'XML'
+        <testsuite name="Unit">
+            <directory>tests</directory>
+        </testsuite>
+XML);
+
+    // Recorded against a renamed workspace path with keys that match nothing here
+    // (pure stale/foreign artifact, e.g. a restored CI cache from another path).
+    $store = (new TimingStore($this->tmp.'/timings'))->withRoot('/ci/old/workspace');
+    $store->writePending(['t1' => ['file' => 'src/Legacy/GoneTest.php', 'ms' => 100.0]]);
+    $store->mergeToDisk();
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/2', '--configuration=phpunit.xml', '--timings-dir='.$this->tmp.'/timings']);
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->not->toBe('')
+        ->and($stderr)->toContain('/ci/old/workspace')
+        ->and($stderr)->toContain((string) realpath($this->tmp))
+        ->and($stderr)->toContain('count-balanced');
 });
 
 function writeShardPhpunitConfig(string $path, string $testsuite): void

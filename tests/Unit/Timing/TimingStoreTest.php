@@ -1145,6 +1145,91 @@ PHP);
         expect($this->store->storedRoot())->toBeNull();
     });
 
+    it('keeps the artifact root and warn-deletes a foreign-root pending batch during merge (finding 3)', function () {
+        Dirs::ensure($this->dir.'/pending');
+
+        // The existing artifact establishes the authoritative root.
+        file_put_contents($this->dir.'/timings.json', json_encode([
+            'version' => 3,
+            'root' => '/home/project/config',
+            'tests' => ['home::a' => ['file' => 'tests/ATest.php', 'ms' => 100.0]],
+        ]));
+
+        // A matching-root batch folds in; a foreign-root batch (a stray recording
+        // from a different config dir) must not flip the stored root or mix domains.
+        file_put_contents($this->dir.'/pending/100-1-aaaaaaaa.json', json_encode([
+            'root' => '/home/project/config',
+            'tests' => ['home::b' => ['file' => 'tests/BTest.php', 'ms' => 20.0]],
+        ]));
+        $foreign = $this->dir.'/pending/200-1-bbbbbbbb.json';
+        file_put_contents($foreign, json_encode([
+            'root' => '/ci/cache/other',
+            'tests' => ['foreign::x' => ['file' => 'tests/XTest.php', 'ms' => 999.0]],
+        ]));
+
+        $store = new TimingStore($this->dir);
+        $store->mergeToDisk();
+
+        $merged = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
+
+        expect($merged['root'])->toBe('/home/project/config')
+            ->and(array_keys($merged['tests']))->toBe(['home::a', 'home::b'])
+            ->and($merged['tests'])->not->toHaveKey('foreign::x')
+            ->and(is_file($foreign))->toBeFalse()
+            ->and($store->storedRoot())->toBe('/home/project/config');
+    });
+
+    it('skips and warns a foreign-root pending batch on load without deleting it (finding 3)', function () {
+        Dirs::ensure($this->dir.'/pending');
+
+        file_put_contents($this->dir.'/timings.json', json_encode([
+            'version' => 3,
+            'root' => '/home/project/config',
+            'tests' => ['home::a' => ['file' => 'tests/ATest.php', 'ms' => 100.0]],
+        ]));
+        $foreign = $this->dir.'/pending/200-1-bbbbbbbb.json';
+        file_put_contents($foreign, json_encode([
+            'root' => '/ci/cache/other',
+            'tests' => ['foreign::x' => ['file' => 'tests/XTest.php', 'ms' => 999.0]],
+        ]));
+
+        $warnings = [];
+        $store = (new TimingStore($this->dir))->withWarner(function (string $m) use (&$warnings): void {
+            $warnings[] = $m;
+        });
+
+        $tests = $store->load();
+
+        expect(array_keys($tests))->toBe(['home::a'])
+            ->and($tests)->not->toHaveKey('foreign::x')
+            ->and($store->storedRoot())->toBe('/home/project/config')
+            ->and(is_file($foreign))->toBeTrue()
+            ->and(implode('', $warnings))->toContain('different root')
+            ->and(implode('', $warnings))->toContain('/ci/cache/other');
+    });
+
+    it('adopts the first pending batch root as authoritative when no artifact exists yet (finding 3)', function () {
+        Dirs::ensure($this->dir.'/pending');
+
+        file_put_contents($this->dir.'/pending/100-1-aaaaaaaa.json', json_encode([
+            'root' => '/first/root',
+            'tests' => ['a' => ['file' => 'tests/ATest.php', 'ms' => 10.0]],
+        ]));
+        file_put_contents($this->dir.'/pending/200-1-bbbbbbbb.json', json_encode([
+            'root' => '/second/root',
+            'tests' => ['b' => ['file' => 'tests/BTest.php', 'ms' => 20.0]],
+        ]));
+
+        $store = new TimingStore($this->dir);
+        $store->mergeToDisk();
+
+        $merged = json_decode((string) file_get_contents($this->dir.'/timings.json'), true);
+
+        expect($merged['root'])->toBe('/first/root')
+            ->and(array_keys($merged['tests']))->toBe(['a'])
+            ->and($merged['tests'])->not->toHaveKey('b');
+    });
+
     it('fromEnv honours WARP_TIMINGS_DIR', function () {
         putenv('WARP_TIMINGS_DIR='.$this->dir);
 

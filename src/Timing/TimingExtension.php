@@ -222,19 +222,15 @@ final class TimingExtension implements Extension
 
     /**
      * Canonical timing-key root: the directory of the phpunit.xml actually used,
-     * so keys line up with `warp shard --configuration=` (which resolves against
-     * dirname(config)). Falls back to the cwd only for pure CLI-path runs with no
-     * XML configuration. Mirrors ShardCommand::suiteRoot's dirname(realpath()) form.
+     * so keys line up with `warp shard` (which resolves the same config through
+     * the same shared resolver). Falls back to the cwd only for pure CLI-path runs
+     * with no XML configuration.
      */
     private static function canonicalRoot(Configuration $configuration): string
     {
-        if ($configuration->hasConfigurationFile()) {
-            $configFile = $configuration->configurationFile();
-            $realpath = realpath($configFile);
-
-            return dirname($realpath === false ? $configFile : $realpath);
-        }
-
-        return (string) getcwd();
+        return Paths::configRoot(
+            $configuration->hasConfigurationFile() ? $configuration->configurationFile() : null,
+            (string) getcwd(),
+        );
     }
 }

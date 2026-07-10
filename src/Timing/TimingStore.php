@@ -239,6 +239,11 @@ final class TimingStore
         $merged = $this->readMergedData();
         $tests = $merged['tests'];
         $root = $merged['root'];
+        // The authoritative root is the existing artifact's root; when no artifact
+        // has established one yet, the first pending batch to carry a root wins.
+        // Every later batch whose root differs is foreign and never allowed to flip
+        // the stored root or mix key domains (finding 3).
+        $rootEstablished = is_file($this->dir.'/timings.json') && $root !== null;
         $fileIndex = self::indexByFile($tests);
         $mergedPending = [];
 
@@ -281,8 +286,24 @@ final class TimingStore
                 continue;
             }
 
-            if (isset($batch['root']) && is_string($batch['root'])) {
-                $root = $batch['root'];
+            $batchRoot = isset($batch['root']) && is_string($batch['root']) ? $batch['root'] : null;
+
+            if ($batchRoot !== null) {
+                if (! $rootEstablished) {
+                    $root = $batchRoot;
+                    $rootEstablished = true;
+                } elseif ($batchRoot !== $root) {
+                    // Foreign batch: recorded against a different config dir. Warn-and-delete
+                    // under the merge lock (cleanupJunk); skip-and-warn, never delete, on the
+                    // read-only load path so a stray batch cannot flip the domain or the root.
+                    $this->warn("[warp] skipped pending timings batch recorded against a different root ('{$batchRoot}' != '{$root}'): ".$path.PHP_EOL);
+
+                    if ($cleanupJunk) {
+                        $mergedPending[] = $path;
+                    }
+
+                    continue;
+                }
             }
 
             $tests = self::apply($tests, $fileIndex, $batch);
