@@ -1,19 +1,13 @@
 # REQ-092: Commit the .warp/ gitignore entry
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.95040
-**Claimed at:** 2026-07-10T02:14:56Z
-**Heartbeat:** 2026-07-10T02:14:56Z
-<!-- claimed-end -->
-
 **UR:** UR-016
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:1453a78
 **Criteria approved:** agent-drafted
 **Size:** S
 **Files:** .gitignore
@@ -29,9 +23,9 @@ Finding 8 (UR-016): the feature's default artifact dir is `{cwd}/.warp/timings` 
 
 ## Acceptance Criteria
 
-- [ ] `git show HEAD:.gitignore` contains a `.warp/` line after this REQ's commit
-- [ ] The file ends with a trailing newline (`tail -c 1 .gitignore` is `\n`)
-- [ ] `git status` shows no untracked files after running `WARP_TIMINGS=1 ./vendor/bin/pest --filter=WarpModeTest` in a scratch checkout state (timings artifacts are ignored)
+- [x] `git show HEAD:.gitignore` contains a `.warp/` line after this REQ's commit
+- [x] The file ends with a trailing newline (`tail -c 1 .gitignore` is `\n`)
+- [x] `git status` shows no untracked files after running `WARP_TIMINGS=1 ./vendor/bin/pest --filter=WarpModeTest` in a scratch checkout state (timings artifacts are ignored)
 
 ## Verification Steps
 
@@ -41,3 +35,7 @@ Finding 8 (UR-016): the feature's default artifact dir is `{cwd}/.warp/timings` 
    - Expected: `git status --porcelain -- .warp/` prints nothing (the directory is ignored); cleanup removes the probe
 2. **test** `tail -c 1 .gitignore | od -c | head -1`
    - Expected: last byte is `\n`
+
+## Outputs
+
+- .gitignore — Added committed `.warp/` ignore entry with trailing newline (was previously only an uncommitted working-tree edit)
