@@ -144,7 +144,9 @@ it('does not supersede sibling timings from method-filtered captures', function 
 
         runPestWithTimings($dir, [$fixture, '--filter=records first restriction fixture timing']);
 
-        expect(pendingCompletenessFlags($dir))->toBe([false]);
+        // Only one of the file's two enumerated tests terminated, so the file is
+        // flagged incomplete and never supersedes its stale sibling.
+        expect(pendingCompleteMaps($dir)[0][$fixtureKey] ?? null)->toBeFalse();
 
         $store = new TimingStore($dir);
         $store->mergeToDisk();
@@ -159,7 +161,7 @@ it('does not supersede sibling timings from method-filtered captures', function 
     }
 });
 
-it('marks explicit path captures incomplete so sibling timings survive', function () {
+it('marks a whole-file explicit path capture complete so stale sibling ids are pruned', function () {
     $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
     $fixture = writeTimingRestrictionFixture();
     $fixtureKey = 'tests/Integration/Timing/RestrictionFixtureTest.php';
@@ -169,17 +171,18 @@ it('marks explicit path captures incomplete so sibling timings survive', functio
             'Seeded::sibling' => ['file' => $fixtureKey, 'ms' => 4321.0],
         ]);
 
+        // An explicit path runs every enumerated test of the file, so per-file
+        // accounting flags it complete and prunes the stale renamed sibling id.
         runPestWithTimings($dir, [$fixture]);
 
-        expect(pendingCompletenessFlags($dir))->toBe([false]);
+        expect(pendingCompleteMaps($dir)[0][$fixtureKey] ?? null)->toBeTrue();
 
         $store = new TimingStore($dir);
         $store->mergeToDisk();
 
         $tests = $store->load();
 
-        expect($tests)->toHaveKey('Seeded::sibling')
-            ->and($tests['Seeded::sibling']['ms'])->toBe(4321.0);
+        expect($tests)->not->toHaveKey('Seeded::sibling');
     } finally {
         @unlink($fixture);
         Dirs::delete($dir);
@@ -199,7 +202,7 @@ it('keeps testsuite-only captures complete so stale ids are pruned', function ()
 
         runPestWithTimings($dir, ['--configuration='.$config, '--testsuite=RestrictionFixture']);
 
-        expect(pendingCompletenessFlags($dir))->toBe([true]);
+        expect(pendingCompleteMaps($dir)[0][$fixtureKey] ?? null)->toBeTrue();
 
         $store = new TimingStore($dir);
         $store->mergeToDisk();
@@ -276,9 +279,10 @@ it('marks stop-on-failure captures incomplete so unrun sibling timings survive',
             ->and(implode(PHP_EOL, $result['output']))->toContain('fails and stops early');
 
         $payload = pendingPayloads($dir)[0] ?? null;
+        $fixtureKeyKey = 'tests/Integration/Timing/EarlyStopFixtureTest.php';
 
         expect($payload)->toBeArray()
-            ->and($payload['complete'] ?? null)->toBeFalse()
+            ->and($payload['complete'][$fixtureKeyKey] ?? null)->toBeFalse()
             ->and($payload['tests'] ?? [])->toHaveCount(2);
 
         $recordedIds = implode("\n", array_keys($payload['tests']));
@@ -315,7 +319,7 @@ it('keeps successful stop-on-failure testsuite captures complete so stale ids ar
 
         runPestWithTimings($dir, ['--configuration='.$config, '--testsuite=PassingStopOnFixture']);
 
-        expect(pendingCompletenessFlags($dir))->toBe([true]);
+        expect(pendingCompleteMaps($dir)[0][$fixtureKey] ?? null)->toBeTrue();
 
         $store = new TimingStore($dir);
         $store->mergeToDisk();
@@ -346,7 +350,7 @@ it('marks stop-on-defect captures incomplete when a defect stops the run', funct
 
         expect($result['exit'])->toBe(1)
             ->and(implode(PHP_EOL, $result['output']))->toContain('fails and stops early')
-            ->and(pendingCompletenessFlags($dir))->toBe([false]);
+            ->and(pendingCompleteMaps($dir)[0][$fixtureKey] ?? null)->toBeFalse();
 
         $store = new TimingStore($dir);
         $store->mergeToDisk();
@@ -378,7 +382,7 @@ it('marks stop-on-error captures incomplete when an error stops the run', functi
 
         expect($result['exit'])->toBe(2)
             ->and(implode(PHP_EOL, $result['output']))->toContain('errors and stops early')
-            ->and(pendingCompletenessFlags($dir))->toBe([false]);
+            ->and(pendingCompleteMaps($dir)[0][$fixtureKey] ?? null)->toBeFalse();
 
         $store = new TimingStore($dir);
         $store->mergeToDisk();
@@ -400,28 +404,28 @@ it('shutdown backstop capture supersedes stale entries for fully observed files'
 
     Dirs::ensure($dir);
     file_put_contents($dir.'/timings.json', json_encode([
-        'version' => 2,
+        'version' => 3,
         'tests' => [
             'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
             'FileA::staleRenamed' => ['file' => 'tests/FileATest.php', 'ms' => 5000.0],
         ],
     ], JSON_THROW_ON_ERROR));
 
-    $flush = new ReflectionMethod(TimingExtension::class, 'flush');
-
     $collector = new TimingCollector;
+    $collector->enumerated('FileA::one', 'tests/FileATest.php');
     $collector->started('FileA::one', 1.0);
     $collector->finished('FileA::one', 'tests/FileATest.php', 1.25);
 
     $store = new TimingStore($dir);
-    $flush->invoke(null, $collector, $store, shutdownBackstopComplete($collector));
+    backstopFlush($collector, $store);
     $store->mergeToDisk();
 
     $collector = new TimingCollector;
+    $collector->enumerated('FileA::one', 'tests/FileATest.php');
     $collector->started('FileA::one', 2.0);
     $collector->finished('FileA::one', 'tests/FileATest.php', 2.5);
 
-    $flush->invoke(null, $collector, $store, shutdownBackstopComplete($collector));
+    backstopFlush($collector, $store);
     $store->mergeToDisk();
 
     expect($store->load())->toBe([
@@ -436,38 +440,33 @@ it('shutdown backstop capture with an in-flight test does not supersede sibling 
 
     Dirs::ensure($dir);
     file_put_contents($dir.'/timings.json', json_encode([
-        'version' => 2,
+        'version' => 3,
         'tests' => [
             'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 1000.0],
             'FileA::sibling' => ['file' => 'tests/FileATest.php', 'ms' => 5000.0],
         ],
     ], JSON_THROW_ON_ERROR));
 
-    $flush = new ReflectionMethod(TimingExtension::class, 'flush');
+    // The file's second test is enumerated (from Loaded) but the process dies
+    // before it terminates, so the file stays incomplete and only upserts.
     $collector = new TimingCollector;
+    $collector->enumerated('FileA::one', 'tests/FileATest.php');
+    $collector->enumerated('FileA::two', 'tests/FileATest.php');
     $collector->started('FileA::one', 1.0);
     $collector->finished('FileA::one', 'tests/FileATest.php', 1.25);
     $collector->started('FileA::two', 1.3);
 
     $store = new TimingStore($dir);
-    $flush->invoke(null, $collector, $store, shutdownBackstopComplete($collector));
+    backstopFlush($collector, $store);
     $store->mergeToDisk();
 
-    expect(pendingCompletenessFlags($dir))->toBe([])
+    expect(pendingCompleteMaps($dir))->toBe([])
         ->and($store->load())->toBe([
             'FileA::one' => ['file' => 'tests/FileATest.php', 'ms' => 250.0],
             'FileA::sibling' => ['file' => 'tests/FileATest.php', 'ms' => 5000.0],
         ]);
 
     Dirs::delete($dir);
-});
-
-it('shutdown backstop completeness remains incomplete after fatal shutdowns', function () {
-    $collector = new TimingCollector;
-    $collector->started('FileA::one', 1.0);
-    $collector->finished('FileA::one', 'tests/FileATest.php', 1.25);
-
-    expect(shutdownBackstopComplete($collector, hadFatalError: true))->toBeFalse();
 });
 
 it('keeps passing child runs green and warns once when timing flush fails', function () {
@@ -509,6 +508,200 @@ it('leaves no trace when WARP_TIMINGS is off', function () {
     expect(is_dir($dir))->toBeFalse();
 });
 
+it('marks a run halted by a stop-on flag outside the old list incomplete so the interrupted file survives (finding 4)', function () {
+    $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+    $fixture = writeTimingIncompleteStopFixture();
+    $config = writeTimingEarlyStopPhpunitConfig($fixture, 'stopOnIncomplete', 'IncompleteStopFixture');
+    $fixtureKey = 'tests/Integration/Timing/IncompleteStopFixtureTest.php';
+
+    try {
+        seedTimings($dir, [
+            'Seeded::unrunSibling' => ['file' => $fixtureKey, 'ms' => 2468.0],
+        ]);
+
+        // stopOnIncomplete is one of the flags the old stop-on sniffer missed
+        // (it only knew stopOnDefect/Error/Failure), so it used to flush
+        // complete=true and supersede the file's full timings. Per-file event
+        // accounting leaves the interrupted file incomplete regardless of which
+        // stop-on flag halted the run - no flag list required.
+        $result = runPestWithTimingsResult($dir, ['--configuration='.$config, '--testsuite=IncompleteStopFixture']);
+
+        expect(implode(PHP_EOL, $result['output']))->toContain('is incomplete and stops early')
+            ->and(pendingCompleteMaps($dir)[0][$fixtureKey] ?? null)->toBeFalse();
+
+        $store = new TimingStore($dir);
+        $store->mergeToDisk();
+
+        $tests = $store->load();
+
+        expect($tests)->toHaveKey('Seeded::unrunSibling')
+            ->and($tests['Seeded::unrunSibling']['ms'])->toBe(2468.0);
+    } finally {
+        @unlink($config);
+        @unlink($config.'.php');
+        @unlink($fixture);
+        Dirs::delete($dir);
+    }
+});
+
+it('reaches end-of-run with zero in-flight entries for a suite mixing .phpt and setUp skips (findings 5 and 16)', function () {
+    $root = dirname(__DIR__, 3);
+    $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+    $suite = sys_get_temp_dir().'/warp-phpt-suite-'.bin2hex(random_bytes(4));
+    $bootstrap = writeTimingRestrictionBootstrap();
+
+    Dirs::ensure($suite);
+    file_put_contents($suite.'/SkipSetupTest.php', <<<'PHP'
+<?php
+
+use PHPUnit\Framework\TestCase;
+
+final class WarpSkipSetupTest extends TestCase
+{
+    protected function setUp(): void
+    {
+        if ($this->name() === 'testSkippedInSetup') {
+            $this->markTestSkipped('skip in setUp');
+        }
+    }
+
+    public function testRunsNormally(): void
+    {
+        $this->assertTrue(true);
+    }
+
+    public function testSkippedInSetup(): void
+    {
+        $this->fail('should never run');
+    }
+}
+PHP);
+    file_put_contents($suite.'/example.phpt', <<<'PHPT'
+--TEST--
+warp phpt fixture
+--FILE--
+<?php
+echo 'warp-phpt-ok';
+--EXPECT--
+warp-phpt-ok
+PHPT);
+
+    $config = $suite.'/phpunit.xml';
+    file_put_contents($config, sprintf(<<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="%s" colors="true">
+    <testsuites>
+        <testsuite name="PhptSkipSuite">
+            <directory>.</directory>
+            <file>example.phpt</file>
+        </testsuite>
+    </testsuites>
+    <extensions>
+        <bootstrap class="RawPHP\Warp\Timing\TimingExtension"/>
+    </extensions>
+</phpunit>
+XML,
+        htmlspecialchars($bootstrap, ENT_XML1),
+    ));
+
+    try {
+        exec(sprintf(
+            'cd %s && WARP_MODE=0 WARP_DB=0 WARP_TIMINGS=1 WARP_TIMINGS_DIR=%s %s --configuration=%s 2>&1',
+            escapeshellarg($suite),
+            escapeshellarg($dir),
+            escapeshellarg($root.'/vendor/bin/phpunit'),
+            escapeshellarg($config),
+        ), $output, $exit);
+
+        $map = pendingCompleteMaps($dir)[0] ?? null;
+        $tests = pendingPayloads($dir)[0]['tests'] ?? [];
+
+        // No enumerated file leaked an in-flight entry: neither the .phpt (which
+        // is not a TestMethod) nor the setUp-skip left the file incomplete.
+        expect($map)->toBeArray()
+            ->and(in_array(false, $map, true))->toBeFalse()
+            ->and($map['SkipSetupTest.php'] ?? null)->toBeTrue()
+            ->and($map['example.phpt'] ?? null)->toBeTrue();
+
+        // The fully-run method still recorded a timing under its file.
+        $files = array_column($tests, 'file');
+        expect($files)->toContain('SkipSetupTest.php');
+    } finally {
+        Dirs::delete($dir);
+        Dirs::delete($suite);
+        @unlink($bootstrap);
+    }
+});
+
+it('flushes a pending batch through the shutdown backstop when a test exits mid-run (untested backstop gap)', function () {
+    $dir = sys_get_temp_dir().'/warp-capture-'.bin2hex(random_bytes(4));
+    $fixture = writeTimingExitMidRunFixture();
+    $fixtureKey = 'tests/Integration/Timing/ExitMidRunFixtureTest.php';
+
+    try {
+        // The second test exit()s, so ExecutionFinished never fires and only the
+        // register_shutdown_function backstop can flush. The first test's timing
+        // is captured, but the file is incomplete (later tests never terminated).
+        $result = runPestWithTimingsResult($dir, [$fixture]);
+
+        $maps = pendingCompleteMaps($dir);
+        $tests = pendingPayloads($dir)[0]['tests'] ?? [];
+
+        expect($maps)->toHaveCount(1)
+            ->and($maps[0][$fixtureKey] ?? null)->toBeFalse()
+            ->and(array_column($tests, 'file'))->toContain($fixtureKey);
+    } finally {
+        @unlink($fixture);
+        Dirs::delete($dir);
+    }
+});
+
+function writeTimingIncompleteStopFixture(): string
+{
+    $path = dirname(__DIR__).'/Timing/IncompleteStopFixtureTest.php';
+
+    file_put_contents($path, <<<'PHP'
+<?php
+
+it('passes before incomplete stop', function () {
+    expect(true)->toBeTrue();
+});
+
+it('is incomplete and stops early', function () {
+    $this->markTestIncomplete('warp stop-on-incomplete fixture');
+});
+
+it('does not run after incomplete stop', function () {
+    expect(true)->toBeTrue();
+});
+PHP);
+
+    return $path;
+}
+
+function writeTimingExitMidRunFixture(): string
+{
+    $path = dirname(__DIR__).'/Timing/ExitMidRunFixtureTest.php';
+
+    file_put_contents($path, <<<'PHP'
+<?php
+
+it('passes before mid run exit', function () {
+    expect(true)->toBeTrue();
+});
+
+it('exits mid run', function () {
+    exit(0);
+});
+
+it('never runs after mid run exit', function () {
+    expect(true)->toBeTrue();
+});
+PHP);
+
+    return $path;
+}
+
 /**
  * @param  array<string, array{file: string, ms: float}>  $tests
  */
@@ -516,7 +709,7 @@ function seedTimings(string $dir, array $tests): void
 {
     Dirs::ensure($dir);
     file_put_contents($dir.'/timings.json', json_encode([
-        'version' => 2,
+        'version' => 3,
         'tests' => $tests,
     ], JSON_THROW_ON_ERROR));
 }
@@ -825,11 +1018,15 @@ PHP,
     return $path;
 }
 
-/** @return list<bool> */
-function pendingCompletenessFlags(string $dir): array
+/**
+ * The per-file completeness maps carried by each pending batch, in glob order.
+ *
+ * @return list<array<string, bool>>
+ */
+function pendingCompleteMaps(string $dir): array
 {
     return array_map(
-        static fn (array $payload): ?bool => $payload['complete'] ?? null,
+        static fn (array $payload): array => is_array($payload['complete'] ?? null) ? $payload['complete'] : [],
         pendingPayloads($dir),
     );
 }
@@ -846,12 +1043,8 @@ function pendingPayloads(string $dir): array
     return $payloads;
 }
 
-function shutdownBackstopComplete(
-    TimingCollector $collector,
-    bool $completeRun = true,
-    bool $hadFatalError = false,
-): bool {
-    $method = new ReflectionMethod(TimingExtension::class, 'shutdownBackstopComplete');
-
-    return $method->invoke(null, $collector, $completeRun, $hadFatalError);
+/** Flush a collector through the extension's static backstop path (per-file accounting). */
+function backstopFlush(TimingCollector $collector, TimingStore $store): void
+{
+    (new ReflectionMethod(TimingExtension::class, 'flush'))->invoke(null, $collector, $store);
 }
