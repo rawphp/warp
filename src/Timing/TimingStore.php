@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RawPHP\Warp\Timing;
 
+use Closure;
 use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Support\AtomicFile;
 use RawPHP\Warp\Support\FileLock;
@@ -17,9 +18,16 @@ final class TimingStore
 
     private static int $lastPendingTimestamp = 0;
 
+    /**
+     * @param  Closure(string): void|null  $warn  Warning sink for non-fatal diagnostics.
+     *                                            CLI commands inject one that writes to their captured $stderr stream so an
+     *                                            embedded WarpCli::run never leaks onto the host process's real STDERR; the
+     *                                            PHPUnit-extension/embedded default (null) falls back to process STDERR.
+     */
     public function __construct(
         private readonly string $dir,
         private readonly ?string $root = null,
+        private readonly ?Closure $warn = null,
     ) {}
 
     public static function fromEnv(): self
@@ -49,7 +57,35 @@ final class TimingStore
      */
     public function withRoot(?string $root): self
     {
-        return new self($this->dir, $root);
+        return new self($this->dir, $root, $this->warn);
+    }
+
+    /**
+     * Bind the warning sink for this store's non-fatal diagnostics. CLI commands
+     * pass a sink that writes to their injected $stderr stream; null restores the
+     * process-STDERR default used by the PHPUnit extension.
+     *
+     * @param  Closure(string): void|null  $warn
+     */
+    public function withWarner(?Closure $warn): self
+    {
+        return new self($this->dir, $this->root, $warn);
+    }
+
+    /**
+     * Route a non-fatal warning to the injected sink, or process STDERR when none
+     * was bound. Every store warning reachable from a CLI command flows through
+     * the injected stream; only the extension/embedded default hits raw STDERR.
+     */
+    private function warn(string $message): void
+    {
+        if ($this->warn !== null) {
+            ($this->warn)($message);
+
+            return;
+        }
+
+        Stderr::write($message);
     }
 
     /**
@@ -103,7 +139,7 @@ final class TimingStore
 
             foreach ($mergedPending as $path) {
                 if (! @unlink($path)) {
-                    Stderr::write('[warp] cannot delete merged pending timings batch at '.$path.PHP_EOL);
+                    $this->warn('[warp] cannot delete merged pending timings batch at '.$path.PHP_EOL);
                 }
             }
 
@@ -165,7 +201,7 @@ final class TimingStore
             }
 
             if (! preg_match('/^(\d+)-\d+-[a-f0-9]{8}\.json$/', $entry, $matches)) {
-                Stderr::write('[warp] skipped old-format pending timings batch: '.$path.PHP_EOL);
+                $this->warn('[warp] skipped old-format pending timings batch: '.$path.PHP_EOL);
 
                 continue;
             }
@@ -214,7 +250,7 @@ final class TimingStore
                 // an existing-but-unreadable batch (e.g. EACCES) is left on disk for the next
                 // merge, a vanished batch is simply gone, and either way every batch already
                 // applied in this pass is preserved. Both load() and mergeToDisk() only skip.
-                Stderr::write(
+                $this->warn(
                     (is_file($path)
                         ? '[warp] skipped unreadable pending timings batch: '
                         : '[warp] skipped vanished pending timings batch: ').$path.PHP_EOL
@@ -226,7 +262,7 @@ final class TimingStore
             $batch = json_decode((string) $contents, true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
-                Stderr::write('[warp] skipped undecodable pending timings batch: '.$path.PHP_EOL);
+                $this->warn('[warp] skipped undecodable pending timings batch: '.$path.PHP_EOL);
 
                 if ($cleanupJunk) {
                     $mergedPending[] = $path;
@@ -236,7 +272,7 @@ final class TimingStore
             }
 
             if (! is_array($batch)) {
-                Stderr::write('[warp] skipped invalid pending timings batch: '.$path.PHP_EOL);
+                $this->warn('[warp] skipped invalid pending timings batch: '.$path.PHP_EOL);
 
                 if ($cleanupJunk) {
                     $mergedPending[] = $path;
@@ -398,7 +434,7 @@ final class TimingStore
             // hard-fail the shard matrix: degrade to empty with a warning, consistent
             // with the missing-file and wrong-version paths. Sharding falls back to
             // count-balanced; `warp timings` reports nothing recorded.
-            Stderr::write('[warp] cannot decode timings from '.$this->dir.'/timings.json: '.json_last_error_msg().' - sharding count-balanced'.PHP_EOL);
+            $this->warn('[warp] cannot decode timings from '.$this->dir.'/timings.json: '.json_last_error_msg().' - sharding count-balanced'.PHP_EOL);
 
             return ['root' => null, 'tests' => []];
         }

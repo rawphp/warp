@@ -13,7 +13,7 @@ final class MergeCommand
      */
     public static function run(array $args, $stdout, $stderr): int
     {
-        $timings = TimingStoreArgumentParser::parse($args, static fn (string $arg): bool => false);
+        $timings = TimingStoreArgumentParser::parse($args, static fn (string $arg): bool => false, $stderr);
         $merged = $timings->store->mergeToDisk();
 
         if ($merged === 0) {
