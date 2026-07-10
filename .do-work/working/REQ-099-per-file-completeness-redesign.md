@@ -1,7 +1,13 @@
 # REQ-099: Per-file event-driven completeness redesign
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.95040
+**Claimed at:** 2026-07-10T03:59:49Z
+**Heartbeat:** 2026-07-10T03:59:49Z
+<!-- claimed-end -->
+
 **UR:** UR-016
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
