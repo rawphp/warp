@@ -1,0 +1,20 @@
+run_id: RUN-101
+req: REQ-107
+ur: UR-017
+agent_id: "Toms-MacBook-Pro.local.dw17"
+model: "sonnet"
+branch: "req/REQ-107"
+started_at: "2026-07-10T07:14:00Z"
+ended_at: "2026-07-10T07:24:00Z"
+result: "done"
+review_outcome: "passed"
+proof_status: "unproven"
+cost_estimate: "sonnet M"
+cost_estimate_num: 0.90
+pr_url: ""
+commands:
+  []
+tests:
+  []
+changed_files:
+  []
