@@ -1,7 +1,13 @@
 # REQ-095: Pending-batch read-failure hardening in load and merge
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.95040
+**Claimed at:** 2026-07-10T03:04:43Z
+**Heartbeat:** 2026-07-10T03:04:43Z
+<!-- claimed-end -->
+
 **UR:** UR-016
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-10
 **Layer:** none
 **Entry point:**
