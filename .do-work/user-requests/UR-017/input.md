@@ -1,8 +1,47 @@
 ---
 ur: UR-017
 received: 2026-07-10
-status: intake
+status: captured
+classification: bug-fix
+layers_in_scope: []
+layer_decisions: {}
+reqs:
+  - { id: REQ-102, layer: none, integration_confidence: n/a }
+  - { id: REQ-103, layer: none, integration_confidence: n/a }
+  - { id: REQ-104, layer: none, integration_confidence: n/a }
+  - { id: REQ-105, layer: none, integration_confidence: n/a }
+  - { id: REQ-106, layer: none, integration_confidence: n/a }
+  - { id: REQ-107, layer: none, integration_confidence: n/a }
+  - { id: REQ-108, layer: none, integration_confidence: n/a }
+  - { id: REQ-109, layer: none, integration_confidence: n/a }
+  - { id: REQ-110, layer: none, integration_confidence: n/a }
+  - { id: REQ-111, layer: none, integration_confidence: n/a }
+acknowledged_partials: []
 ---
+
+<!-- capture-summary-start -->
+## Capture summary (2026-07-10)
+
+| Item | Value |
+|---|---|
+| Classification | bug-fix |
+| Layers in scope | (none — bug-fix) |
+| Layer decisions | (none — bug-fix) |
+| REQs generated | 10 |
+
+| REQ | Layer | Integration confidence |
+|---|---|---|
+| REQ-102 | none | n/a |
+| REQ-103 | none | n/a |
+| REQ-104 | none | n/a |
+| REQ-105 | none | n/a |
+| REQ-106 | none | n/a |
+| REQ-107 | none | n/a |
+| REQ-108 | none | n/a |
+| REQ-109 | none | n/a |
+| REQ-110 | none | n/a |
+| REQ-111 | none | n/a |
+<!-- capture-summary-end -->
 
 # UR-017: User Request
 
