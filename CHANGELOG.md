@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.3.1 - 2026-07-11
+
+### Fixed
+
+- **Throwaway `mysqld` connection exhaustion** (`WARP_DB`): the per-worker
+  snapshot `mysqld` booted with `--no-defaults` and no `--max_connections`, so
+  it fell back to MySQL's stock 151 default. Under warm-worker mode a single
+  worker process stays alive across a whole suite and exhausted that ceiling
+  with `SQLSTATE[08004] [1040] Too many connections`. Raised to `1000` for the
+  ephemeral, durability-off test instance. Runtime start flag only — the golden
+  snapshot datadir and `SnapshotKey` are unchanged.
+
 ## 0.3.0 - 2026-07-10
 
 ### Added
