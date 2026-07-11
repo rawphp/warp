@@ -1,13 +1,13 @@
 # REQ-112: Raise max_connections on the throwaway per-worker mysqld
 
 **UR:** UR-018
-**Status:** backlog
+**Status:** done
 **Created:** 2026-07-11
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** Commit 12bb7c4 adds `--max_connections=1000` to `MysqldServer::flags()`. TDD: new integration test opened 200 simultaneous PDO connections — failed pre-fix with `SQLSTATE[08004] [1040] Too many connections` at ~152, passes post-fix. Full suite 407 passed (SnapshotKey tests green ⇒ no snapshot invalidation), Pint clean.
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -38,9 +38,9 @@ This is a wrong-default fix, not a leak fix — `SnapshotDatabaseManager::recycl
 
 ## Acceptance Criteria
 
-- [ ] `MysqldServer::flags()` emits `--max_connections=1000` in the runtime start arguments.
-- [ ] A booted `MysqldServer` accepts at least 200 simultaneous open PDO connections on its socket without raising `SQLSTATE[08004] [1040] Too many connections` (this fails against the pre-fix default of 151).
-- [ ] `SnapshotKey` is unchanged (the runtime flag does not affect datadir content), and the full suite passes.
+- [x] `MysqldServer::flags()` emits `--max_connections=1000` in the runtime start arguments.
+- [x] A booted `MysqldServer` accepts at least 200 simultaneous open PDO connections on its socket without raising `SQLSTATE[08004] [1040] Too many connections` (this fails against the pre-fix default of 151).
+- [x] `SnapshotKey` is unchanged (the runtime flag does not affect datadir content), and the full suite passes.
 
 ## Verification Steps
 
