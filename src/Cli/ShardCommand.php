@@ -135,20 +135,30 @@ final class ShardCommand
         $totals = $timings->store->fileTotals();
 
         if ($storedRoot !== null && $storedRoot !== $canonicalRoot) {
-            // Middle-path mismatch policy (finding 7, supersedes UR-016's
-            // unconditional fail-loudly): if stored keys would still match
-            // discovered files, this is a real misconfiguration worth stopping
-            // for; if none match, the artifact is pure stale/foreign (e.g. a CI
-            // cache restored to a renamed workspace) so degrade instead of
-            // failing the whole shard matrix.
+            // Root-mismatch policy (finding 7, revised UR-087/REQ-576): a differing
+            // absolute root is metadata only — per-file timing keys are stored
+            // relative, so when they still match discovered files the timings are
+            // usable on this checkout path. That is the committed/shared-baseline
+            // workflow: a portable timings.json run on a differently-rooted clone
+            // or CI runner (e.g. recorded under /Users/... , sharded under
+            // /home/runner/...). Use the timings, warning that the root differs,
+            // instead of failing the shard. If no key matches, the artifact is
+            // pure stale/foreign (e.g. a CI cache restored to a renamed workspace)
+            // so degrade to count-balanced. WARP_STRICT_ROOT restores the old
+            // fail-loudly for callers who want a differing root to be a hard error
+            // even when keys still match.
             if (array_intersect_key($totals, array_flip($files)) !== []) {
-                fwrite($stderr, "[warp] timings root mismatch: recorded against '{$storedRoot}' but this shard resolves keys against '{$canonicalRoot}' - recorded keys still match discovered files, so this is a real misconfiguration; re-record timings from the same config dir or pass the matching --configuration\n");
+                if (self::strictRootEnabled()) {
+                    fwrite($stderr, "[warp] timings root mismatch: recorded against '{$storedRoot}' but this shard resolves keys against '{$canonicalRoot}' - WARP_STRICT_ROOT is set, so this is a hard error; re-record timings from the same config dir or pass the matching --configuration\n");
 
-                return 2;
+                    return 2;
+                }
+
+                fwrite($stderr, "[warp] timings root differs: recorded against '{$storedRoot}' but this shard resolves keys against '{$canonicalRoot}' - recorded keys still match discovered files, so the timings are portable; using them (set WARP_STRICT_ROOT=1 to treat this as an error)\n");
+            } else {
+                fwrite($stderr, "[warp] timings root mismatch: recorded against '{$storedRoot}' but this shard resolves keys against '{$canonicalRoot}' - no recorded key matches a discovered file (stale or foreign artifact); sharding count-balanced\n");
+                $totals = [];
             }
-
-            fwrite($stderr, "[warp] timings root mismatch: recorded against '{$storedRoot}' but this shard resolves keys against '{$canonicalRoot}' - no recorded key matches a discovered file (stale or foreign artifact); sharding count-balanced\n");
-            $totals = [];
         } elseif ($totals === []) {
             fwrite($stderr, "[warp] no recorded timings under {$timings->dirLabel} - sharding count-balanced\n");
         } elseif (array_intersect_key($totals, array_flip($files)) === []) {
@@ -190,5 +200,18 @@ final class ShardCommand
         sort($canonical);
 
         return $canonical;
+    }
+
+    /**
+     * Strict root mode makes a stored/canonical root mismatch a hard error (exit
+     * 2) even when the recorded relative keys still match discovered files. Off by
+     * default so the portable committed-baseline workflow works; opt in by setting
+     * WARP_STRICT_ROOT to any non-empty value other than "0".
+     */
+    private static function strictRootEnabled(): bool
+    {
+        $value = getenv('WARP_STRICT_ROOT');
+
+        return $value !== false && $value !== '' && $value !== '0';
     }
 }

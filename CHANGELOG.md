@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## 0.3.2 - 2026-07-11
+
+### Changed
+
+- **`warp shard` root-mismatch policy** (`ShardCommand`): when the recorded
+  timings `root` differs from the shard-time canonical root but the recorded
+  **relative** keys still match discovered files, warp now **uses the timings**
+  (emitting a `timings root differs … using them` warning) instead of hard-
+  failing with exit 2. A differing absolute root is metadata only — relative
+  keys that match are portable — so this unblocks the legitimate committed/
+  shared-baseline workflow: a `.warp/timings` artifact recorded on one machine
+  (e.g. `/Users/…`) and sharded on a differently-rooted clone or CI runner
+  (e.g. `/home/runner/…`). The prior behaviour treated this as a "real
+  misconfiguration" and failed every shard. The "no recorded key matches"
+  path still degrades to count-balanced (unchanged).
+
+### Added
+
+- **`WARP_STRICT_ROOT`** env opt-in: set to any non-empty value (other than
+  `0`) to restore the old fail-loudly behaviour — a stored/canonical root
+  mismatch becomes a hard error (exit 2) even when relative keys still match.
+
 ## 0.3.1 - 2026-07-11
 
 ### Fixed

@@ -34,6 +34,7 @@ beforeEach(function () {
 afterEach(function () {
     chdir($this->cwd);
     putenv('WARP_TIMINGS_DIR');
+    putenv('WARP_STRICT_ROOT');
     Dirs::delete($this->tmp);
 });
 
@@ -427,7 +428,40 @@ XML);
     }
 });
 
-it('exits non-zero and names both roots when the recorded root differs from the shard-time root', function () {
+it('uses the recorded timings and warns (exit 0) when the root differs but recorded keys still match discovered files (UR-087/REQ-576)', function () {
+    chdir($this->tmp);
+    writeShardPhpunitConfig($this->tmp.'/phpunit.xml', <<<'XML'
+        <testsuite name="Unit">
+            <directory>tests</directory>
+        </testsuite>
+XML);
+
+    // Recorded under a foreign absolute root (a committed/shared baseline, or a
+    // clone at a different path), but the relative keys match this checkout's
+    // discovered files. ATest carries an outsized weight so LPT proves the
+    // timings are actually USED, not degraded to count-balanced: it lands alone
+    // in shard 1 (count-balanced 1/2 would emit ATest + CTest — see the
+    // "falls back to count-balanced" test above).
+    $store = (new TimingStore($this->tmp.'/timings'))->withRoot('/recorded/elsewhere');
+    $store->writePending([
+        't1' => ['file' => 'tests/ATest.php', 'ms' => 1000.0],
+        't2' => ['file' => 'tests/BTest.php', 'ms' => 10.0],
+        't3' => ['file' => 'tests/CTest.php', 'ms' => 10.0],
+        't4' => ['file' => 'tests/DTest.php', 'ms' => 10.0],
+    ]);
+    $store->mergeToDisk();
+
+    [$exit, $stdout, $stderr] = ($this->run)(['1/2', '--configuration=phpunit.xml', '--timings-dir='.$this->tmp.'/timings']);
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->toBe("tests/ATest.php\n")
+        ->and($stderr)->toContain('/recorded/elsewhere')
+        ->and($stderr)->toContain((string) realpath($this->tmp))
+        ->and($stderr)->toContain('root differs')
+        ->and($stderr)->not->toContain('real misconfiguration');
+});
+
+it('still hard-fails (exit 2) and names both roots on a root mismatch when WARP_STRICT_ROOT is set', function () {
     chdir($this->tmp);
     writeShardPhpunitConfig($this->tmp.'/phpunit.xml', <<<'XML'
         <testsuite name="Unit">
@@ -439,13 +473,15 @@ XML);
     $store->writePending(['t1' => ['file' => 'tests/ATest.php', 'ms' => 100.0]]);
     $store->mergeToDisk();
 
+    putenv('WARP_STRICT_ROOT=1');
+
     [$exit, $stdout, $stderr] = ($this->run)(['1/2', '--configuration=phpunit.xml', '--timings-dir='.$this->tmp.'/timings']);
 
-    expect($exit)->not->toBe(0)
+    expect($exit)->toBe(2)
         ->and($stdout)->toBe('')
         ->and($stderr)->toContain('/recorded/elsewhere')
         ->and($stderr)->toContain((string) realpath($this->tmp))
-        ->and($stderr)->toContain('root');
+        ->and($stderr)->toContain('WARP_STRICT_ROOT');
 });
 
 it('uses WARP_TIMINGS_DIR when no timings-dir flag is provided', function () {
