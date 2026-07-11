@@ -119,6 +119,7 @@ final class MysqldServer
             '--sync_binlog=0',
             '--innodb_flush_log_at_trx_commit=0',
             '--innodb_doublewrite=OFF',
+            '--max_connections=1000',               // ephemeral per-worker mysqld: the stock 151 default is production-tuned and a warm worker exhausts it
         ];
     }
 

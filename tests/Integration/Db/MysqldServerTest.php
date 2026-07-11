@@ -67,3 +67,32 @@ it('stop is a no-op when never started', function () {
 
     expect($this->server->running())->toBeFalse();
 });
+
+it('accepts far more simultaneous connections than the stock mysqld default', function () {
+    $this->server->initialize();
+    $this->server->start();
+
+    // MySQL's compiled-in default max_connections is 151. Under warm-worker mode a
+    // single worker process stays alive across a whole suite and accumulates
+    // connections against its per-worker mysqld, exhausting that ceiling with
+    // SQLSTATE[08004] [1040]. REQ-112 raises the limit; 200 held-open connections
+    // clears the stock default (which would fail at ~152, one reserved SUPER slot
+    // above 151) and proves it.
+    $connections = [];
+
+    try {
+        for ($i = 0; $i < 200; $i++) {
+            $connections[] = new PDO(
+                'mysql:unix_socket='.$this->socket,
+                'root',
+                '',
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 5],
+            );
+        }
+
+        expect($connections)->toHaveCount(200);
+    } finally {
+        // Drop the handles before afterEach's stop() so it isn't racing 200 live threads.
+        $connections = [];
+    }
+});
