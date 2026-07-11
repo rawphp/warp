@@ -1,8 +1,29 @@
 ---
 ur: UR-018
 received: 2026-07-11
-status: intake
+status: captured
+classification: bug-fix
+layers_in_scope: []
+layer_decisions: {}
+reqs:
+  - { id: REQ-112, layer: none, integration_confidence: n/a }
+acknowledged_partials: []
 ---
+
+<!-- capture-summary-start -->
+## Capture summary (2026-07-11)
+
+| Item | Value |
+|---|---|
+| Classification | bug-fix |
+| Layers in scope | (none — bug-fix) |
+| Layer decisions | (none — bug-fix) |
+| REQs generated | 1 |
+
+| REQ | Layer | Integration confidence |
+|---|---|---|
+| REQ-112 | none | n/a |
+<!-- capture-summary-end -->
 
 # UR-018: User Request
 
