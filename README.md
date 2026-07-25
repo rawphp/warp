@@ -50,6 +50,19 @@ version conflicts when path-installed into a host app.
 composer require --dev rawphp/warp
 ```
 
+## User documentation
+
+Task-based guides for install, concepts, commands, configuration, and troubleshooting:
+
+- **[docs/README.md](docs/README.md)** — documentation index
+- [Getting started](docs/getting-started.md) — trait wiring, classic then warm
+- [Concepts](docs/concepts.md) — classic vs warm, sandbox, resets, parity
+- [Usage and commands](docs/usage.md) — Pest, env flags, `bin/warp`, CI sharding
+- [Configuration](docs/configuration.md) — ResetManifest, `warp.db.*`, timings
+- [Troubleshooting](docs/troubleshooting.md) — symptom → cause → fix
+
+Design specs and gate reports remain under [`docs/specs/`](docs/specs/) and [`docs/reports/`](docs/reports/).
+
 ## Usage
 
 ### 1. Add the trait to your base `TestCase`
