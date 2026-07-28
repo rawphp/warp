@@ -1,24 +1,17 @@
 # REQ-115: Settle after mysqld stop before datadir delete
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.28409
-**Claimed at:** 2026-07-28T12:18:40Z
-**Heartbeat:** 2026-07-28T12:18:40Z
-<!-- claimed-end -->
-
-
 **UR:** UR-020
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-28
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:b292e44 SnapshotDatabaseManager 10/10 + full pest 416/416
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
-**Files:** src/Db/SnapshotDatabaseManager.php, src/Db/MysqldServer.php, tests/Integration/Db/SnapshotDatabaseManagerTest.php
+**Files:** src/Db/SnapshotDatabaseManager.php, tests/Unit/Db/SnapshotDatabaseManagerTeardownTest.php
 **Depends on:** REQ-114
 
 ## Task
@@ -35,11 +28,11 @@ Depends on REQ-114 so teardown always uses race-safe delete.
 
 ## Acceptance Criteria
 
-- [ ] `recycle()` and `shutdown()` only call `Dirs::delete` after `stop()` has completed and a documented short settle / quiet check has run (implementation choice: fixed µs sleep vs. poll for process/pid-file absence — pick the smallest change that is justified)
-- [ ] Settle does not change golden snapshot build or clone semantics — only post-stop teardown sequencing
-- [ ] `sweepDeadWorkers()` still never deletes a directory whose `owner.pid` or mysqld pid is alive; if a gap is found, fix it with a test
-- [ ] Existing SnapshotDatabaseManager integration tests still pass; add or extend a test only if behavior is newly assertable without flaking
-- [ ] Full suite `./vendor/bin/pest` passes
+- [x] `recycle()` and `shutdown()` only call `Dirs::delete` after `stop()` has completed and a documented short settle / quiet check has run (implementation choice: fixed µs sleep vs. poll for process/pid-file absence — pick the smallest change that is justified)
+- [x] Settle does not change golden snapshot build or clone semantics — only post-stop teardown sequencing
+- [x] `sweepDeadWorkers()` still never deletes a directory whose `owner.pid` or mysqld pid is alive; if a gap is found, fix it with a test
+- [x] Existing SnapshotDatabaseManager integration tests still pass; add or extend a test only if behavior is newly assertable without flaking
+- [x] Full suite `./vendor/bin/pest` passes
 
 ## Verification Steps
 
@@ -54,6 +47,5 @@ Depends on REQ-114 so teardown always uses race-safe delete.
 
 ## Outputs
 
-- src/Db/SnapshotDatabaseManager.php — post-stop settle before delete; sweep review
-- src/Db/MysqldServer.php — only if stop/ready helpers are extended
-- tests/Integration/Db/SnapshotDatabaseManagerTest.php — if new assertable behaviour is added
+- src/Db/SnapshotDatabaseManager.php — 100ms settleAfterStop after stop() in recycle/shutdown; sweepDeadWorkers re-checks mysqld alive after TERM before delete
+- tests/Unit/Db/SnapshotDatabaseManagerTeardownTest.php — Unit tests for settle duration and sweep live-owner/live-mysqld/dead-reap paths
