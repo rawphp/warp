@@ -1,7 +1,13 @@
 # REQ-113: Fix golden-build DB_* and timings supersede docs
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.71957
+**Claimed at:** 2026-07-28T03:38:58Z
+**Heartbeat:** 2026-07-28T03:38:58Z
+<!-- claimed-end -->
+
 
 **UR:** UR-019
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-28
 **Layer:** none
 **Entry point:**
