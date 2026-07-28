@@ -99,7 +99,7 @@ WARP_TIMINGS=1 ./vendor/bin/pest --parallel
 ./vendor/bin/warp merge
 ```
 
-Parallel workers write pending batches under the timings dir; `warp merge` folds them into `timings.json`. Prefer **full** suite recording — a `--filter` run replaces a file’s entries with only the filtered subset.
+Parallel workers write pending batches under the timings dir; `warp merge` folds them into `timings.json`. Prefer **full** suite recording so every file gets measured weight. Method `--filter` runs **upsert only** (sibling test ids are retained): a file’s prior entries are superseded only when that file finished completely — every enumerated test terminated in that process.
 
 Canonical timing keys are rooted at the directory of the `phpunit.xml` actually used (`--configuration` or auto-discovered), not necessarily the shell cwd. Stamp/root behaviour is implemented in the timing store and shard command.
 

@@ -174,9 +174,11 @@ Per-test isolation is unchanged — `RefreshDatabase` transaction-wraps as befor
 the golden snapshot just makes its migrate step a no-op.
 
 **Host wiring (required):** the golden build runs as a subprocess with
-`DB_HOST`, `DB_PORT`, `DB_SOCKET`, `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD`
-injected into its env, pointed at that worker's throwaway `mysqld`. Your test
-connection config must read the socket from that env var:
+`DB_CONNECTION`, `DB_SOCKET`, `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD`
+injected into its env, pointed at the golden build `mysqld`. Other parent
+`DB_*` values (for example `DB_HOST` / `DB_PORT`) are inherited unless
+overridden in `warp.db.build_env`. Your test connection config must read the
+socket from that env var:
 
 ```php
 // config/database.php — the connection named by config('warp.db.connection')
@@ -239,8 +241,10 @@ Every test's duration lands in `.warp/timings/` (override with
 write lock-free pending batches; `warp merge` is the explicit compaction step
 that folds them into `timings.json`. Run it once after recording, before
 persisting `.warp/timings/` as a CI artifact/cache, and refresh that artifact
-on scheduled full runs. Record on **full** runs — a `--filter` run replaces a
-file's entries with just the filtered subset.
+on scheduled full runs. Record on **full** runs so every file gets measured
+weight. Method `--filter` runs **upsert only** (sibling test ids are retained):
+a file’s prior entries are superseded only when that file finished completely
+— every enumerated test terminated in that process.
 
 **Canonical root.** Timing keys are anchored to the directory of the
 `phpunit.xml` actually used (its `--configuration` value, or the auto-discovered
