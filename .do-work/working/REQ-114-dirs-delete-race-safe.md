@@ -6,29 +6,9 @@
 **Heartbeat:** 2026-07-28T12:10:03Z
 <!-- claimed-end -->
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.28409
-**Claimed at:** 2026-07-28T12:09:36Z
-**Heartbeat:** 2026-07-28T12:09:36Z
-<!-- claimed-end -->
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.28409
-**Claimed at:** 2026-07-28T12:09:28Z
-**Heartbeat:** 2026-07-28T12:09:28Z
-<!-- claimed-end -->
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.28409
-**Claimed at:** 2026-07-28T12:09:27Z
-**Heartbeat:** 2026-07-28T12:09:27Z
-<!-- claimed-end -->
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.28409
-**Claimed at:** 2026-07-28T12:09:27Z
-**Heartbeat:** 2026-07-28T12:09:27Z
-<!-- claimed-end -->
 
 **UR:** UR-020
 **Status:** in-progress
