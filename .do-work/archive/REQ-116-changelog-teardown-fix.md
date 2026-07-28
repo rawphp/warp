@@ -1,20 +1,13 @@
 # REQ-116: Changelog note for WARP_DB teardown race fix
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.28409
-**Claimed at:** 2026-07-28T12:28:04Z
-**Heartbeat:** 2026-07-28T12:28:04Z
-<!-- claimed-end -->
-
-
 **UR:** UR-020
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-28
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:34e6642 Unreleased Fixed entry for Dirs::delete/WARP_DB teardown present
 **Criteria approved:** agent-drafted
 **Priority:** 1
 **Size:** S
@@ -31,9 +24,9 @@ Issue #271 acceptance: package version bumped + changelog note when fixed upstre
 
 ## Acceptance Criteria
 
-- [ ] `CHANGELOG.md` `## Unreleased` has a **Fixed** bullet describing resilient WARP_DB worker datadir teardown (`Dirs::delete` race-safe + recycle/shutdown sequencing) so parallel suites no longer fail on cleanup `ErrorException`s
-- [ ] Note references that consumers should upgrade when the next warp release ships (no fabricated version number)
-- [ ] No unrelated changelog rewrites
+- [x] `CHANGELOG.md` `## Unreleased` has a **Fixed** bullet describing resilient WARP_DB worker datadir teardown (`Dirs::delete` race-safe + recycle/shutdown sequencing) so parallel suites no longer fail on cleanup `ErrorException`s
+- [x] Note references that consumers should upgrade when the next warp release ships (no fabricated version number)
+- [x] No unrelated changelog rewrites
 
 ## Verification Steps
 
@@ -42,4 +35,4 @@ Issue #271 acceptance: package version bumped + changelog note when fixed upstre
 
 ## Outputs
 
-- CHANGELOG.md — Unreleased Fixed entry for teardown race
+- CHANGELOG.md — Unreleased Fixed entry for WARP_DB worker datadir teardown races (Dirs::delete + post-stop settle)
