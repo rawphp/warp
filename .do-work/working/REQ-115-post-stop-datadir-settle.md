@@ -1,7 +1,14 @@
 # REQ-115: Settle after mysqld stop before datadir delete
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.28409
+**Claimed at:** 2026-07-28T12:18:40Z
+**Heartbeat:** 2026-07-28T12:18:40Z
+<!-- claimed-end -->
+
+
 **UR:** UR-020
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-28
 **Layer:** none
 **Entry point:**
