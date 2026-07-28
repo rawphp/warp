@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Fixed
+
+- **WARP_DB worker datadir teardown races** (`Dirs::delete` + recycle/shutdown):
+  under parallel Pest with `WARP_MODE` + `WARP_DB`, InnoDB temp files
+  (`#ib_redo*_tmp` and similar) could disappear or reappear mid-walk during
+  worker datadir cleanup, so bare `unlink`/`rmdir` in `Dirs.php` became
+  Laravel testing `ErrorException`s on otherwise green bystander tests.
+  `Dirs::delete` is now race-safe (ENOENT ignored mid-walk; bounded retry on
+  "directory not empty"; non-ENOENT failures still surface). After
+  `mysqld` stop in `recycle()`/`shutdown()`, a short settle runs before
+  datadir delete so the tree is quieter before cleanup. Consumers should
+  upgrade to the next warp release when it ships (this note is under
+  Unreleased until then).
+
 ## 0.3.2 - 2026-07-11
 
 ### Changed
