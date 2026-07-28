@@ -1,7 +1,14 @@
 # REQ-116: Changelog note for WARP_DB teardown race fix
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.28409
+**Claimed at:** 2026-07-28T12:28:04Z
+**Heartbeat:** 2026-07-28T12:28:04Z
+<!-- claimed-end -->
+
+
 **UR:** UR-020
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-28
 **Layer:** none
 **Entry point:**
