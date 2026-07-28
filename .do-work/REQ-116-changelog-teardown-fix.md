@@ -12,7 +12,7 @@
 **Priority:** 1
 **Size:** S
 **Files:** CHANGELOG.md
-**Depends on:** REQ-114 REQ-115
+**Depends on:** REQ-114, REQ-115
 
 ## Task
 
