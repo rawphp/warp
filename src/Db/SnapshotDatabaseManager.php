@@ -46,6 +46,7 @@ final class SnapshotDatabaseManager
 
         try {
             $self->server->stop();
+            self::settleAfterStop();
             Dirs::delete($self->workerDir.'/datadir');
             $self->cloner->clone($self->store->datadir($self->key), $self->workerDir.'/datadir');
 
@@ -74,6 +75,7 @@ final class SnapshotDatabaseManager
 
         try {
             self::$instance->server->stop();
+            self::settleAfterStop();
         } finally {
             Dirs::delete(self::$instance->workerDir);
             self::$instance = null;
@@ -167,6 +169,19 @@ final class SnapshotDatabaseManager
         }
     }
 
+    /**
+     * Brief pause after mysqld process exit so InnoDB can finish releasing
+     * #ib_redo*_tmp (and similar) under the datadir before Dirs::delete walks it.
+     *
+     * MysqldServer::stop() only waits until proc_get_status reports not running —
+     * the datadir may still churn. Keep this short and only on teardown paths
+     * (recycle/shutdown); golden snapshot build and clone paths are untouched.
+     */
+    private static function settleAfterStop(): void
+    {
+        usleep(100_000); // 100ms post-stop settle
+    }
+
     /** Reap runtime dirs whose owning test process died (crashed worker, kill -9). */
     private static function sweepDeadWorkers(string $runtimeDir): void
     {
@@ -187,6 +202,12 @@ final class SnapshotDatabaseManager
             if ($mysqldPid > 0 && self::alive($mysqldPid)) {
                 exec(sprintf('kill -TERM %d 2>/dev/null', $mysqldPid));
                 usleep(500_000);
+
+                // Still running after graceful TERM — leave for a later sweep.
+                // Never delete a live mysqld's datadir under our feet.
+                if (self::alive($mysqldPid)) {
+                    continue;
+                }
             }
 
             Dirs::delete($dir);
