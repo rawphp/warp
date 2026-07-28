@@ -1,19 +1,13 @@
 # REQ-113: Fix golden-build DB_* and timings supersede docs
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.71957
-**Claimed at:** 2026-07-28T03:38:58Z
-**Heartbeat:** 2026-07-28T03:38:58Z
-<!-- claimed-end -->
-
 
 **UR:** UR-019
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-28
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:3150e51
 **Criteria approved:** agent-drafted
 **Priority:** 2
 **Size:** S
@@ -36,12 +30,12 @@ UR-019 intake of PR review bugs on operator docs. Clarifications: fix README + d
 
 ## Acceptance Criteria
 
-- [ ] `docs/configuration.md` golden-build injection list matches code: `DB_CONNECTION`, `DB_SOCKET`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` (no claim that Warp injects `DB_HOST` or `DB_PORT` for the golden build)
-- [ ] `docs/configuration.md` includes a short note that non-injected `DB_*` inherit from the parent process unless `warp.db.build_env` overrides them, and still requires `unix_socket` → `env('DB_SOCKET', '')`
-- [ ] Golden-build wording prefers “golden build mysqld” over “worker’s throwaway mysqld” where that sentence describes the build subprocess
-- [ ] `docs/usage.md` no longer claims a `--filter` run replaces a file’s timing entries with the filtered subset; wording states method-filter upserts only and supersede only when the file is complete
-- [ ] `README.md` host-wiring and full-run timing paragraphs match the same corrected facts as the two guide pages
-- [ ] No intentional changes to `docs/reports/**` or to the `--suffix` discovery bullets in `docs/usage.md`
+- [x] `docs/configuration.md` golden-build injection list matches code: `DB_CONNECTION`, `DB_SOCKET`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` (no claim that Warp injects `DB_HOST` or `DB_PORT` for the golden build)
+- [x] `docs/configuration.md` includes a short note that non-injected `DB_*` inherit from the parent process unless `warp.db.build_env` overrides them, and still requires `unix_socket` → `env('DB_SOCKET', '')`
+- [x] Golden-build wording prefers “golden build mysqld” over “worker’s throwaway mysqld” where that sentence describes the build subprocess
+- [x] `docs/usage.md` no longer claims a `--filter` run replaces a file’s timing entries with the filtered subset; wording states method-filter upserts only and supersede only when the file is complete
+- [x] `README.md` host-wiring and full-run timing paragraphs match the same corrected facts as the two guide pages
+- [x] No intentional changes to `docs/reports/**` or to the `--suffix` discovery bullets in `docs/usage.md`
 
 ## Verification Steps
 
@@ -59,3 +53,9 @@ UR-019 intake of PR review bugs on operator docs. Clarifications: fix README + d
 
 5. **test** `./vendor/bin/pest --filter="does not supersede sibling timings from method-filtered captures"`
    - Expected: pass (behaviour under documentation is unchanged; documents the rule operators are told).
+
+## Outputs
+
+- docs/configuration.md — Corrected golden-build DB_* injection list and inheritance note
+- docs/usage.md — Corrected timings supersede / --filter completeness wording
+- README.md — Same two factual corrections on public package surface
