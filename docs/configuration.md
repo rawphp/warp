@@ -83,7 +83,7 @@ Read in `SnapshotConfig::fromApplication`. The package does not ship a Laravel s
 
 ### Required host wiring for sockets
 
-The golden build runs as a subprocess with `DB_HOST`, `DB_PORT`, `DB_SOCKET`, `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD` injected toward the worker’s throwaway `mysqld`. The connection named by `warp.db.connection` must read the socket from env:
+The golden build runs as a subprocess with `DB_CONNECTION`, `DB_SOCKET`, `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD` injected toward the golden build `mysqld`. Other parent-process `DB_*` values (for example `DB_HOST` / `DB_PORT`) are inherited unless overridden in `warp.db.build_env`. The connection named by `warp.db.connection` must read the socket from env:
 
 ```php
 // config/database.php — connection used for tests / warp.db.connection
