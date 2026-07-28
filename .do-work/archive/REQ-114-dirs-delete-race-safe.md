@@ -1,23 +1,13 @@
 # REQ-114: Make Dirs::delete race-safe under concurrent FS churn
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.28409
-**Claimed at:** 2026-07-28T12:10:03Z
-**Heartbeat:** 2026-07-28T12:10:03Z
-<!-- claimed-end -->
-
-
-
-
-
 **UR:** UR-020
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-28
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:0911a97 DirsTest 9/9 + full pest 412/412
 **Criteria approved:** agent-drafted
 **Priority:** 3
 **Size:** M
@@ -38,12 +28,12 @@ Connector: all WARP_DB callers share this util (`SnapshotDatabaseManager`, `Copy
 
 ## Acceptance Criteria
 
-- [ ] `Dirs::delete($path)` treats mid-walk `unlink`/`rmdir` ENOENT as success (file already gone) and continues
-- [ ] When `rmdir` fails with "Directory not empty", `delete` retries child cleanup + rmdir a bounded number of times (document the bound in code), then either succeeds or throws a clear `RuntimeException` with `[warp]` prefix if still non-empty for non-transient reasons
-- [ ] Successful delete leaves no residual path for a quiet tree (existing nested-tree / plain-file / missing-path tests still pass)
-- [ ] Unit tests simulate race conditions: (1) file vanishes between readdir and unlink, (2) directory temporarily non-empty on first rmdir then empty on retry — both complete without warning/`ErrorException`
-- [ ] Non-ENOENT failures are not silenced (e.g. still throw or propagate when the operation cannot succeed)
-- [ ] `./vendor/bin/pest tests/Unit/Db/DirsTest.php` and full `./vendor/bin/pest` pass
+- [x] `Dirs::delete($path)` treats mid-walk `unlink`/`rmdir` ENOENT as success (file already gone) and continues
+- [x] When `rmdir` fails with "Directory not empty", `delete` retries child cleanup + rmdir a bounded number of times (document the bound in code), then either succeeds or throws a clear `RuntimeException` with `[warp]` prefix if still non-empty for non-transient reasons
+- [x] Successful delete leaves no residual path for a quiet tree (existing nested-tree / plain-file / missing-path tests still pass)
+- [x] Unit tests simulate race conditions: (1) file vanishes between readdir and unlink, (2) directory temporarily non-empty on first rmdir then empty on retry — both complete without warning/`ErrorException`
+- [x] Non-ENOENT failures are not silenced (e.g. still throw or propagate when the operation cannot succeed)
+- [x] `./vendor/bin/pest tests/Unit/Db/DirsTest.php` and full `./vendor/bin/pest` pass
 
 ## Verification Steps
 
@@ -56,5 +46,5 @@ Connector: all WARP_DB callers share this util (`SnapshotDatabaseManager`, `Copy
 
 ## Outputs
 
-- src/Db/Dirs.php — resilient recursive delete
-- tests/Unit/Db/DirsTest.php — race / ENOENT / not-empty-retry coverage
+- src/Db/Dirs.php — Race-safe recursive delete (ENOENT ignore, not-empty retry bound 5, [warp] errors)
+- tests/Unit/Db/DirsTest.php — Race simulation, non-ENOENT, and exhaust-retry unit coverage
