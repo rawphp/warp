@@ -1,7 +1,14 @@
 # REQ-118: Drop settleAfterStop; keep sweep live-pid guard
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.98262
+**Claimed at:** 2026-07-29T05:12:03Z
+**Heartbeat:** 2026-07-29T05:12:03Z
+<!-- claimed-end -->
+
+
 **UR:** UR-021
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-29
 **Layer:** none
 **Entry point:**
