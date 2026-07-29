@@ -1,8 +1,37 @@
 ---
 ur: UR-021
 received: 2026-07-29
-status: intake
+status: captured
+classification: other-as-bug-fix
+layers_in_scope: []
+layer_decisions: {}
+reqs:
+  - { id: REQ-117, layer: none, integration_confidence: n/a }
+  - { id: REQ-118, layer: none, integration_confidence: n/a }
+acknowledged_partials: []
+open_gaps:
+  - "behavior-preserving must lock the UR-020 failure model (ENOENT / not-empty / non-ENOENT) so refactor does not silence real FS errors"
+  - "dropping public $beforeFsOp needs a package-internal test seam so race unit tests stay meaningful"
+  - "settle either/or is high-impact: fold into stop() vs delete and rely on Dirs delete+backoff"
+  - "not-empty backoff multiplies recycle latency if sticky trees force full attempt budget"
+  - "removing settleAfterStop without updating reflection duration tests leaves a red suite or false confidence"
 ---
+
+<!-- capture-summary-start -->
+## Capture summary (2026-07-29)
+
+| Item | Value |
+|---|---|
+| Classification | other-as-bug-fix |
+| Layers in scope | (none — bug-fix) |
+| Layer decisions | (none — all covered) |
+| REQs generated | 2 |
+
+| REQ | Layer | Integration confidence |
+|---|---|---|
+| REQ-117 | none | n/a |
+| REQ-118 | none | n/a |
+<!-- capture-summary-end -->
 
 # UR-021: User Request
 

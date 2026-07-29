@@ -37,3 +37,7 @@
 2026-07-10 | UR-017 | outside-root test files allowed in all three discovery modes with root-relative ../ keys on both record and shard sides; allowOutside per-caller flag retired | one key domain, stable cross-machine; user chose at question gate
 2026-07-10 | UR-017 | root-handshake cluster (findings 3/4/7/9/15) captured as ONE design REQ (REQ-103) per UR-016 completeness precedent; composer findings 1+13 merged into REQ-102 (same files, one commit); cleanups 16/18-22 folded into trailing Priority-1 refactor REQ-111 with no fake deps | five symptoms one mechanism; UR-012/UR-013 grouping precedents
 2026-07-10 | UR-017 | shard read path takes merge.lock with lockless fallback when the lock file cannot be created (read-only timings dir) | preserves UR-011 read-only CI-artifact-restore guarantee while fixing the reader/merger race
+2026-07-29 | UR-021 | settleAfterStop deleted; FS resilience lives only in Dirs removeNode + not-empty backoff | user chose at question gate
+2026-07-29 | UR-021 | race injection via package-internal/@internal test seam; public $beforeFsOp removed | user chose at question gate
+2026-07-29 | UR-021 | captured as other-as-bug-fix (minimal layer:none REQs) | user chose at classification gate
+2026-07-29 | UR-021 | split Dirs restructure (REQ-117) before dropping settle (REQ-118) with hard dep | settle removal requires self-healing delete first
