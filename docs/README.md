@@ -22,6 +22,12 @@ Use these pages when you want to install Warp, run tests warm, configure resets 
 4. [Usage and commands](usage.md) — CI sharding and day-to-day commands.
 5. [Troubleshooting](troubleshooting.md) — when a run fails or diverges from classic.
 
+## Maintainers
+
+| Goal | Page |
+|------|------|
+| Tag a release, CHANGELOG gate, Packagist | [Releases](RELEASES.md) |
+
 ## Design and measurement (not user guides)
 
 | Artifact | What it is |

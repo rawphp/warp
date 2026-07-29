@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.0 - 2026-07-29
+
 ### Fixed
 
 - **WARP_DB worker datadir teardown races** (`Dirs::delete` + recycle/shutdown):
@@ -12,9 +14,14 @@
   `Dirs::delete` is now race-safe (ENOENT ignored mid-walk; bounded retry on
   "directory not empty"; non-ENOENT failures still surface). After
   `mysqld` stop in `recycle()`/`shutdown()`, a short settle runs before
-  datadir delete so the tree is quieter before cleanup. Consumers should
-  upgrade to the next warp release when it ships (this note is under
-  Unreleased until then).
+  datadir delete so the tree is quieter before cleanup.
+
+### Changed
+
+- **Release process** is now scripted: `scripts/release.sh` (and
+  `composer release` / `composer release:dry`) runs CHANGELOG + quality gates,
+  creates an annotated semver tag, and pushes **tag only** for Packagist.
+  See `docs/RELEASES.md` and the project `/release` skill.
 
 ## 0.3.2 - 2026-07-11
 
