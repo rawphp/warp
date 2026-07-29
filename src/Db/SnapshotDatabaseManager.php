@@ -46,7 +46,6 @@ final class SnapshotDatabaseManager
 
         try {
             $self->server->stop();
-            self::settleAfterStop();
             Dirs::delete($self->workerDir.'/datadir');
             $self->cloner->clone($self->store->datadir($self->key), $self->workerDir.'/datadir');
 
@@ -75,7 +74,6 @@ final class SnapshotDatabaseManager
 
         try {
             self::$instance->server->stop();
-            self::settleAfterStop();
         } finally {
             Dirs::delete(self::$instance->workerDir);
             self::$instance = null;
@@ -167,19 +165,6 @@ final class SnapshotDatabaseManager
                 "[warp] snapshot build command exited {$exit}:\n".substr((string) file_get_contents($log), -2000),
             );
         }
-    }
-
-    /**
-     * Brief pause after mysqld process exit so InnoDB can finish releasing
-     * #ib_redo*_tmp (and similar) under the datadir before Dirs::delete walks it.
-     *
-     * MysqldServer::stop() only waits until proc_get_status reports not running —
-     * the datadir may still churn. Keep this short and only on teardown paths
-     * (recycle/shutdown); golden snapshot build and clone paths are untouched.
-     */
-    private static function settleAfterStop(): void
-    {
-        usleep(100_000); // 100ms post-stop settle
     }
 
     /** Reap runtime dirs whose owning test process died (crashed worker, kill -9). */
