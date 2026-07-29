@@ -1,7 +1,13 @@
 # REQ-117: Collapse Dirs delete into removeNode + backoff
 
+<!-- claimed-start -->
+**Claimed by:** Toms-MacBook-Pro.local.98262
+**Claimed at:** 2026-07-29T05:04:38Z
+**Heartbeat:** 2026-07-29T05:04:38Z
+<!-- claimed-end -->
+
 **UR:** UR-021
-**Status:** backlog
+**Status:** in-progress
 **Created:** 2026-07-29
 **Layer:** none
 **Entry point:**
