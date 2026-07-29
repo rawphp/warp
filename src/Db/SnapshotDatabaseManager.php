@@ -187,6 +187,12 @@ final class SnapshotDatabaseManager
             if ($mysqldPid > 0 && self::alive($mysqldPid)) {
                 exec(sprintf('kill -TERM %d 2>/dev/null', $mysqldPid));
                 usleep(500_000);
+
+                // Still running after graceful TERM — leave for a later sweep.
+                // Never delete a live mysqld's datadir under our feet.
+                if (self::alive($mysqldPid)) {
+                    continue;
+                }
             }
 
             Dirs::delete($dir);
