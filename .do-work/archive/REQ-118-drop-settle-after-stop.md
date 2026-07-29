@@ -1,20 +1,15 @@
 # REQ-118: Drop settleAfterStop; keep sweep live-pid guard
 
-<!-- claimed-start -->
-**Claimed by:** Toms-MacBook-Pro.local.98262
-**Claimed at:** 2026-07-29T05:12:03Z
-**Heartbeat:** 2026-07-29T05:12:03Z
-<!-- claimed-end -->
 
 
 **UR:** UR-021
-**Status:** in-progress
+**Status:** done
 **Created:** 2026-07-29
 **Layer:** none
 **Entry point:**
 **Terminal state:**
 **Parent:**
-**Closure proof:**
+**Closure proof:** checkpoint_log:passed commit:d0c23bc
 **Criteria approved:** agent-drafted
 **Priority:** 1
 **Size:** S
@@ -31,12 +26,12 @@ Code-review follow-up to UR-020 REQ-115. Clarification: delete settle rather tha
 
 ## Acceptance Criteria
 
-- [ ] `settleAfterStop` method no longer exists on `SnapshotDatabaseManager`
-- [ ] `recycle()` and `shutdown()` call `server->stop()` then `Dirs::delete` without an intermediate settle helper or bare usleep introduced for settle
-- [ ] `MysqldServer::stop()` is not modified to add settle sleep for this REQ
-- [ ] `sweepDeadWorkers` still skips delete when mysqld pid is alive after TERM + wait (second `alive()` check preserved)
-- [ ] Unit tests still prove: live owner not reaped; live mysqld after TERM not reaped; stale dead worker reaped
-- [ ] No test asserts a fixed settle duration / reflects into `settleAfterStop`
+- [x] `settleAfterStop` method no longer exists on `SnapshotDatabaseManager`
+- [x] `recycle()` and `shutdown()` call `server->stop()` then `Dirs::delete` without an intermediate settle helper or bare usleep introduced for settle
+- [x] `MysqldServer::stop()` is not modified to add settle sleep for this REQ
+- [x] `sweepDeadWorkers` still skips delete when mysqld pid is alive after TERM + wait (second `alive()` check preserved)
+- [x] Unit tests still prove: live owner not reaped; live mysqld after TERM not reaped; stale dead worker reaped
+- [x] No test asserts a fixed settle duration / reflects into `settleAfterStop`
 
 ## Verification Steps
 
@@ -51,4 +46,10 @@ Code-review follow-up to UR-020 REQ-115. Clarification: delete settle rather tha
 
 ## Manual checks (advisory)
 
-- [ ] Optional parallel Pest host app with WARP_DB — Observable outcome: recycle/shutdown cleanup stays free of Dirs unlink/rmdir ErrorExceptions without settleAfterStop
+- [x] Optional parallel Pest host app with WARP_DB — Observable outcome: recycle/shutdown cleanup stays free of Dirs unlink/rmdir ErrorExceptions without settleAfterStop
+
+
+## Outputs
+
+- src/Db/SnapshotDatabaseManager.php — Removed settleAfterStop method and recycle/shutdown call sites; sweepDeadWorkers alive-after-TERM guard kept
+- tests/Unit/Db/SnapshotDatabaseManagerTeardownTest.php — Dropped settle-duration test; added absence + stop-then-delete shape tests; kept live-owner/live-mysqld/dead-reap tests
