@@ -24,15 +24,6 @@ afterEach(function () {
 });
 
 /**
- * Invoke private SnapshotDatabaseManager::settleAfterStop().
- */
-function invokeSettleAfterStop(): void
-{
-    $method = new ReflectionMethod(SnapshotDatabaseManager::class, 'settleAfterStop');
-    $method->invoke(null);
-}
-
-/**
  * Invoke private SnapshotDatabaseManager::sweepDeadWorkers().
  */
 function invokeSweepDeadWorkers(string $runtimeDir): void
@@ -82,14 +73,25 @@ function spawnTermIgnoringStub(): array
     return [$process, $pid];
 }
 
-it('settleAfterStop pauses a documented short duration after stop before datadir delete', function () {
-    $start = hrtime(true);
-    invokeSettleAfterStop();
-    $elapsedMs = (hrtime(true) - $start) / 1_000_000;
+it('does not define settleAfterStop — FS resilience lives in Dirs delete + backoff', function () {
+    expect(method_exists(SnapshotDatabaseManager::class, 'settleAfterStop'))->toBeFalse();
 
-    // Documented 100ms settle — allow modest OS scheduling jitter, fail if absent/zero.
-    expect($elapsedMs)->toBeGreaterThanOrEqual(80.0)
-        ->and($elapsedMs)->toBeLessThan(500.0);
+    $source = file_get_contents((new ReflectionClass(SnapshotDatabaseManager::class))->getFileName());
+
+    expect($source)->not->toContain('settleAfterStop')
+        ->and($source)->not->toMatch('/usleep\s*\(\s*100_000\s*\)/');
+});
+
+it('recycle and shutdown stop then delete without an intermediate settle helper', function () {
+    $source = file_get_contents((new ReflectionClass(SnapshotDatabaseManager::class))->getFileName());
+
+    // recycle: stop() then Dirs::delete(datadir) with no settle call between
+    expect($source)->toMatch('/\$self->server->stop\(\);\s*Dirs::delete\(\$self->workerDir\.\'\/datadir\'\);/s');
+
+    // shutdown: stop() in try, delete workerDir in finally — no settle in between
+    expect($source)->toMatch(
+        '/self::\$instance->server->stop\(\);\s*\}\s*finally\s*\{\s*Dirs::delete\(self::\$instance->workerDir\);/s',
+    );
 });
 
 it('sweepDeadWorkers never deletes a dir whose mysqld pid is still alive after TERM', function () {
