@@ -1,9 +1,15 @@
 {
     "name": "rawphp/warp",
-    "description": "Warm-worker test engine for Laravel + Pest — boots the app once per process and hands each test a sandboxed clone",
+    "description": "Warm-worker test engine for Laravel + Pest \u2014 boots the app once per process and hands each test a sandboxed clone",
     "type": "library",
     "license": "MIT",
-    "keywords": ["laravel", "pest", "testing", "performance", "phpunit"],
+    "keywords": [
+        "laravel",
+        "pest",
+        "testing",
+        "performance",
+        "phpunit"
+    ],
     "authors": [
         {
             "name": "Tom Kaczocha"
@@ -46,6 +52,8 @@
     "scripts": {
         "test": "pest",
         "lint": "pint --test",
-        "format": "pint"
+        "format": "pint",
+        "release": "bash scripts/release.sh",
+        "release:dry": "bash scripts/release.sh --dry-run"
     }
 }
