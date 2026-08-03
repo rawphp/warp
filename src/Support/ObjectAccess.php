@@ -12,6 +12,8 @@ use Closure;
  *
  * Prefer real public APIs when they exist; this is the escape hatch for
  * Illuminate internals that only Octane (and now Warp) need to touch.
+ *
+ * @internal Package support helper for warm reset/repoint; not host-facing.
  */
 final class ObjectAccess
 {

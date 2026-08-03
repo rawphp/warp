@@ -12,6 +12,9 @@ use RawPHP\Warp\Sentinel\HermeticitySentinel;
  *
  * Published as a single optional value so a throw mid-boot cannot leave a live
  * base with a null snapshot (partial process state is worse than no base).
+ *
+ * @internal Package warm-engine plumbing; not host-facing. Hosts use
+ *           {@see \RawPHP\Warp\WarmApplicationFactory} / the TestCase trait.
  */
 final class WarmSession
 {

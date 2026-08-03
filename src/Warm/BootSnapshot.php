@@ -18,6 +18,8 @@ use ReflectionProperty;
  * do not poison later tests in the same worker. Each field carries the
  * failure mode that forced its capture — isolation code without that
  * rationale is one "safe cleanup" away from a silent cross-test leak.
+ *
+ * @internal Package warm-engine plumbing; not host-facing.
  */
 final class BootSnapshot
 {

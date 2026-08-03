@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Changed
+
+- **Architecture cleanup (warm split / pure timing core)** — host-facing
+  surface unchanged; package internals reorganized and marked `@internal`
+  (`WarmSession`, `BootSnapshot`, `DefaultResetSteps`, `ObjectAccess`,
+  `TimingsMerge`). Prefer the public symbols table in `docs/configuration.md`
+  / README over reflecting internal class names.
+
+### Removed
+
+- **`TimingStore::aggregate()`** — pure per-file totals math moved to
+  `Timing\TimingsMerge::aggregate()` (internal). Hosts and tooling should use
+  `TimingStore::fileTotals()` (still public; delegates to the pure core) or
+  `TimingStore::load()` for the raw test map. Direct `TimingStore::aggregate()`
+  call sites break.
+- **`RawPHP\Warp\Db\Dirs`** — BC class alias removed. The helper lives only at
+  `RawPHP\Warp\Support\Dirs` and was never a documented public API; update any
+  out-of-tree `use RawPHP\Warp\Db\Dirs` imports.
+
 ## 0.4.0 - 2026-07-29
 
 ### Fixed
