@@ -6,6 +6,7 @@ namespace RawPHP\Warp\Warm;
 
 use Illuminate\Foundation\Application;
 use RawPHP\Warp\Sentinel\HermeticitySentinel;
+use RawPHP\Warp\WarmApplicationFactory;
 
 /**
  * Process-global warm runtime: base app + boot fingerprints + hermeticity probe.
@@ -14,7 +15,7 @@ use RawPHP\Warp\Sentinel\HermeticitySentinel;
  * base with a null snapshot (partial process state is worse than no base).
  *
  * @internal Package warm-engine plumbing; not host-facing. Hosts use
- *           {@see \RawPHP\Warp\WarmApplicationFactory} / the TestCase trait.
+ *           {@see WarmApplicationFactory} / the TestCase trait.
  */
 final class WarmSession
 {

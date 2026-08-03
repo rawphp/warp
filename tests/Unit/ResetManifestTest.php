@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use Illuminate\Contracts\Auth\Access\Gate as GateContract;
 use Illuminate\Contracts\Http\Kernel as HttpKernelContract;
+use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
 use RawPHP\Warp\ResetManifest;
+use RawPHP\Warp\Warm\DefaultResetSteps;
 
 it('forgets configured services so the sandbox re-resolves them fresh', function () {
     $base = $this->createClassicApplication();
@@ -148,7 +150,7 @@ it('rebinds the paginator current-page resolver to the sandbox request via the d
 });
 
 it('exposes default reset steps as void methods, not Closure factories', function () {
-    $reflection = new ReflectionClass(\RawPHP\Warp\Warm\DefaultResetSteps::class);
+    $reflection = new ReflectionClass(DefaultResetSteps::class);
 
     $stepMethods = [
         'rebindGateUserResolver',
@@ -174,12 +176,12 @@ it('exposes default reset steps as void methods, not Closure factories', functio
             ->and($method->getNumberOfParameters())->toBeGreaterThanOrEqual(1);
 
         $first = $method->getParameters()[0];
-        expect($first->getType()?->getName())->toBe(\Illuminate\Foundation\Application::class);
+        expect($first->getType()?->getName())->toBe(Application::class);
     }
 });
 
 it('registers default custom steps as first-class callables of DefaultResetSteps', function () {
-    $source = file_get_contents((new ReflectionClass(\RawPHP\Warp\Warm\DefaultResetSteps::class))->getFileName());
+    $source = file_get_contents((new ReflectionClass(DefaultResetSteps::class))->getFileName());
 
     expect($source)
         ->toContain('->add(self::rebindGateUserResolver(...))')
@@ -191,14 +193,14 @@ it('registers default custom steps as first-class callables of DefaultResetSteps
 });
 
 it('lets DefaultResetSteps own default construction via manifest()', function () {
-    $defaults = new ReflectionClass(\RawPHP\Warp\Warm\DefaultResetSteps::class);
+    $defaults = new ReflectionClass(DefaultResetSteps::class);
     $manifestMethod = $defaults->getMethod('manifest');
 
     expect($manifestMethod->isStatic())->toBeTrue()
         ->and($manifestMethod->getReturnType()?->getName())->toBe(ResetManifest::class)
         ->and($manifestMethod->getNumberOfParameters())->toBe(0);
 
-    $built = \RawPHP\Warp\Warm\DefaultResetSteps::manifest();
+    $built = DefaultResetSteps::manifest();
     expect($built)->toBeInstanceOf(ResetManifest::class);
 
     // Fully registered defaults: same public entry as hosts use.
@@ -207,7 +209,7 @@ it('lets DefaultResetSteps own default construction via manifest()', function ()
 
 it('thin-delegates ResetManifest::default() to DefaultResetSteps::manifest()', function () {
     $manifestSource = file_get_contents((new ReflectionClass(ResetManifest::class))->getFileName());
-    $defaultsSource = file_get_contents((new ReflectionClass(\RawPHP\Warp\Warm\DefaultResetSteps::class))->getFileName());
+    $defaultsSource = file_get_contents((new ReflectionClass(DefaultResetSteps::class))->getFileName());
 
     expect($defaultsSource)
         ->toContain('public static function manifest(): ResetManifest')
@@ -227,7 +229,7 @@ it('applies DefaultResetSteps::manifest() defaults to a real booted application'
     $base->make('events');
 
     $sandbox = clone $base;
-    \RawPHP\Warp\Warm\DefaultResetSteps::manifest()->apply($sandbox, $base);
+    DefaultResetSteps::manifest()->apply($sandbox, $base);
 
     $container = fn (object $service) => (fn () => $this->container)->call($service);
     expect($container($sandbox->make('router')))->toBe($sandbox)

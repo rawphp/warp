@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Container\Container;
+use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Facade;
 use RawPHP\Warp\ResetManifest;
 use RawPHP\Warp\Warm\WarmSession;
@@ -111,7 +112,7 @@ it('leaves the warm session null when boot throws mid-way', function () {
 
     // Recovery: a subsequent successful boot must still work.
     $sandbox = WarmApplicationFactory::sandbox(fn () => $this->createClassicApplication(), $manifest);
-    expect($sandbox)->toBeInstanceOf(\Illuminate\Foundation\Application::class)
+    expect($sandbox)->toBeInstanceOf(Application::class)
         ->and(WarmApplicationFactory::base())->not->toBeNull()
         ->and(WarmApplicationFactory::bootCount())->toBe($bootsBefore + 1);
 });
