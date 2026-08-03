@@ -85,7 +85,7 @@ final class BootSnapshot
      * @param  array<class-string, array<int, Closure>>  $bootedCallbacks
      * @param  array<string, true>  $baseInstanceKeys
      */
-    public function __construct(
+    private function __construct(
         array $consoleBootstrappers,
         array $dispatcherListeners,
         array $bootedModels,
