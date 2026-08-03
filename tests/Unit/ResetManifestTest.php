@@ -146,3 +146,46 @@ it('rebinds the paginator current-page resolver to the sandbox request via the d
 
     expect(Paginator::resolveCurrentPage())->toBe(3);
 });
+
+it('exposes default reset steps as void methods, not Closure factories', function () {
+    $reflection = new ReflectionClass(\RawPHP\Warp\Warm\DefaultResetSteps::class);
+
+    $stepMethods = [
+        'rebindGateUserResolver',
+        'rebindPaginationState',
+        'clearConsoleArtisanCache',
+        'repointMailManager',
+        'repointChannelManager',
+        'repointBroadcastManager',
+        'rebindUrlGeneratorResolvers',
+        'stripInheritedRoutesRebound',
+        'flushRouteControllers',
+        'repointQueueManager',
+        'repointRateLimiterCache',
+        'repointParallelTestingProvider',
+    ];
+
+    foreach ($stepMethods as $name) {
+        $method = $reflection->getMethod($name);
+        $return = $method->getReturnType();
+
+        expect($return)->not->toBeNull("{$name} must declare a return type")
+            ->and($return->getName())->toBe('void', "{$name} must return void, not a Closure factory")
+            ->and($method->getNumberOfParameters())->toBeGreaterThanOrEqual(1);
+
+        $first = $method->getParameters()[0];
+        expect($first->getType()?->getName())->toBe(\Illuminate\Foundation\Application::class);
+    }
+});
+
+it('registers default custom steps as first-class callables of DefaultResetSteps', function () {
+    $source = file_get_contents((new ReflectionClass(\RawPHP\Warp\Warm\DefaultResetSteps::class))->getFileName());
+
+    expect($source)
+        ->toContain('->add(self::rebindGateUserResolver(...))')
+        ->toContain('->add(self::repointMailManager(...))')
+        ->toContain('->add(self::repointChannelManager(...))')
+        ->toContain('->add(self::repointBroadcastManager(...))')
+        ->toContain('->add(self::repointQueueManager(...))')
+        ->not->toContain('return function (Application $sandbox)');
+});
