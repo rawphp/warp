@@ -3,6 +3,7 @@
 /.worktrees/
 composer.phar
 /.do-work/
+.agent-reviews
 /docs/superpowers/
 /composer.lock
 .warp/

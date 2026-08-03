@@ -10,6 +10,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Facade;
 use RawPHP\Warp\Sentinel\HermeticitySentinel;
 use RawPHP\Warp\Sentinel\LeakReport;
+use RawPHP\Warp\Support\ObjectAccess;
 use RawPHP\Warp\Warm\BootSnapshot;
 
 /**
@@ -110,7 +111,7 @@ final class WarmApplicationFactory
 
         if (getenv('WARP_SENTINEL_BASE_INSTANCES') !== false) {
             $probes['base.instances'] = function () use ($base): string {
-                $ids = array_keys(BootSnapshot::containerInstances($base));
+                $ids = array_keys(ObjectAccess::read($base, fn (): array => $this->instances));
                 sort($ids);
 
                 return implode('|', $ids);
@@ -124,16 +125,6 @@ final class WarmApplicationFactory
     public static function base(): ?Application
     {
         return self::$base;
-    }
-
-    /**
-     * The base's boot-time instance ids (see the prune step in sandbox()).
-     *
-     * @return array<string, true>
-     */
-    public static function baseInstanceKeys(): array
-    {
-        return self::$snapshot?->baseInstanceKeys() ?? [];
     }
 
     public static function bootCount(): int
