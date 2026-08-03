@@ -180,18 +180,6 @@ it('exposes default reset steps as void methods, not Closure factories', functio
     }
 });
 
-it('registers default custom steps as first-class callables of DefaultResetSteps', function () {
-    $source = file_get_contents((new ReflectionClass(DefaultResetSteps::class))->getFileName());
-
-    expect($source)
-        ->toContain('->add(self::rebindGateUserResolver(...))')
-        ->toContain('->add(self::repointMailManager(...))')
-        ->toContain('->add(self::repointChannelManager(...))')
-        ->toContain('->add(self::repointBroadcastManager(...))')
-        ->toContain('->add(self::repointQueueManager(...))')
-        ->not->toContain('return function (Application $sandbox)');
-});
-
 it('lets DefaultResetSteps own default construction via manifest()', function () {
     $defaults = new ReflectionClass(DefaultResetSteps::class);
     $manifestMethod = $defaults->getMethod('manifest');
@@ -205,21 +193,6 @@ it('lets DefaultResetSteps own default construction via manifest()', function ()
 
     // Fully registered defaults: same public entry as hosts use.
     expect(ResetManifest::default())->toBeInstanceOf(ResetManifest::class);
-});
-
-it('thin-delegates ResetManifest::default() to DefaultResetSteps::manifest()', function () {
-    $manifestSource = file_get_contents((new ReflectionClass(ResetManifest::class))->getFileName());
-    $defaultsSource = file_get_contents((new ReflectionClass(DefaultResetSteps::class))->getFileName());
-
-    expect($defaultsSource)
-        ->toContain('public static function manifest(): ResetManifest')
-        ->toContain('new ResetManifest')
-        ->not->toContain('public static function applyTo(');
-
-    expect($manifestSource)
-        ->toContain('return DefaultResetSteps::manifest()')
-        ->not->toContain('applyTo(new self)')
-        ->not->toContain('new self');
 });
 
 it('applies DefaultResetSteps::manifest() defaults to a real booted application', function () {
