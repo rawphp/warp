@@ -2,7 +2,7 @@
 /.phpunit.cache/
 /.worktrees/
 composer.phar
-/.do-work/
+/.do-work
 .agent-reviews
 /docs/superpowers/
 /composer.lock
