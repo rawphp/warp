@@ -48,15 +48,16 @@ it('treats non-map complete as no complete files', function () {
         ->toBe(['a.php']);
 });
 
-it('supersedes only complete files and upserts the rest', function () {
+it('supersedes only complete files and upserts the rest without mutating inputs', function () {
     $tests = [
         'Old::a' => ['file' => 'a.php', 'ms' => 10.0],
         'Old::b' => ['file' => 'b.php', 'ms' => 20.0],
         'Keep::c' => ['file' => 'c.php', 'ms' => 30.0],
     ];
     $index = TimingsMerge::indexByFile($tests);
+    $indexBefore = $index;
 
-    $tests = TimingsMerge::apply($tests, $index, [
+    $merged = TimingsMerge::apply($tests, $index, [
         'complete' => ['a.php' => true],
         'tests' => [
             'New::a' => ['file' => 'a.php', 'ms' => 1.0],
@@ -64,9 +65,12 @@ it('supersedes only complete files and upserts the rest', function () {
         ],
     ]);
 
-    expect($tests)->toBe([
+    expect($merged['tests'])->toBe([
         'Old::b' => ['file' => 'b.php', 'ms' => 2.0],
         'Keep::c' => ['file' => 'c.php', 'ms' => 30.0],
         'New::a' => ['file' => 'a.php', 'ms' => 1.0],
-    ]);
+    ])
+        ->and($merged['fileIndex'])->toEqual(TimingsMerge::indexByFile($merged['tests']))
+        ->and($index)->toBe($indexBefore)
+        ->and($tests['Old::a']['ms'])->toBe(10.0);
 });

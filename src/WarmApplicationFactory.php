@@ -12,22 +12,20 @@ use RawPHP\Warp\Sentinel\HermeticitySentinel;
 use RawPHP\Warp\Sentinel\LeakReport;
 use RawPHP\Warp\Support\ObjectAccess;
 use RawPHP\Warp\Warm\BootSnapshot;
+use RawPHP\Warp\Warm\WarmSession;
 
 /**
  * Process-global warm base: boot Laravel once, hand each test a sandbox clone.
  *
  * Boot-time process state (dispatcher listeners, Eloquent boot memos, Artisan
- * bootstrappers, base instance ids) lives in {@see BootSnapshot}.
+ * bootstrappers, base instance ids) lives in {@see BootSnapshot}, held with the
+ * base and hermeticity sentinel in a single {@see WarmSession}.
  */
 final class WarmApplicationFactory
 {
-    private static ?Application $base = null;
+    private static ?WarmSession $session = null;
 
     private static int $bootCount = 0;
-
-    private static ?HermeticitySentinel $sentinel = null;
-
-    private static ?BootSnapshot $snapshot = null;
 
     /**
      * Return a per-test sandbox cloned from the once-booted base application.
@@ -36,13 +34,14 @@ final class WarmApplicationFactory
      */
     public static function sandbox(Closure $createClassicApplication, ResetManifest $manifest): Application
     {
-        if (! self::$base instanceof Application) {
+        if (! self::$session instanceof WarmSession) {
             self::bootBase($createClassicApplication);
         }
 
-        self::$snapshot->restoreOnto(self::$base);
+        $session = self::$session;
+        $session->snapshot->restoreOnto($session->base);
 
-        $sandbox = clone self::$base;
+        $sandbox = clone $session->base;
 
         // The clone's instances array still anchors 'app'/Container at the base;
         // mirror Application::registerBaseBindings() for the sandbox and give it
@@ -55,7 +54,7 @@ final class WarmApplicationFactory
         Facade::clearResolvedInstances();
         Facade::setFacadeApplication($sandbox);
 
-        $manifest->apply($sandbox, self::$base);
+        $manifest->apply($sandbox, $session->base);
 
         return $sandbox;
     }
@@ -63,14 +62,16 @@ final class WarmApplicationFactory
     /** @param  Closure(): Application  $createClassicApplication */
     private static function bootBase(Closure $createClassicApplication): void
     {
-        self::$base = $createClassicApplication();
-        self::$bootCount++;
+        // Locals only until every piece exists — publishing $base early leaves
+        // the next sandbox() seeing a live base with a null snapshot after a
+        // mid-boot throw (null-deref on restoreOnto).
+        $base = $createClassicApplication();
 
         // Resolve the DB manager into the base so every sandbox shares the
         // same manager (and therefore the same PDO connections): this keeps
         // RefreshDatabase's once-per-process migrate + per-test transaction
         // model working unchanged in warm mode.
-        self::$base->make('db');
+        $base->make('db');
 
         // Resolve the queue manager into the base too. Otherwise the
         // FIRST-ever job dispatch in the process builds it through the Bus
@@ -80,11 +81,9 @@ final class WarmApplicationFactory
         // its dependencies from the base, ignoring the running test's
         // container bindings/mocks. Resolved up front, the manifest's
         // per-sandbox repoint governs it from the very first test.
-        if (self::$base->bound('queue')) {
-            self::$base->make('queue');
+        if ($base->bound('queue')) {
+            $base->make('queue');
         }
-
-        $base = self::$base;
 
         if (getenv('WARP_TRACE_BASE_RESOLVE') !== false) {
             $base->resolving(function ($object, $container) use ($base): void {
@@ -118,13 +117,16 @@ final class WarmApplicationFactory
             };
         }
 
-        self::$sentinel = HermeticitySentinel::capture(self::$base, $probes);
-        self::$snapshot = BootSnapshot::capture(self::$base);
+        $sentinel = HermeticitySentinel::capture($base, $probes);
+        $snapshot = BootSnapshot::capture($base);
+
+        self::$session = new WarmSession($base, $snapshot, $sentinel);
+        self::$bootCount++;
     }
 
     public static function base(): ?Application
     {
-        return self::$base;
+        return self::$session?->base;
     }
 
     public static function bootCount(): int
@@ -135,11 +137,11 @@ final class WarmApplicationFactory
     /** Diff current global state against the pristine fingerprint; scrap a corrupted base. */
     public static function checkHermeticity(): LeakReport
     {
-        if (! self::$base instanceof Application || self::$sentinel === null) {
+        if (! self::$session instanceof WarmSession) {
             return new LeakReport([], false);
         }
 
-        $report = self::$sentinel->check(self::$base);
+        $report = self::$session->sentinel->check(self::$session->base);
 
         if ($report->baseCorrupted) {
             self::scrap();
@@ -151,8 +153,6 @@ final class WarmApplicationFactory
     /** Drop the warm base; the next sandbox request boots a pristine one. */
     public static function scrap(): void
     {
-        self::$base = null;
-        self::$sentinel = null;
-        self::$snapshot = null;
+        self::$session = null;
     }
 }

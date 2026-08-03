@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace RawPHP\Warp\Cli;
 
-use RawPHP\Warp\Timing\TimingStore;
+use RawPHP\Warp\Timing\TimingsMerge;
 
 final class TimingsCommand
 {
@@ -24,7 +24,7 @@ final class TimingsCommand
             return 0;
         }
 
-        $totals = TimingStore::aggregate($tests);
+        $totals = TimingsMerge::aggregate($tests);
         arsort($totals);
 
         fwrite($stdout, sprintf(

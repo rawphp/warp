@@ -7,8 +7,9 @@ namespace RawPHP\Warp\Timing;
 /**
  * Pure merge math for the timings document.
  *
- * No filesystem, locks, or warnings — callers in {@see TimingStore} own I/O
- * and decide whether invalid batches are deleted (merge) or left alone (load).
+ * No filesystem, locks, warnings, or by-ref mutation — every method returns
+ * new values. Callers in {@see TimingStore} own I/O and decide whether invalid
+ * batches are deleted (merge) or left alone (load).
  */
 final class TimingsMerge
 {
@@ -38,15 +39,15 @@ final class TimingsMerge
      * @param  array<string, array{file: string, ms: float}>  $tests
      * @param  array<string, array<string, true>>  $fileIndex
      * @param  array<mixed>  $batch
-     * @return array<string, array{file: string, ms: float}>
+     * @return array{tests: array<string, array{file: string, ms: float}>, fileIndex: array<string, array<string, true>>}
      */
-    public static function apply(array $tests, array &$fileIndex, array $batch): array
+    public static function apply(array $tests, array $fileIndex, array $batch): array
     {
         $clean = self::sanitizeTests(is_array($batch['tests'] ?? null) ? $batch['tests'] : []);
         $completeFiles = self::completeFilesOf($batch);
 
         if ($clean === [] && $completeFiles === []) {
-            return $tests;
+            return ['tests' => $tests, 'fileIndex' => $fileIndex];
         }
 
         foreach ($completeFiles as $file) {
@@ -71,7 +72,7 @@ final class TimingsMerge
             $fileIndex[$entry['file']][$id] = true;
         }
 
-        return $tests;
+        return ['tests' => $tests, 'fileIndex' => $fileIndex];
     }
 
     /**

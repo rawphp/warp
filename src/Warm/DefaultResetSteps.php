@@ -53,7 +53,9 @@ final class DefaultResetSteps
             ->add(self::rebindGateUserResolver())
             ->add(self::rebindPaginationState())
             ->add(self::clearConsoleArtisanCache())
-            ->add(self::repointNotificationManagers())
+            ->add(self::repointMailManager())
+            ->add(self::repointChannelManager())
+            ->add(self::repointBroadcastManager())
             ->add(self::rebindUrlGeneratorResolvers())
             ->add(self::stripInheritedRoutesRebound())
             ->add(self::flushRouteControllers())
@@ -133,43 +135,71 @@ final class DefaultResetSteps
     }
 
     /**
-     * Mail, notification and broadcast managers capture the boot app
-     * and cache built drivers/mailers (which capture views, queues and
-     * config from whichever sandbox built them). Point them at the
-     * current sandbox and drop the caches — boot-registered custom
-     * creators live in separate properties and survive.
+     * The mail manager captures the boot app and caches built mailers
+     * (which capture views, queues and config from whichever sandbox built
+     * them). Point it at the current sandbox and drop the mailer cache —
+     * boot-registered custom creators live in separate properties and survive.
      *
      * @return Closure(Application, Application): void
      */
-    private static function repointNotificationManagers(): Closure
+    private static function repointMailManager(): Closure
     {
         return function (Application $sandbox): void {
-            if ($sandbox->resolved('mail.manager')) {
-                $manager = $sandbox->make('mail.manager');
-
-                ObjectAccess::set($manager, 'app', $sandbox);
-                $manager->forgetMailers();
+            if (! $sandbox->resolved('mail.manager')) {
+                return;
             }
 
-            if (class_exists(ChannelManager::class) && $sandbox->resolved(ChannelManager::class)) {
-                $manager = $sandbox->make(ChannelManager::class);
+            $manager = $sandbox->make('mail.manager');
 
-                ObjectAccess::write($manager, function () use ($sandbox): void {
-                    $this->container = $sandbox;
-                    $this->config = $sandbox->make('config');
-                    $this->drivers = [];
-                });
+            ObjectAccess::set($manager, 'app', $sandbox);
+            $manager->forgetMailers();
+        };
+    }
+
+    /**
+     * The notification channel manager captures the boot container/config
+     * and caches built drivers. Point it at the sandbox and empty the
+     * driver cache so channels rebuild against live services.
+     *
+     * @return Closure(Application, Application): void
+     */
+    private static function repointChannelManager(): Closure
+    {
+        return function (Application $sandbox): void {
+            if (! class_exists(ChannelManager::class) || ! $sandbox->resolved(ChannelManager::class)) {
+                return;
             }
 
-            if (class_exists(BroadcastManager::class)
-                && $sandbox->resolved(BroadcastManager::class)) {
-                $manager = $sandbox->make(BroadcastManager::class);
+            $manager = $sandbox->make(ChannelManager::class);
 
-                ObjectAccess::write($manager, function () use ($sandbox): void {
-                    $this->app = $sandbox;
-                    $this->drivers = [];
-                });
+            ObjectAccess::write($manager, function () use ($sandbox): void {
+                $this->container = $sandbox;
+                $this->config = $sandbox->make('config');
+                $this->drivers = [];
+            });
+        };
+    }
+
+    /**
+     * The broadcast manager captures the boot app and caches built
+     * drivers. Point it at the sandbox and empty the driver cache.
+     *
+     * @return Closure(Application, Application): void
+     */
+    private static function repointBroadcastManager(): Closure
+    {
+        return function (Application $sandbox): void {
+            if (! class_exists(BroadcastManager::class)
+                || ! $sandbox->resolved(BroadcastManager::class)) {
+                return;
             }
+
+            $manager = $sandbox->make(BroadcastManager::class);
+
+            ObjectAccess::write($manager, function () use ($sandbox): void {
+                $this->app = $sandbox;
+                $this->drivers = [];
+            });
         };
     }
 

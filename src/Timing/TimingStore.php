@@ -182,7 +182,7 @@ final class TimingStore
     /** @return array<string, float> file => total ms, path-sorted */
     public function fileTotals(): array
     {
-        return self::aggregate($this->snapshot()['tests']);
+        return TimingsMerge::aggregate($this->snapshot()['tests']);
     }
 
     /**
@@ -378,20 +378,13 @@ final class TimingStore
                 }
             }
 
-            $tests = TimingsMerge::apply($tests, $fileIndex, $batch);
+            $merged = TimingsMerge::apply($tests, $fileIndex, $batch);
+            $tests = $merged['tests'];
+            $fileIndex = $merged['fileIndex'];
             $mergedPending[] = $path;
         }
 
         return [$tests, $mergedPending, $root];
-    }
-
-    /**
-     * @param  array<string, array{file: string, ms: float}>  $tests
-     * @return array<string, float>
-     */
-    public static function aggregate(array $tests): array
-    {
-        return TimingsMerge::aggregate($tests);
     }
 
     /** @return array{root: string|null, tests: array<string, array{file: string, ms: float}>} */
