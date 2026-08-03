@@ -58,10 +58,14 @@ final class WarmApplicationFactory
     }
 
     /**
-     * Build and publish the process-global warm session.
+     * Build the warm session; caller publishes it atomically via ??=.
      *
-     * Locals only until every piece exists — a mid-boot throw leaves
-     * {@see $session} null (partial process state is worse than no base).
+     * Factory statics only: locals until every piece exists, then a single
+     * assign of a complete {@see WarmSession}. A mid-boot throw leaves
+     * {@see $session} null — never a live base without snapshot/sentinel.
+     * That does not clean half-booted Laravel process state after
+     * {@see $createClassicApplication} has already run; process may still
+     * be dirty. Documented trade-off — no cleanup layer here.
      *
      * @param  Closure(): Application  $createClassicApplication
      */
@@ -122,7 +126,7 @@ final class WarmApplicationFactory
         $sentinel = HermeticitySentinel::capture($base, $probes);
         $snapshot = BootSnapshot::capture($base);
 
-        // Caller publishes via ??= so a mid-boot throw never writes $session.
+        // Complete session only; ??= on the caller is the sole factory publish.
         $session = new WarmSession($base, $snapshot, $sentinel);
         self::$bootCount++;
 
