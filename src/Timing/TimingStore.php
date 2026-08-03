@@ -311,7 +311,7 @@ final class TimingStore
         // Every later batch whose root differs is foreign and never allowed to flip
         // the stored root or mix key domains (finding 3).
         $rootEstablished = is_file($this->dir.'/timings.json') && $root !== null;
-        $fileIndex = self::indexByFile($tests);
+        $fileIndex = TimingsMerge::indexByFile($tests);
         $mergedPending = [];
 
         foreach ($pending as $path) {
@@ -378,7 +378,7 @@ final class TimingStore
                 }
             }
 
-            $tests = self::apply($tests, $fileIndex, $batch);
+            $tests = TimingsMerge::apply($tests, $fileIndex, $batch);
             $mergedPending[] = $path;
         }
 
@@ -391,114 +391,7 @@ final class TimingStore
      */
     public static function aggregate(array $tests): array
     {
-        $totals = [];
-
-        foreach ($tests as $entry) {
-            $totals[$entry['file']] = ($totals[$entry['file']] ?? 0.0) + $entry['ms'];
-        }
-
-        ksort($totals);
-
-        return $totals;
-    }
-
-    /**
-     * Per-file supersede: a batch replaces file F's prior entries only when it
-     * flags F complete (every enumerated test of F terminated in that process);
-     * otherwise it upserts observed test ids. A worker that saw only a slice of a
-     * file never flags it complete, so partial batches never delete siblings.
-     *
-     * @param  array<string, array{file: string, ms: float}>  $tests
-     * @param  array<string, array<string, true>>  $fileIndex
-     * @param  array<mixed>  $batch
-     * @return array<string, array{file: string, ms: float}>
-     */
-    private static function apply(array $tests, array &$fileIndex, array $batch): array
-    {
-        $clean = [];
-        $batchTests = $batch['tests'] ?? null;
-
-        if (is_array($batchTests)) {
-            foreach ($batchTests as $id => $entry) {
-                if (is_string($id) && is_array($entry)
-                    && is_string($entry['file'] ?? null) && is_numeric($entry['ms'] ?? null)
-                    && is_finite((float) $entry['ms'])) {
-                    $clean[$id] = ['file' => $entry['file'], 'ms' => (float) $entry['ms']];
-                }
-            }
-        }
-
-        $completeFiles = self::completeFilesOf($batch);
-
-        if ($clean === [] && $completeFiles === []) {
-            return $tests;
-        }
-
-        foreach ($completeFiles as $file) {
-            foreach (array_keys($fileIndex[$file] ?? []) as $id) {
-                unset($tests[$id]);
-            }
-
-            unset($fileIndex[$file]);
-        }
-
-        foreach ($clean as $id => $entry) {
-            if (isset($tests[$id])) {
-                $oldFile = $tests[$id]['file'];
-                unset($fileIndex[$oldFile][$id]);
-
-                if (($fileIndex[$oldFile] ?? []) === []) {
-                    unset($fileIndex[$oldFile]);
-                }
-            }
-
-            $tests[$id] = $entry;
-            $fileIndex[$entry['file']][$id] = true;
-        }
-
-        return $tests;
-    }
-
-    /**
-     * The files a batch flags complete. Tolerant of legacy/foreign payloads: a
-     * non-map `complete` (e.g. an old boolean flag) yields no complete files, so
-     * such a batch degrades to upsert-only rather than wrongly superseding.
-     *
-     * @param  array<mixed>  $batch
-     * @return list<string>
-     */
-    private static function completeFilesOf(array $batch): array
-    {
-        $complete = $batch['complete'] ?? null;
-
-        if (! is_array($complete)) {
-            return [];
-        }
-
-        $files = [];
-
-        foreach ($complete as $file => $isComplete) {
-            if (is_string($file) && $isComplete === true) {
-                $files[] = $file;
-            }
-        }
-
-        return $files;
-    }
-
-    /**
-     * @param  array<string, array{file: string, ms: float}>  $tests
-     * @return array<string, array<string, true>>
-     */
-    private static function indexByFile(array $tests): array
-    {
-        $index = [];
-
-        foreach ($tests as $id => $entry) {
-            $index[$entry['file']][$id] = true;
-        }
-
-        return $index;
+        return TimingsMerge::aggregate($tests);
     }
 
     /** @return array{root: string|null, tests: array<string, array{file: string, ms: float}>} */
@@ -530,15 +423,7 @@ final class TimingStore
             return ['root' => null, 'tests' => []];
         }
 
-        $tests = [];
-
-        foreach ($data['tests'] as $id => $entry) {
-            if (is_string($id) && is_array($entry)
-                && is_string($entry['file'] ?? null) && is_numeric($entry['ms'] ?? null)
-                && is_finite((float) $entry['ms'])) {
-                $tests[$id] = ['file' => $entry['file'], 'ms' => (float) $entry['ms']];
-            }
-        }
+        $tests = TimingsMerge::sanitizeTests($data['tests']);
 
         return [
             'root' => isset($data['root']) && is_string($data['root']) ? $data['root'] : null,
