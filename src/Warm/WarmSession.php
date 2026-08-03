@@ -11,8 +11,10 @@ use RawPHP\Warp\WarmApplicationFactory;
 /**
  * Process-global warm runtime: base app + boot fingerprints + hermeticity probe.
  *
- * Published as a single optional value so a throw mid-boot cannot leave a live
- * base with a null snapshot (partial process state is worse than no base).
+ * Held as one optional factory static so publish is all-or-nothing at the
+ * factory level (no base without snapshot/sentinel; mid-boot throw → session
+ * stays null). Factory atomicity only — not process-level cleanup of a
+ * half-booted Laravel app after createClassicApplication() has run.
  *
  * @internal Package warm-engine plumbing; not host-facing. Hosts use
  *           {@see WarmApplicationFactory} / the TestCase trait.
