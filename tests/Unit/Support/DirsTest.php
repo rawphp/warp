@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use RawPHP\Warp\Db\Dirs;
+use RawPHP\Warp\Support\Dirs;
 
 beforeEach(function () {
     $this->tmp = sys_get_temp_dir().'/warp-dirs-'.bin2hex(random_bytes(4));

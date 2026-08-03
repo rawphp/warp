@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\DB;
-use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Db\MysqldServer;
 use RawPHP\Warp\Db\SnapshotDatabaseManager;
+use RawPHP\Warp\Support\Dirs;
 
 beforeEach(function () {
     if (! mysqldAvailable()) {

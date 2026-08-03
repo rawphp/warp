@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace RawPHP\Warp\Timing;
 
 use Closure;
-use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Support\AtomicFile;
+use RawPHP\Warp\Support\Dirs;
 use RawPHP\Warp\Support\FileLock;
 use RawPHP\Warp\Support\Paths;
 use RawPHP\Warp\Support\Stderr;

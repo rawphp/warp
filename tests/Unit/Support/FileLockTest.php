@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use RawPHP\Warp\Db\Dirs;
+use RawPHP\Warp\Support\Dirs;
 use RawPHP\Warp\Support\FileLock;
 
 final class FailingLockStream

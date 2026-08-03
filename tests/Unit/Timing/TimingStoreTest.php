@@ -55,7 +55,7 @@ namespace RawPHP\Warp\Support {
 }
 
 namespace {
-    use RawPHP\Warp\Db\Dirs;
+    use RawPHP\Warp\Support\Dirs;
     use RawPHP\Warp\Support\Stderr;
     use RawPHP\Warp\Timing\TimingStore;
 

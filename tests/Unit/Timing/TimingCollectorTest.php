@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use RawPHP\Warp\Db\Dirs;
+use RawPHP\Warp\Support\Dirs;
 use RawPHP\Warp\Timing\TimingCollector;
 use RawPHP\Warp\Timing\TimingStore;
 
@@ -349,7 +349,7 @@ function runTimingExtensionFlushScript(string $body): array
 
         require 'vendor/autoload.php';
 
-        use RawPHP\Warp\Db\Dirs;
+        use RawPHP\Warp\Support\Dirs;
         use RawPHP\Warp\Timing\TimingCollector;
         use RawPHP\Warp\Timing\TimingExtension;
         use RawPHP\Warp\Timing\TimingStore;

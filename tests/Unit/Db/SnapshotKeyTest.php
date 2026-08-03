@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Db\SnapshotKey;
+use RawPHP\Warp\Support\Dirs;
 
 beforeEach(function () {
     $this->tmp = sys_get_temp_dir().'/warp-key-'.bin2hex(random_bytes(4));

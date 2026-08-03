@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RawPHP\Warp\Db;
 
 use Closure;
+use RawPHP\Warp\Support\Dirs;
 use RawPHP\Warp\Support\FileLock;
 use RuntimeException;
 
