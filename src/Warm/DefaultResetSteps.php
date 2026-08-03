@@ -23,6 +23,9 @@ use RawPHP\Warp\Support\ObjectAccess;
  *
  * Each method is one leak class discovered against real Laravel suites —
  * keep the rationale comment next to the step that fixes it.
+ *
+ * @internal Package warm-engine plumbing; not host-facing. Hosts extend
+ *           defaults through {@see ResetManifest::default()} only.
  */
 final class DefaultResetSteps
 {

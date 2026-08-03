@@ -107,19 +107,26 @@ Recording engages only when `WARP_TIMINGS` is on. Artifact layout lives under `W
 
 ## Public symbols (quick index)
 
+Host-facing surface only. Warm-engine internals (`WarmSession`, `BootSnapshot`,
+`DefaultResetSteps`, `ObjectAccess`, pure merge math in `TimingsMerge`) are
+`@internal` and are not part of this contract.
+
 | Symbol | Role |
 |--------|------|
 | `RawPHP\Warp\Concerns\InteractsWithWarmApplication` | Host TestCase trait |
 | `RawPHP\Warp\WarpMode` | `enabled()` / `databaseEnabled()` / `timingsEnabled()` |
 | `RawPHP\Warp\Attributes\Isolated` | Class-level classic force |
-| `RawPHP\Warp\ResetManifest` | Sandbox reset DSL |
+| `RawPHP\Warp\ResetManifest` | Sandbox reset DSL (`default` / `forget` / `repoint` / `flush` / `add`) |
 | `RawPHP\Warp\WarmApplicationFactory` | `sandbox` / hermeticity / scrap (advanced) |
 | `RawPHP\Warp\Sentinel\HermeticitySentinel` | Leak detector |
 | `RawPHP\Warp\Db\SnapshotDatabaseManager` | `apply` / `recycle` / `shutdown` |
 | `RawPHP\Warp\Timing\TimingExtension` | PHPUnit extension |
-| `RawPHP\Warp\Timing\TimingStore` | Timings artifact IO |
+| `RawPHP\Warp\Timing\TimingStore` | Timings artifact I/O shell (`load` / `fileTotals` / pending merge); pure merge math lives in internal `TimingsMerge` |
 | `RawPHP\Warp\Shard\DurationBalancedSharder` | LPT packing |
 | `bin/warp` | `merge` / `shard` / `timings` |
+
+Package FS helpers live at `RawPHP\Warp\Support\Dirs` (not the removed
+`RawPHP\Warp\Db\Dirs` alias). `Dirs` is not a documented host API.
 
 ## Related
 

@@ -403,7 +403,7 @@ artifact.
 | `RawPHP\Warp\Db\SnapshotDatabaseManager` | `apply()` / `recycle()` / `shutdown()` — per-worker snapshot DB provisioning. |
 | `RawPHP\Warp\WarpMode::timingsEnabled(): bool` | `true` when `WARP_TIMINGS` is `1`, `on`, or `true`. |
 | `RawPHP\Warp\Timing\TimingExtension` | PHPUnit extension recording per-test durations (register in `phpunit.xml`). |
-| `RawPHP\Warp\Timing\TimingStore` | `load()` / `fileTotals()` / `aggregate()` — the portable timings artifact. |
+| `RawPHP\Warp\Timing\TimingStore` | `load()` / `fileTotals()` — the portable timings artifact I/O shell. |
 | `RawPHP\Warp\Shard\DurationBalancedSharder` | `assign()` — deterministic LPT shard packing. |
 | `bin/warp` | `warp merge` / `warp shard <k>/<n>` / `warp timings` CLI. |
 

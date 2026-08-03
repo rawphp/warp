@@ -10,6 +10,10 @@ namespace RawPHP\Warp\Timing;
  * No filesystem, locks, warnings, or by-ref mutation — every method returns
  * new values. Callers in {@see TimingStore} own I/O and decide whether invalid
  * batches are deleted (merge) or left alone (load).
+ *
+ * @internal Pure core used by {@see TimingStore} and CLI; not a host-facing
+ *           public symbol. Prefer {@see TimingStore::load()} /
+ *           {@see TimingStore::fileTotals()} from application code.
  */
 final class TimingsMerge
 {
