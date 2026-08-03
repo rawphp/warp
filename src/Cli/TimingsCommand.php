@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace RawPHP\Warp\Cli;
 
-use RawPHP\Warp\Timing\TimingsMerge;
-
 final class TimingsCommand
 {
     /**
@@ -24,7 +22,8 @@ final class TimingsCommand
             return 0;
         }
 
-        $totals = TimingsMerge::aggregate($tests);
+        // arsort: fileTotals() is path-sorted (ksort); CLI lists slowest first.
+        $totals = $timings->store->fileTotals();
         arsort($totals);
 
         fwrite($stdout, sprintf(
