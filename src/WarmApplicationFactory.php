@@ -34,11 +34,9 @@ final class WarmApplicationFactory
      */
     public static function sandbox(Closure $createClassicApplication, ResetManifest $manifest): Application
     {
-        if (! self::$session instanceof WarmSession) {
-            self::bootBase($createClassicApplication);
-        }
-
-        $session = self::$session;
+        // ??= keeps a typed WarmSession after first boot — no re-read branch
+        // that would leave a ?WarmSession hole for static analysis / runtime.
+        $session = self::$session ??= self::bootBase($createClassicApplication);
         $session->snapshot->restoreOnto($session->base);
 
         $sandbox = clone $session->base;
@@ -59,12 +57,16 @@ final class WarmApplicationFactory
         return $sandbox;
     }
 
-    /** @param  Closure(): Application  $createClassicApplication */
-    private static function bootBase(Closure $createClassicApplication): void
+    /**
+     * Build and publish the process-global warm session.
+     *
+     * Locals only until every piece exists — a mid-boot throw leaves
+     * {@see $session} null (partial process state is worse than no base).
+     *
+     * @param  Closure(): Application  $createClassicApplication
+     */
+    private static function bootBase(Closure $createClassicApplication): WarmSession
     {
-        // Locals only until every piece exists — publishing $base early leaves
-        // the next sandbox() seeing a live base with a null snapshot after a
-        // mid-boot throw (null-deref on restoreOnto).
         $base = $createClassicApplication();
 
         // Resolve the DB manager into the base so every sandbox shares the
@@ -120,8 +122,11 @@ final class WarmApplicationFactory
         $sentinel = HermeticitySentinel::capture($base, $probes);
         $snapshot = BootSnapshot::capture($base);
 
-        self::$session = new WarmSession($base, $snapshot, $sentinel);
+        // Caller publishes via ??= so a mid-boot throw never writes $session.
+        $session = new WarmSession($base, $snapshot, $sentinel);
         self::$bootCount++;
+
+        return $session;
     }
 
     public static function base(): ?Application
