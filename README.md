@@ -8,6 +8,43 @@ sandboxed shallow clone of it, instead of paying the full framework bootstrap
 per run via `WARP_MODE=1` and is designed to produce **byte-identical outcomes** to
 classic mode.
 
+## Scope (product boundary)
+
+Warp is a **test-acceleration stack for Laravel + Pest**, not a general test
+framework or CI platform. The package stops at the three surfaces already shipped.
+New work should deepen these jobs — not add adjacent products under the same name.
+
+### Warp is
+
+| Surface | Job | How you opt in |
+|---------|-----|----------------|
+| **Warm engine** | Boot Laravel once per PHP process; hand each test a sandbox; fail loud on shared-state leaks; keep classic mode as the default and parity as the bar | `WARP_MODE=1` + `InteractsWithWarmApplication` |
+| **Snapshot DB** | Golden MySQL datadir + per-worker copy-on-write clones so parallel workers skip migrate/seed fixed cost | `WARP_DB=1` (optional; MySQL 8) |
+| **Timings + duration shards** | Record per-test durations and pack CI shards by time instead of file count | `WARP_TIMINGS=1`, `TimingExtension`, `bin/warp` (`merge` / `shard` / `timings`) |
+
+Hard invariants (do not trade these away):
+
+- **Classic default** — with Warp flags unset, host suite behaviour is unchanged.
+- **Parity first** — warm mode aims for byte-identical outcomes to classic; speed is the benefit, not a licence to diverge.
+- **Opt-in stages** — warm, snapshot DB, and timings are independent switches; none is mandatory to install the package.
+- **Host owns the app** — Illuminate comes from the consuming app (or Testbench in Warp’s own suite); Warp is not a mini-framework.
+
+### Warp is not
+
+These belong elsewhere (another package, the host app, Pest/PHPUnit, or CI vendor tooling). Do **not** grow them into this repository without an explicit product decision to split packages:
+
+- A **Pest or PHPUnit replacement** — Warp plugs into them; it does not reimplement runners, assertions, or the DSL.
+- A **general parallel test runner** — use Pest/`paratest`; Warp warms and provisions *inside* those workers.
+- A **full test orchestrator / daemon** — no long-lived `warp test` scheduler, worker pool manager, or job queue.
+- **Result / test-impact cache** — no content-addressed skip of tests from coverage maps, local memoization of pass/fail, or remote shared result cache.
+- **Change-based test selection** — no git-diff → “run only these tests” engine.
+- **Flake quarantine / flake ledger product** — isolation and hermeticity stay; auto-rerun policies and quarantine lanes do not.
+- **Generic MySQL or container ops** — snapshot DB exists only to make *Laravel test workers* cheap and isolated, not as a DBaaS or docker-compose substitute.
+- **App-specific test helpers** — domain factories, fakes, and suite conventions stay in the host app; Warp exposes reset/extension points instead.
+- **Cross-framework support** — Laravel + Pest (and PHPUnit extension points Pest already uses). Not Symfony, not plain PHPUnit apps as a first-class product line.
+
+Internal design notes may sketch later stages (see [`docs/specs/`](docs/specs/)). **Sketches are not the product boundary.** Until something is listed under **Warp is** above (and shipped behind an opt-in flag), it is out of scope for this package.
+
 ## Measured results
 
 Measured on YardPilot's `tests/Feature/Quotes` suite (1,372 DB-backed tests):
