@@ -17,16 +17,22 @@ use RawPHP\Warp\ResetManifest;
 use RawPHP\Warp\Support\ObjectAccess;
 
 /**
- * Named default sandbox reset steps composed by {@see ResetManifest::default()}.
+ * Named default sandbox reset steps. Owns construction of the fully
+ * registered default {@see ResetManifest}; hosts still enter via
+ * {@see ResetManifest::default()} which thin-delegates here.
  *
  * Each method is one leak class discovered against real Laravel suites —
  * keep the rationale comment next to the step that fixes it.
  */
 final class DefaultResetSteps
 {
-    public static function applyTo(ResetManifest $manifest): ResetManifest
+    /**
+     * Build a fully registered default manifest. Defaults depend on the DSL;
+     * the DSL does not own Laravel-default registration.
+     */
+    public static function manifest(): ResetManifest
     {
-        return $manifest
+        return (new ResetManifest)
             // Stateful leaf services: re-resolve fresh per sandbox.
             ->forget(
                 'cache', 'cache.store', 'cookie', 'redirect',
