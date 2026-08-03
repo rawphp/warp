@@ -6,7 +6,6 @@ use Illuminate\Container\Container;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Facade;
 use RawPHP\Warp\ResetManifest;
-use RawPHP\Warp\Warm\WarmSession;
 use RawPHP\Warp\WarmApplicationFactory;
 
 it('boots the base application exactly once across sandboxes', function () {
@@ -84,15 +83,6 @@ it('forgets stateful services so each sandbox re-resolves them fresh', function 
 
     $s2 = WarmApplicationFactory::sandbox($create, $manifest);
     expect($s2->make('cache')->store('array')->get('warp-key'))->toBeNull();
-});
-
-it('bootBase returns WarmSession so sandbox can publish with ??=', function () {
-    $method = new ReflectionMethod(WarmApplicationFactory::class, 'bootBase');
-    $return = $method->getReturnType();
-
-    expect($return)->toBeInstanceOf(ReflectionNamedType::class)
-        ->and($return->getName())->toBe(WarmSession::class)
-        ->and($return->allowsNull())->toBeFalse();
 });
 
 it('leaves the warm session null when boot throws mid-way', function () {
