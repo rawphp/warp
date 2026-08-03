@@ -189,3 +189,48 @@ it('registers default custom steps as first-class callables of DefaultResetSteps
         ->toContain('->add(self::repointQueueManager(...))')
         ->not->toContain('return function (Application $sandbox)');
 });
+
+it('lets DefaultResetSteps own default construction via manifest()', function () {
+    $defaults = new ReflectionClass(\RawPHP\Warp\Warm\DefaultResetSteps::class);
+    $manifestMethod = $defaults->getMethod('manifest');
+
+    expect($manifestMethod->isStatic())->toBeTrue()
+        ->and($manifestMethod->getReturnType()?->getName())->toBe(ResetManifest::class)
+        ->and($manifestMethod->getNumberOfParameters())->toBe(0);
+
+    $built = \RawPHP\Warp\Warm\DefaultResetSteps::manifest();
+    expect($built)->toBeInstanceOf(ResetManifest::class);
+
+    // Fully registered defaults: same public entry as hosts use.
+    expect(ResetManifest::default())->toBeInstanceOf(ResetManifest::class);
+});
+
+it('thin-delegates ResetManifest::default() to DefaultResetSteps::manifest()', function () {
+    $manifestSource = file_get_contents((new ReflectionClass(ResetManifest::class))->getFileName());
+    $defaultsSource = file_get_contents((new ReflectionClass(\RawPHP\Warp\Warm\DefaultResetSteps::class))->getFileName());
+
+    expect($defaultsSource)
+        ->toContain('public static function manifest(): ResetManifest')
+        ->toContain('new ResetManifest')
+        ->not->toContain('public static function applyTo(');
+
+    expect($manifestSource)
+        ->toContain('return DefaultResetSteps::manifest()')
+        ->not->toContain('applyTo(new self)')
+        ->not->toContain('new self');
+});
+
+it('applies DefaultResetSteps::manifest() defaults to a real booted application', function () {
+    $base = $this->createClassicApplication();
+    $base->make('db');
+    $base->make('router');
+    $base->make('events');
+
+    $sandbox = clone $base;
+    \RawPHP\Warp\Warm\DefaultResetSteps::manifest()->apply($sandbox, $base);
+
+    $container = fn (object $service) => (fn () => $this->container)->call($service);
+    expect($container($sandbox->make('router')))->toBe($sandbox)
+        ->and($container($sandbox->make('events')))->toBe($sandbox)
+        ->and((fn () => $this->app)->call($sandbox->make('db')))->toBe($sandbox);
+});

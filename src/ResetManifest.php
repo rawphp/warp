@@ -31,10 +31,13 @@ final class ResetManifest
     /**
      * Laravel-default sandbox resets. Host apps extend via
      * {@see Concerns\InteractsWithWarmApplication::warpResetManifest()}.
+     *
+     * Construction is owned by {@see DefaultResetSteps::manifest()}; this is a
+     * thin public entry so hosts keep chaining from ResetManifest::default().
      */
     public static function default(): self
     {
-        return DefaultResetSteps::applyTo(new self);
+        return DefaultResetSteps::manifest();
     }
 
     public function forget(string ...$ids): self
