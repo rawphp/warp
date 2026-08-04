@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace RawPHP\Warp\Db;
 
 use Illuminate\Foundation\Application;
-use RuntimeException;
 
 /**
  * Process-global WARP_DB provisioning: ensure golden snapshot, hand each
  * process a {@see WorkerRuntime}, rebind the Laravel connection.
  *
  * Host-facing surface: {@see apply()}, {@see recycle()}, {@see shutdown()},
- * {@see provisioned()}.
+ * {@see provisioned()}. Build-command subprocess lives in
+ * {@see SnapshotBuildRunner}; per-worker mysqld lifecycle in {@see WorkerRuntime}.
  */
 final class SnapshotDatabaseManager
 {
@@ -84,7 +84,7 @@ final class SnapshotDatabaseManager
             (new GoldenSnapshotBuilder($binaries, $store))->build(
                 $key,
                 $config->database,
-                static fn (string $socket, string $database) => self::runBuildCommand($config, $socket, $database),
+                static fn (string $socket, string $database) => SnapshotBuildRunner::run($config, $socket, $database),
             );
         }
 
@@ -124,35 +124,4 @@ final class SnapshotDatabaseManager
         ));
     }
 
-    /** Run the app's migrate/seed command against the build mysqld via env-injected DB_* vars. */
-    private static function runBuildCommand(SnapshotConfig $config, string $socket, string $database): void
-    {
-        $log = sys_get_temp_dir().'/warp-build-'.getmypid().'.log';
-
-        $env = array_merge(getenv(), [
-            'DB_CONNECTION' => $config->connection,
-            'DB_SOCKET' => $socket,
-            'DB_DATABASE' => $database,
-            'DB_USERNAME' => 'root',
-            'DB_PASSWORD' => '',
-        ], $config->buildEnv);
-
-        $process = proc_open($config->buildCommand, [
-            0 => ['file', '/dev/null', 'r'],
-            1 => ['file', $log, 'w'],
-            2 => ['file', $log, 'a'],
-        ], $pipes, $config->appBasePath, $env);
-
-        if ($process === false) {
-            throw new RuntimeException('[warp] failed to spawn the snapshot build command');
-        }
-
-        $exit = proc_close($process);
-
-        if ($exit !== 0) {
-            throw new RuntimeException(
-                "[warp] snapshot build command exited {$exit}:\n".substr((string) file_get_contents($log), -2000),
-            );
-        }
-    }
 }
