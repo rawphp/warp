@@ -4,6 +4,14 @@
 
 ### Changed
 
+- **Architecture cleanup (pass 3)** — host-facing surface unchanged. Internals:
+  `Support\ProcessProbe` + `Db\DeadWorkerSweep` for orphan worker reaping;
+  `Warm\SandboxBuilder` for per-test clone assembly; `Timing\ExtensionRegistrar`
+  owns PHPUnit subscriber wiring so `TimingExtension` is bootstrap-only;
+  `TimingCollector` duration DRY; pure `Shard\ShardDiscovery` for shard file
+  list + timing-key root. Prefer documented public symbols over reflecting
+  `@internal` class names.
+
 - **Architecture cleanup (pass 2)** — host-facing surface unchanged. Internals:
   `FileLock::withLockOr` for soft-open timings reads; pure `Timing\ShardTotals`
   for shard root-mismatch policy; `Timing\PendingBatches` owns pending/

@@ -107,9 +107,11 @@ Recording engages only when `WARP_TIMINGS` is on. Artifact layout lives under `W
 
 ## Public symbols (quick index)
 
-Host-facing surface only. Warm-engine internals (`WarmSession`, `BootSnapshot`,
-`DefaultResetSteps`, `ObjectAccess`, pure merge math in `TimingsMerge`) are
-`@internal` and are not part of this contract.
+Host-facing surface only. Package internals (`WarmSession`, `BootSnapshot`,
+`SandboxBuilder`, `DefaultResetSteps`, `ObjectAccess`, pure merge math in
+`TimingsMerge`, `PendingBatches`, `ExtensionRegistrar`, `ShardDiscovery`,
+`DeadWorkerSweep`, `ProcessProbe`, …) are `@internal` and are not part of this
+contract.
 
 | Symbol | Role |
 |--------|------|
