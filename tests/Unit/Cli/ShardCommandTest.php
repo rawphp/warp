@@ -233,17 +233,25 @@ XML);
 });
 
 it('does not pre-scan for phpunit xml before suite discovery', function () {
-    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Cli/ShardCommand.php');
+    $root = dirname(__DIR__, 3);
+    $source = (string) file_get_contents($root.'/src/Cli/ShardCommand.php')
+        ."\n".(string) file_get_contents($root.'/src/Shard/ShardDiscovery.php');
 
     expect($source)->not->toContain('SuiteDiscovery::configurationPath');
 });
 
 it('uses the missing-configuration exception type instead of matching exception messages', function () {
-    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Cli/ShardCommand.php');
+    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Shard/ShardDiscovery.php');
 
     expect($source)->toContain('MissingConfigurationException')
         ->and($source)->not->toContain("getMessage() !== '[warp] no phpunit.xml found at project root'")
         ->and($source)->not->toContain('[warp] no phpunit.xml found at project root');
+});
+
+it('delegates file discovery to ShardDiscovery', function () {
+    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Cli/ShardCommand.php');
+
+    expect($source)->toContain('ShardDiscovery::resolve');
 });
 
 it('throws a typed missing-configuration exception when no phpunit xml exists', function () {
@@ -588,7 +596,7 @@ it('bench reuses ShardCommand canonicalization instead of forking it (finding 20
 });
 
 it('sources default shard suffixes from TestFileFinder::DEFAULT_SUFFIXES rather than a copy (finding 22)', function () {
-    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Cli/ShardCommand.php');
+    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Shard/ShardDiscovery.php');
 
     expect($source)
         ->toContain('TestFileFinder::DEFAULT_SUFFIXES')

@@ -6,9 +6,7 @@ namespace RawPHP\Warp\Cli;
 
 use InvalidArgumentException;
 use RawPHP\Warp\Shard\DurationBalancedSharder;
-use RawPHP\Warp\Shard\MissingConfigurationException;
-use RawPHP\Warp\Shard\SuiteDiscovery;
-use RawPHP\Warp\Shard\TestFileFinder;
+use RawPHP\Warp\Shard\ShardDiscovery;
 use RawPHP\Warp\Support\Paths;
 use RawPHP\Warp\Timing\ShardTotals;
 use RuntimeException;
@@ -85,41 +83,7 @@ final class ShardCommand
         }
 
         $root = getcwd() ?: '.';
-        $canonicalRoot = $root;
-
-        if ($paths === []) {
-            try {
-                $files = SuiteDiscovery::discover($root, $configuration);
-                if ($suffixOption !== null) {
-                    fwrite($stderr, "[warp] --suffix={$suffixOption} ignored because phpunit.xml discovery controls test file suffixes\n");
-                }
-                $canonicalRoot = Paths::configRoot(SuiteDiscovery::rootConfigurationPath($root, $configuration), $root);
-            } catch (MissingConfigurationException $exception) {
-                if ($configuration !== null) {
-                    throw $exception;
-                }
-
-                fwrite($stderr, "[warp] no phpunit.xml found - falling back to tests/Test.php discovery\n");
-                $files = TestFileFinder::find(['tests'], $suffixOption ?? TestFileFinder::DEFAULT_SUFFIXES);
-            }
-        } else {
-            if ($configuration !== null) {
-                fwrite($stderr, "[warp] --configuration={$configuration} ignored for suite discovery (explicit test paths bypass discovery); still used for the timing-key root\n");
-            }
-
-            // Explicit paths bypass discovery but the timing-key root is still the
-            // config dir the extension recorded against: honour --configuration for
-            // the root, or probe for an implicit phpunit.xml exactly as discovery
-            // would (finding 9). Only cwd-rooted runs with no config stay at getcwd.
-            $configPath = SuiteDiscovery::rootConfigurationPath($root, $configuration);
-
-            if ($configPath !== null) {
-                $canonicalRoot = Paths::configRoot($configPath, $root);
-            }
-
-            $files = TestFileFinder::find($paths, $suffixOption ?? TestFileFinder::DEFAULT_SUFFIXES);
-        }
-
+        [$files, $canonicalRoot] = ShardDiscovery::resolve($root, $paths, $configuration, $suffixOption, $stderr);
         $files = self::canonicalFiles($files, $canonicalRoot);
 
         if ($files === []) {
