@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace RawPHP\Warp;
 
 use Closure;
-use Illuminate\Container\Container;
 use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Facade;
 use RawPHP\Warp\Sentinel\HermeticitySentinel;
 use RawPHP\Warp\Sentinel\LeakReport;
 use RawPHP\Warp\Support\ObjectAccess;
 use RawPHP\Warp\Warm\BootSnapshot;
+use RawPHP\Warp\Warm\SandboxBuilder;
 use RawPHP\Warp\Warm\WarmSession;
 
 /**
@@ -19,7 +18,8 @@ use RawPHP\Warp\Warm\WarmSession;
  *
  * Boot-time process state (dispatcher listeners, Eloquent boot memos, Artisan
  * bootstrappers, base instance ids) lives in {@see BootSnapshot}, held with the
- * base and hermeticity sentinel in a single {@see WarmSession}.
+ * base and hermeticity sentinel in a single {@see WarmSession}. Per-test clone
+ * assembly is {@see SandboxBuilder}.
  */
 final class WarmApplicationFactory
 {
@@ -39,22 +39,7 @@ final class WarmApplicationFactory
         $session = self::$session ??= self::bootBase($createClassicApplication);
         $session->snapshot->restoreOnto($session->base);
 
-        $sandbox = clone $session->base;
-
-        // The clone's instances array still anchors 'app'/Container at the base;
-        // mirror Application::registerBaseBindings() for the sandbox and give it
-        // its own config repository (array items copy by value on clone).
-        $sandbox->instance('app', $sandbox);
-        $sandbox->instance(Container::class, $sandbox);
-        $sandbox->instance('config', clone $sandbox->make('config'));
-
-        Container::setInstance($sandbox);
-        Facade::clearResolvedInstances();
-        Facade::setFacadeApplication($sandbox);
-
-        $manifest->apply($sandbox, $session->base);
-
-        return $sandbox;
+        return SandboxBuilder::from($session->base, $manifest);
     }
 
     /**
