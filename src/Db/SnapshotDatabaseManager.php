@@ -100,7 +100,7 @@ final class SnapshotDatabaseManager
 
         touch($store->path($key)); // LRU marker for prune()
         $store->prune(keep: 3);
-        self::sweepDeadWorkers($config->runtimeDir);
+        DeadWorkerSweep::run($config->runtimeDir);
 
         $workerDir = $config->runtimeDir.'/w'.getmypid().'-'.bin2hex(random_bytes(3));
         Dirs::ensure($workerDir);
@@ -166,44 +166,5 @@ final class SnapshotDatabaseManager
                 "[warp] snapshot build command exited {$exit}:\n".substr((string) file_get_contents($log), -2000),
             );
         }
-    }
-
-    /** Reap runtime dirs whose owning test process died (crashed worker, kill -9). */
-    private static function sweepDeadWorkers(string $runtimeDir): void
-    {
-        foreach (glob($runtimeDir.'/w*', GLOB_ONLYDIR) ?: [] as $dir) {
-            // Never race a sibling that is mid-provision.
-            if (filemtime($dir) > time() - 60) {
-                continue;
-            }
-
-            $owner = (int) @file_get_contents($dir.'/owner.pid');
-
-            if ($owner > 0 && self::alive($owner)) {
-                continue;
-            }
-
-            $mysqldPid = (int) @file_get_contents($dir.'/datadir/warp-mysqld.pid');
-
-            if ($mysqldPid > 0 && self::alive($mysqldPid)) {
-                exec(sprintf('kill -TERM %d 2>/dev/null', $mysqldPid));
-                usleep(500_000);
-
-                // Still running after graceful TERM — leave for a later sweep.
-                // Never delete a live mysqld's datadir under our feet.
-                if (self::alive($mysqldPid)) {
-                    continue;
-                }
-            }
-
-            Dirs::delete($dir);
-        }
-    }
-
-    private static function alive(int $pid): bool
-    {
-        exec(sprintf('kill -0 %d 2>/dev/null', $pid), $output, $exit);
-
-        return $exit === 0;
     }
 }

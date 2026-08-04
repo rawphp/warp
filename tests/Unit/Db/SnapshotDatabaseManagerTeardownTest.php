@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use RawPHP\Warp\Db\DeadWorkerSweep;
 use RawPHP\Warp\Db\SnapshotDatabaseManager;
 use RawPHP\Warp\Support\Dirs;
 
@@ -22,15 +23,6 @@ afterEach(function () {
         Dirs::delete($this->tmp);
     }
 });
-
-/**
- * Invoke private SnapshotDatabaseManager::sweepDeadWorkers().
- */
-function invokeSweepDeadWorkers(string $runtimeDir): void
-{
-    $method = new ReflectionMethod(SnapshotDatabaseManager::class, 'sweepDeadWorkers');
-    $method->invoke(null, $runtimeDir);
-}
 
 /**
  * Spawn a long-lived PHP child that ignores SIGTERM (simulates a stubborn mysqld).
@@ -107,7 +99,7 @@ it('sweepDeadWorkers never deletes a dir whose mysqld pid is still alive after T
     // falsely trip the 60s mid-provision guard.
     touch($worker, time() - 120);
 
-    invokeSweepDeadWorkers($this->tmp);
+    DeadWorkerSweep::run($this->tmp);
 
     expect(is_dir($worker))->toBeTrue()
         ->and(file_exists($worker.'/datadir/warp-mysqld.pid'))->toBeTrue();
@@ -120,7 +112,7 @@ it('sweepDeadWorkers never deletes a dir whose owner.pid is still alive', functi
     file_put_contents($worker.'/datadir/marker', 'keep');
     touch($worker, time() - 120);
 
-    invokeSweepDeadWorkers($this->tmp);
+    DeadWorkerSweep::run($this->tmp);
 
     expect(is_dir($worker))->toBeTrue()
         ->and(file_get_contents($worker.'/datadir/marker'))->toBe('keep');
@@ -136,7 +128,7 @@ it('sweepDeadWorkers reaps a stale worker dir when owner and mysqld are dead', f
     file_put_contents($worker.'/datadir/marker', 'gone');
     touch($worker, time() - 120);
 
-    invokeSweepDeadWorkers($this->tmp);
+    DeadWorkerSweep::run($this->tmp);
 
     expect(is_dir($worker))->toBeFalse();
 });
