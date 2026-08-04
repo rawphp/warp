@@ -6,11 +6,12 @@ namespace RawPHP\Warp\Warm;
 
 use Illuminate\Foundation\Application;
 use RawPHP\Warp\Support\ObjectAccess;
+use RawPHP\Warp\WarmApplicationFactory;
 
 /**
  * Opt-in diagnostic hooks for warm-base boot. Not part of the hermeticity
  * contract — only engaged when the matching env flag is set. Keeps
- * {@see \RawPHP\Warp\WarmApplicationFactory} boot focused on session assembly.
+ * {@see WarmApplicationFactory} boot focused on session assembly.
  *
  * @internal Package warm-engine plumbing; not host-facing.
  */

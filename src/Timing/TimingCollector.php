@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace RawPHP\Warp\Timing;
 
+/**
+ * @internal In-process timing accumulator for the PHPUnit extension; not host-facing.
+ */
 final class TimingCollector
 {
     /** @var array<string, float> */

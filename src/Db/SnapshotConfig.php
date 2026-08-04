@@ -7,6 +7,9 @@ namespace RawPHP\Warp\Db;
 use Illuminate\Foundation\Application;
 use RuntimeException;
 
+/**
+ * @internal Resolved WARP_DB config value object; not a host-facing API.
+ */
 final class SnapshotConfig
 {
     /**

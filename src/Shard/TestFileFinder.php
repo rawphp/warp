@@ -11,6 +11,9 @@ use RuntimeException;
 use SebastianBergmann\FileIterator\ExcludeIterator;
 use SebastianBergmann\FileIterator\Iterator as FileIteratorFilter;
 
+/**
+ * @internal Filesystem test-file walk for shard CLI; not a host-facing API.
+ */
 final class TestFileFinder
 {
     /**

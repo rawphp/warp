@@ -8,6 +8,9 @@ use RawPHP\Warp\Support\Dirs;
 use RuntimeException;
 use Throwable;
 
+/**
+ * @internal Golden snapshot build pipeline; not a host-facing API.
+ */
 final class GoldenSnapshotBuilder
 {
     public function __construct(

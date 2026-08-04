@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace RawPHP\Warp\Cli;
 
+/**
+ * @internal CLI command for `bin/warp merge`; not a host-facing API.
+ */
 final class MergeCommand
 {
     /**

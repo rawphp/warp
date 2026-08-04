@@ -11,6 +11,9 @@ use RawPHP\Warp\Support\Paths;
 use RawPHP\Warp\Timing\ShardTotals;
 use RuntimeException;
 
+/**
+ * @internal CLI command for `bin/warp shard`; not a host-facing API.
+ */
 final class ShardCommand
 {
     /**

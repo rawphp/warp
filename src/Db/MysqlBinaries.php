@@ -6,6 +6,9 @@ namespace RawPHP\Warp\Db;
 
 use RuntimeException;
 
+/**
+ * @internal mysqld/mysqladmin discovery; not a host-facing API.
+ */
 final class MysqlBinaries
 {
     public function __construct(

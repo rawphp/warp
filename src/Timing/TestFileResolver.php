@@ -9,6 +9,9 @@ use ReflectionClass;
 use Stringable;
 use Throwable;
 
+/**
+ * @internal Pest-aware test-file path resolution for timing keys; not host-facing.
+ */
 final class TestFileResolver
 {
     /** @var array<string, string|null> */

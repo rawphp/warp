@@ -6,6 +6,9 @@ namespace RawPHP\Warp\Cli;
 
 use Throwable;
 
+/**
+ * @internal bin/warp entry dispatcher; hosts invoke the binary, not this class.
+ */
 final class WarpCli
 {
     /**

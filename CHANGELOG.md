@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Changed
+
+- **Architecture cleanup (pass 4)** — host-facing surface unchanged. Internals:
+  `Db\WorkerRuntime` for per-worker CoW clone + mysqld lifecycle;
+  `Db\SnapshotBuildRunner` for the migrate/seed build subprocess;
+  `Timing\EventTelemetry` for pure file/seconds helpers so
+  `ExtensionRegistrar` no longer depends on the PHPUnit Extension entry;
+  `Warm\WarmBootProbes` for opt-in diagnostic hooks on warm boot. Remaining
+  package-private types marked `@internal` (CLI, Support FS helpers, shard
+  discovery, snapshot plumbing). Prefer the public symbols table in
+  `docs/configuration.md` / README over reflecting `@internal` class names.
+
 ## 0.6.0 - 2026-08-05
 
 ### Changed

@@ -8,6 +8,9 @@ use FilesystemIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
+/**
+ * @internal Content-addressed golden snapshot key; not a host-facing API.
+ */
 final class SnapshotKey
 {
     /** Bump to invalidate every stored snapshot when the datadir layout or mysqld flag set changes. */
