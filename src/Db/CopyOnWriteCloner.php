@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace RawPHP\Warp\Db;
 
+use RawPHP\Warp\Support\Dirs;
 use RuntimeException;
 
 final class CopyOnWriteCloner

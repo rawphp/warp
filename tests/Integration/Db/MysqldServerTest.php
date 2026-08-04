@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Db\MysqlBinaries;
 use RawPHP\Warp\Db\MysqldServer;
+use RawPHP\Warp\Support\Dirs;
 
 beforeEach(function () {
     if (! mysqldAvailable()) {

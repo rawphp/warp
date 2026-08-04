@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace RawPHP\Warp\Db;
 
 use Illuminate\Foundation\Application;
+use RawPHP\Warp\Support\Dirs;
 use RuntimeException;
 
 final class SnapshotDatabaseManager

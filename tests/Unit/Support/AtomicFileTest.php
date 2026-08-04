@@ -16,8 +16,8 @@ namespace RawPHP\Warp\Support {
 }
 
 namespace {
-    use RawPHP\Warp\Db\Dirs;
     use RawPHP\Warp\Support\AtomicFile;
+    use RawPHP\Warp\Support\Dirs;
 
     if (! class_exists(AtomicWriteShortWrite::class, false)) {
         final class AtomicWriteShortWrite

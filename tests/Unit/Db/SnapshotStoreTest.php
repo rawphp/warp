@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Db\SnapshotStore;
+use RawPHP\Warp\Support\Dirs;
 
 beforeEach(function () {
     $this->root = sys_get_temp_dir().'/warp-store-'.bin2hex(random_bytes(4));

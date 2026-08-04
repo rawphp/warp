@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Shard\TestFileFinder;
+use RawPHP\Warp\Support\Dirs;
 use SebastianBergmann\FileIterator\Facade;
 
 beforeEach(function () {

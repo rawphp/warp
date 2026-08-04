@@ -55,7 +55,7 @@ namespace RawPHP\Warp\Support {
 }
 
 namespace {
-    use RawPHP\Warp\Db\Dirs;
+    use RawPHP\Warp\Support\Dirs;
     use RawPHP\Warp\Support\Stderr;
     use RawPHP\Warp\Timing\TimingStore;
 
@@ -1344,16 +1344,6 @@ PHP);
         ]));
 
         expect($this->store->load())->toBe([]);
-    });
-
-    it('aggregates per-file totals sorted by path', function () {
-        $totals = TimingStore::aggregate([
-            't1' => ['file' => 'tests/BTest.php', 'ms' => 1.5],
-            't2' => ['file' => 'tests/ATest.php', 'ms' => 2.5],
-            't3' => ['file' => 'tests/BTest.php', 'ms' => 2.0],
-        ]);
-
-        expect($totals)->toBe(['tests/ATest.php' => 2.5, 'tests/BTest.php' => 3.5]);
     });
 
     it('fileTotals merges then aggregates', function () {

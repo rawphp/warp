@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use RawPHP\Warp\Db\Dirs;
 use RawPHP\Warp\Shard\TestFileFinder;
+use RawPHP\Warp\Support\Dirs;
 use RawPHP\Warp\Timing\TimingStore;
 
 /** @return array{0: int, 1: string, 2: string} [exit, stdout, stderr] */

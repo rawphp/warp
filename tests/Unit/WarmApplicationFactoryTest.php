@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Container\Container;
+use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Facade;
 use RawPHP\Warp\ResetManifest;
 use RawPHP\Warp\WarmApplicationFactory;
@@ -82,4 +83,26 @@ it('forgets stateful services so each sandbox re-resolves them fresh', function 
 
     $s2 = WarmApplicationFactory::sandbox($create, $manifest);
     expect($s2->make('cache')->store('array')->get('warp-key'))->toBeNull();
+});
+
+it('leaves the warm session null when boot throws mid-way', function () {
+    $manifest = ResetManifest::default();
+    WarmApplicationFactory::scrap();
+    $bootsBefore = WarmApplicationFactory::bootCount();
+
+    $create = function (): never {
+        throw new RuntimeException('mid-boot failure');
+    };
+
+    expect(fn () => WarmApplicationFactory::sandbox($create, $manifest))
+        ->toThrow(RuntimeException::class, 'mid-boot failure');
+
+    expect(WarmApplicationFactory::base())->toBeNull()
+        ->and(WarmApplicationFactory::bootCount())->toBe($bootsBefore);
+
+    // Recovery: a subsequent successful boot must still work.
+    $sandbox = WarmApplicationFactory::sandbox(fn () => $this->createClassicApplication(), $manifest);
+    expect($sandbox)->toBeInstanceOf(Application::class)
+        ->and(WarmApplicationFactory::base())->not->toBeNull()
+        ->and(WarmApplicationFactory::bootCount())->toBe($bootsBefore + 1);
 });
