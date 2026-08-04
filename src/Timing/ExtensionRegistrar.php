@@ -45,7 +45,7 @@ final class ExtensionRegistrar
         // MarkedIncomplete both just close an accounting entry; Errored
         // additionally records its own duration for the never-prepared case.
         $terminate = static function (Test $test) use ($collector, $root): void {
-            $collector->terminated($test->id(), TimingExtension::fileFor($test, $root));
+            $collector->terminated($test->id(), EventTelemetry::fileFor($test, $root));
         };
         $errored = static function (Errored $event) use ($collector, $root): void {
             // Errored records the telemetry duration for the never-prepared case
@@ -53,8 +53,8 @@ final class ExtensionRegistrar
             // seconds are the only weight the file would otherwise get.
             $collector->errored(
                 $event->test()->id(),
-                TimingExtension::fileFor($event->test(), $root),
-                TimingExtension::seconds($event),
+                EventTelemetry::fileFor($event->test(), $root),
+                EventTelemetry::seconds($event),
             );
         };
 
@@ -74,7 +74,7 @@ final class ExtensionRegistrar
                 foreach ($event->testSuite()->tests()->asArray() as $test) {
                     $this->collector->enumerated(
                         $test->id(),
-                        TimingExtension::fileFor($test, $this->root),
+                        EventTelemetry::fileFor($test, $this->root),
                     );
                 }
             }
@@ -91,8 +91,8 @@ final class ExtensionRegistrar
             {
                 $this->collector->started(
                     $event->test()->id(),
-                    TimingExtension::seconds($event),
-                    TimingExtension::fileFor($event->test(), $this->root),
+                    EventTelemetry::seconds($event),
+                    EventTelemetry::fileFor($event->test(), $this->root),
                 );
             }
         });
@@ -123,10 +123,10 @@ final class ExtensionRegistrar
             public function notify(Finished $event): void
             {
                 $test = $event->test();
-                $file = TimingExtension::fileFor($test, $this->root);
+                $file = EventTelemetry::fileFor($test, $this->root);
 
                 if ($test->isTestMethod()) {
-                    $this->collector->finished($test->id(), $file, TimingExtension::seconds($event));
+                    $this->collector->finished($test->id(), $file, EventTelemetry::seconds($event));
 
                     return;
                 }
