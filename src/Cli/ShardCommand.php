@@ -10,6 +10,7 @@ use RawPHP\Warp\Shard\MissingConfigurationException;
 use RawPHP\Warp\Shard\SuiteDiscovery;
 use RawPHP\Warp\Shard\TestFileFinder;
 use RawPHP\Warp\Support\Paths;
+use RawPHP\Warp\Timing\ShardTotals;
 use RuntimeException;
 
 final class ShardCommand
@@ -131,41 +132,24 @@ final class ShardCommand
         // locked snapshot read across them (REQ-104, findings 2/17): pending/
         // is scanned once and storedRoot/totals can never observe two
         // different store states, even under a concurrent `warp merge`.
-        $storedRoot = $timings->store->storedRoot();
-        $totals = $timings->store->fileTotals();
+        $selection = ShardTotals::resolve(
+            $timings->store->storedRoot(),
+            $canonicalRoot,
+            $timings->store->fileTotals(),
+            $files,
+            $timings->dirLabel,
+            self::strictRootEnabled(),
+        );
 
-        if ($storedRoot !== null && $storedRoot !== $canonicalRoot) {
-            // Root-mismatch policy (finding 7, revised UR-087/REQ-576): a differing
-            // absolute root is metadata only — per-file timing keys are stored
-            // relative, so when they still match discovered files the timings are
-            // usable on this checkout path. That is the committed/shared-baseline
-            // workflow: a portable timings.json run on a differently-rooted clone
-            // or CI runner (e.g. recorded under /Users/... , sharded under
-            // /home/runner/...). Use the timings, warning that the root differs,
-            // instead of failing the shard. If no key matches, the artifact is
-            // pure stale/foreign (e.g. a CI cache restored to a renamed workspace)
-            // so degrade to count-balanced. WARP_STRICT_ROOT restores the old
-            // fail-loudly for callers who want a differing root to be a hard error
-            // even when keys still match.
-            if (array_intersect_key($totals, array_flip($files)) !== []) {
-                if (self::strictRootEnabled()) {
-                    fwrite($stderr, "[warp] timings root mismatch: recorded against '{$storedRoot}' but this shard resolves keys against '{$canonicalRoot}' - WARP_STRICT_ROOT is set, so this is a hard error; re-record timings from the same config dir or pass the matching --configuration\n");
-
-                    return 2;
-                }
-
-                fwrite($stderr, "[warp] timings root differs: recorded against '{$storedRoot}' but this shard resolves keys against '{$canonicalRoot}' - recorded keys still match discovered files, so the timings are portable; using them (set WARP_STRICT_ROOT=1 to treat this as an error)\n");
-            } else {
-                fwrite($stderr, "[warp] timings root mismatch: recorded against '{$storedRoot}' but this shard resolves keys against '{$canonicalRoot}' - no recorded key matches a discovered file (stale or foreign artifact); sharding count-balanced\n");
-                $totals = [];
-            }
-        } elseif ($totals === []) {
-            fwrite($stderr, "[warp] no recorded timings under {$timings->dirLabel} - sharding count-balanced\n");
-        } elseif (array_intersect_key($totals, array_flip($files)) === []) {
-            fwrite($stderr, "[warp] recorded timings match no discovered file - likely path-form or stale-artifact mismatch; sharding count-balanced\n");
+        if ($selection->message !== null) {
+            fwrite($stderr, $selection->message."\n");
         }
 
-        $shard = DurationBalancedSharder::assign($files, $totals, $spec[0], $spec[1]);
+        if ($selection->hardFailExit !== null) {
+            return $selection->hardFailExit;
+        }
+
+        $shard = DurationBalancedSharder::assign($files, $selection->totals, $spec[0], $spec[1]);
 
         if ($shard === []) {
             fwrite($stderr, "[warp] shard {$spec[0]}/{$spec[1]} is empty - more shards than test files\n");

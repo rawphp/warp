@@ -17,8 +17,6 @@ final class TimingStore
     /** Bump to discard every stored timing when the on-disk format changes. */
     private const VERSION = 3;
 
-    private static int $lastPendingTimestamp = 0;
-
     /**
      * One read pass over pending/ + timings.json, computed at most once per
      * instance and shared by load(), storedRoot(), and fileTotals() so a
@@ -121,7 +119,7 @@ final class TimingStore
 
         Dirs::ensure($this->dir.'/pending');
 
-        $path = $this->dir.'/pending/'.self::nextPendingTimestamp().'-'.getmypid().'-'.bin2hex(random_bytes(4)).'.json';
+        $path = $this->dir.'/pending/'.PendingBatches::nextTimestamp().'-'.getmypid().'-'.bin2hex(random_bytes(4)).'.json';
 
         $encoded = json_encode(['complete' => $completeFiles, 'root' => $this->root, 'tests' => $tests], JSON_THROW_ON_ERROR);
         AtomicFile::write(
@@ -139,13 +137,14 @@ final class TimingStore
         }
 
         return FileLock::withLock($this->dir.'/merge.lock', function (): int {
-            $pending = $this->pendingFiles();
+            $pending = $this->pendingBatches();
+            $paths = $pending->paths();
 
-            if ($pending === []) {
+            if ($paths === []) {
                 return 0;
             }
 
-            [$tests, $mergedPending, $root] = $this->mergedWithPending($pending, true);
+            [$tests, $mergedPending, $root] = $this->mergedWithPending($pending, $paths, true);
 
             AtomicFile::write(
                 $this->dir.'/timings.json',
@@ -205,7 +204,8 @@ final class TimingStore
         }
 
         $read = function (): array {
-            [$tests, , $root] = $this->mergedWithPending($this->pendingFiles());
+            $pending = $this->pendingBatches();
+            [$tests, , $root] = $this->mergedWithPending($pending, $pending->paths());
 
             return ['tests' => $tests, 'root' => $root];
         };
@@ -219,172 +219,38 @@ final class TimingStore
         // guarantee) - fall back to today's lockless read with its existing
         // vanished-batch tolerance. The read path never creates or modifies
         // files besides this lock attempt.
-        $lockFile = $this->dir.'/merge.lock';
-        $handle = @fopen($lockFile, 'c');
-
-        if ($handle === false) {
-            return $read();
-        }
-
-        if (! flock($handle, LOCK_EX)) {
-            fclose($handle);
-
-            throw new RuntimeException('[warp] cannot acquire merge lock for timings read at '.$lockFile);
-        }
-
-        try {
-            return $read();
-        } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
-        }
+        return FileLock::withLockOr(
+            $this->dir.'/merge.lock',
+            $read,
+            $read,
+        );
     }
 
-    /** @return list<string> */
-    private function pendingFiles(): array
+    private function pendingBatches(): PendingBatches
     {
-        // @-suppressed: pending/ can vanish or become unreadable between the
-        // is_dir() check in readSnapshot() and this scandir() call (finding 11).
-        // A failure degrades to "no pending batches found" below; suppression
-        // only silences PHP's native diagnostic so it never leaks onto the
-        // process's real STDERR, bypassing the injected warn sink.
-        $entries = @scandir($this->dir.'/pending');
-
-        if ($entries === false) {
-            return [];
-        }
-
-        $files = [];
-
-        foreach ($entries as $entry) {
-            if ($entry === '.' || $entry === '..' || ! str_ends_with($entry, '.json')) {
-                continue;
-            }
-
-            $path = $this->dir.'/pending/'.$entry;
-
-            if (! is_file($path)) {
-                continue;
-            }
-
-            if (! preg_match('/^(\d+)-\d+-[a-f0-9]{8}\.json$/', $entry, $matches)) {
-                $this->warn('[warp] skipped old-format pending timings batch: '.$path.PHP_EOL);
-
-                continue;
-            }
-
-            $files[] = ['path' => $path, 'timestamp' => (int) $matches[1]];
-        }
-
-        usort($files, static function (array $a, array $b): int {
-            return $a['timestamp'] <=> $b['timestamp']
-                ?: $a['path'] <=> $b['path'];
-        });
-
-        return array_column($files, 'path');
-    }
-
-    private static function nextPendingTimestamp(): int
-    {
-        $timestamp = (int) floor(microtime(true) * 1_000_000);
-
-        if ($timestamp <= self::$lastPendingTimestamp) {
-            $timestamp = self::$lastPendingTimestamp + 1;
-        }
-
-        self::$lastPendingTimestamp = $timestamp;
-
-        return $timestamp;
+        return new PendingBatches($this->dir.'/pending', $this->warn(...));
     }
 
     /**
-     * @param  list<string>  $pending
+     * @param  list<string>  $paths
      * @return array{0: array<string, array{file: string, ms: float}>, 1: list<string>, 2: string|null}
      */
-    private function mergedWithPending(array $pending, bool $cleanupJunk = false): array
+    private function mergedWithPending(PendingBatches $pending, array $paths, bool $cleanupJunk = false): array
     {
         $merged = $this->readMergedData();
-        $tests = $merged['tests'];
-        $root = $merged['root'];
         // The authoritative root is the existing artifact's root; when no artifact
         // has established one yet, the first pending batch to carry a root wins.
         // Every later batch whose root differs is foreign and never allowed to flip
         // the stored root or mix key domains (finding 3).
-        $rootEstablished = is_file($this->dir.'/timings.json') && $root !== null;
-        $fileIndex = TimingsMerge::indexByFile($tests);
-        $mergedPending = [];
+        $rootEstablished = is_file($this->dir.'/timings.json') && $merged['root'] !== null;
 
-        foreach ($pending as $path) {
-            // @-suppressed: a batch enumerated by pendingFiles() can vanish or become
-            // unreadable before this read runs (finding 11) - a race the code already
-            // anticipates via the is_file() check below. Suppression only silences
-            // PHP's native diagnostic; the explicit false-handling and the store's own
-            // injected warning immediately below are unchanged.
-            $contents = @file_get_contents($path);
-
-            if ($contents === false) {
-                // A read failure is never treated as junk and never resets the accumulator:
-                // an existing-but-unreadable batch (e.g. EACCES) is left on disk for the next
-                // merge, a vanished batch is simply gone, and either way every batch already
-                // applied in this pass is preserved. Both load() and mergeToDisk() only skip.
-                $this->warn(
-                    (is_file($path)
-                        ? '[warp] skipped unreadable pending timings batch: '
-                        : '[warp] skipped vanished pending timings batch: ').$path.PHP_EOL
-                );
-
-                continue;
-            }
-
-            $batch = json_decode((string) $contents, true);
-
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                $this->warn('[warp] skipped undecodable pending timings batch: '.$path.PHP_EOL);
-
-                if ($cleanupJunk) {
-                    $mergedPending[] = $path;
-                }
-
-                continue;
-            }
-
-            if (! is_array($batch)) {
-                $this->warn('[warp] skipped invalid pending timings batch: '.$path.PHP_EOL);
-
-                if ($cleanupJunk) {
-                    $mergedPending[] = $path;
-                }
-
-                continue;
-            }
-
-            $batchRoot = isset($batch['root']) && is_string($batch['root']) ? $batch['root'] : null;
-
-            if ($batchRoot !== null) {
-                if (! $rootEstablished) {
-                    $root = $batchRoot;
-                    $rootEstablished = true;
-                } elseif ($batchRoot !== $root) {
-                    // Foreign batch: recorded against a different config dir. Warn-and-delete
-                    // under the merge lock (cleanupJunk); skip-and-warn, never delete, on the
-                    // read-only load path so a stray batch cannot flip the domain or the root.
-                    $this->warn("[warp] skipped pending timings batch recorded against a different root ('{$batchRoot}' != '{$root}'): ".$path.PHP_EOL);
-
-                    if ($cleanupJunk) {
-                        $mergedPending[] = $path;
-                    }
-
-                    continue;
-                }
-            }
-
-            $merged = TimingsMerge::apply($tests, $fileIndex, $batch);
-            $tests = $merged['tests'];
-            $fileIndex = $merged['fileIndex'];
-            $mergedPending[] = $path;
-        }
-
-        return [$tests, $mergedPending, $root];
+        return $pending->fold(
+            $merged['tests'],
+            $merged['root'],
+            $rootEstablished,
+            $paths,
+            $cleanupJunk,
+        );
     }
 
     /** @return array{root: string|null, tests: array<string, array{file: string, ms: float}>} */
