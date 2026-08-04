@@ -20,6 +20,9 @@ use function sort;
 use function str_contains;
 use function version_compare;
 
+/**
+ * @internal phpunit.xml suite discovery for shard CLI; not a host-facing API.
+ */
 final class SuiteDiscovery
 {
     /**

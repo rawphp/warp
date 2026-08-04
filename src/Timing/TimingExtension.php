@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace RawPHP\Warp\Timing;
 
 use PHPUnit\Event\Code\Test;
-use PHPUnit\Event\Code\TestMethod;
 use PHPUnit\Event\Event;
 use PHPUnit\Runner\Extension\Extension;
 use PHPUnit\Runner\Extension\Facade;
@@ -18,7 +17,9 @@ use Throwable;
 
 /**
  * PHPUnit extension entry for WARP_TIMINGS. Opt-in gate + store wiring only;
- * event subscriber bodies live in {@see ExtensionRegistrar}.
+ * event subscriber bodies live in {@see ExtensionRegistrar}; pure file/seconds
+ * helpers live in {@see EventTelemetry} (thin wrappers retained below for
+ * existing call sites and tests).
  */
 final class TimingExtension implements Extension
 {
@@ -43,27 +44,16 @@ final class TimingExtension implements Extension
         register_shutdown_function($flush);
     }
 
-    /** Telemetry wall-clock as float seconds, monotonic within a run. */
+    /** @see EventTelemetry::seconds() */
     public static function seconds(Event $event): float
     {
-        $time = $event->telemetryInfo()->time();
-
-        return $time->seconds() + $time->nanoseconds() / 1_000_000_000;
+        return EventTelemetry::seconds($event);
     }
 
-    /**
-     * Resolve an event's test to the canonical, root-relative file key used for
-     * timing entries. Test methods go through the Pest-aware resolver; other test
-     * kinds (.phpt) canonicalize their reported file directly.
-     */
+    /** @see EventTelemetry::fileFor() */
     public static function fileFor(Test $test, string $root): ?string
     {
-        if ($test->isTestMethod()) {
-            /** @var TestMethod $test */
-            return TestFileResolver::resolve($test->className(), $test->file(), $root);
-        }
-
-        return Paths::canonical($test->file(), $root);
+        return EventTelemetry::fileFor($test, $root);
     }
 
     private static function flush(TimingCollector $collector, TimingStore $store): void

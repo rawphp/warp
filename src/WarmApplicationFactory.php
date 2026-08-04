@@ -8,9 +8,9 @@ use Closure;
 use Illuminate\Foundation\Application;
 use RawPHP\Warp\Sentinel\HermeticitySentinel;
 use RawPHP\Warp\Sentinel\LeakReport;
-use RawPHP\Warp\Support\ObjectAccess;
 use RawPHP\Warp\Warm\BootSnapshot;
 use RawPHP\Warp\Warm\SandboxBuilder;
+use RawPHP\Warp\Warm\WarmBootProbes;
 use RawPHP\Warp\Warm\WarmSession;
 
 /**
@@ -76,39 +76,9 @@ final class WarmApplicationFactory
             $base->make('queue');
         }
 
-        if (getenv('WARP_TRACE_BASE_RESOLVE') !== false) {
-            $base->resolving(function ($object, $container) use ($base): void {
-                if ($container === $base) {
-                    file_put_contents(
-                        '/tmp/warp-base-resolve.log',
-                        get_class($object)."\n".(new \Exception)->getTraceAsString()."\n\n",
-                        FILE_APPEND,
-                    );
-                }
-            });
-        }
+        WarmBootProbes::installTrace($base);
 
-        // Diagnostic probe (WARP_SENTINEL_BASE_INSTANCES=1): any service
-        // resolved INTO THE BASE mid-run (through a boot-captured closure
-        // or stale reference) becomes shared state for every later
-        // sandbox — e.g. a base-resolved 'url' registers a 'routes'
-        // rebinding whose inherited callbacks send later sandboxes into
-        // infinite recursion. With the probe on, the leaking TEST is
-        // named at its own teardown instead of silently poisoning the
-        // worker. Opt-in because leaks cascade-fail every later test in
-        // the worker (the first named test is the culprit).
-        $probes = [];
-
-        if (getenv('WARP_SENTINEL_BASE_INSTANCES') !== false) {
-            $probes['base.instances'] = function () use ($base): string {
-                $ids = array_keys(ObjectAccess::read($base, fn (): array => $this->instances));
-                sort($ids);
-
-                return implode('|', $ids);
-            };
-        }
-
-        $sentinel = HermeticitySentinel::capture($base, $probes);
+        $sentinel = HermeticitySentinel::capture($base, WarmBootProbes::hermeticityProbes($base));
         $snapshot = BootSnapshot::capture($base);
 
         // Complete session only; ??= on the caller is the sole factory publish.

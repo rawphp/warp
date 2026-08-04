@@ -9,6 +9,9 @@ use RawPHP\Warp\Support\Dirs;
 use RawPHP\Warp\Support\FileLock;
 use RuntimeException;
 
+/**
+ * @internal On-disk golden snapshot store; not a host-facing API.
+ */
 final class SnapshotStore
 {
     public function __construct(private readonly string $root) {}

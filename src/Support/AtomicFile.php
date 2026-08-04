@@ -6,6 +6,9 @@ namespace RawPHP\Warp\Support;
 
 use RuntimeException;
 
+/**
+ * @internal Atomic tmp+rename file publish helper; not a host-facing API.
+ */
 final class AtomicFile
 {
     public static function write(

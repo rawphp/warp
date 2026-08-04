@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace RawPHP\Warp\Timing;
 
+/**
+ * @internal In-process timing accumulator for the PHPUnit extension; not host-facing.
+ */
 final class TimingCollector
 {
     /** @var array<string, float> */
@@ -81,7 +84,7 @@ final class TimingCollector
      * this id and no other terminal event carries a duration.
      *
      * `$seconds` is the same monotonic-per-run clock snapshot `started()`
-     * captured at PreparationStarted (TimingExtension::seconds() - wall-clock
+     * captured at PreparationStarted (EventTelemetry::seconds() - wall-clock
      * time since the process's telemetry reference point, not since any prior
      * event). Diffing it against that PreparationStarted snapshot yields the
      * wall-clock span from "test preparation began" to "the Errored event

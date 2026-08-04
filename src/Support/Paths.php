@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace RawPHP\Warp\Support;
 
+/**
+ * @internal Path canonicalization shared by timings and shards; not a host-facing API.
+ */
 final class Paths
 {
     /**

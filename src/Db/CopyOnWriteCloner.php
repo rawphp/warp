@@ -7,6 +7,9 @@ namespace RawPHP\Warp\Db;
 use RawPHP\Warp\Support\Dirs;
 use RuntimeException;
 
+/**
+ * @internal CoW datadir clone for WARP_DB; not a host-facing API.
+ */
 final class CopyOnWriteCloner
 {
     public function clone(string $source, string $destination): void

@@ -7,6 +7,10 @@ namespace RawPHP\Warp\Support;
 use Closure;
 use RuntimeException;
 
+/**
+ * @internal Package filesystem helpers (ensure/delete); not a host-facing API.
+ *           Documented only as the location of the old removed Db\Dirs alias.
+ */
 final class Dirs
 {
     /**

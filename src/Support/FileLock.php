@@ -7,6 +7,9 @@ namespace RawPHP\Warp\Support;
 use Closure;
 use RuntimeException;
 
+/**
+ * @internal Advisory file lock helper; not a host-facing API.
+ */
 final class FileLock
 {
     /**

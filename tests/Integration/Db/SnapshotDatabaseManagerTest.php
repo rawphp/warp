@@ -109,8 +109,9 @@ it('resets the singleton and rethrows when server->stop() throws mid-recycle, so
     // resource of the wrong subtype — proc_terminate() rejects it with a TypeError,
     // simulating a genuine stop() failure without waiting out a real mysqld timeout.
     $instance = (new ReflectionProperty(SnapshotDatabaseManager::class, 'instance'))->getValue();
-    $workerDir = (new ReflectionProperty(SnapshotDatabaseManager::class, 'workerDir'))->getValue($instance);
-    $server = (new ReflectionProperty(SnapshotDatabaseManager::class, 'server'))->getValue($instance);
+    $worker = (new ReflectionProperty(SnapshotDatabaseManager::class, 'worker'))->getValue($instance);
+    $workerDir = $worker->workerDir();
+    $server = $worker->server();
     $processProperty = new ReflectionProperty(MysqldServer::class, 'process');
     $wrongResource = fopen('php://memory', 'r');
     $processProperty->setValue($server, $wrongResource);

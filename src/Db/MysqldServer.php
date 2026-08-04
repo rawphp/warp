@@ -7,6 +7,9 @@ namespace RawPHP\Warp\Db;
 use RawPHP\Warp\Support\Dirs;
 use RuntimeException;
 
+/**
+ * @internal Throwaway mysqld process control; not a host-facing API.
+ */
 final class MysqldServer
 {
     /** @var resource|null */

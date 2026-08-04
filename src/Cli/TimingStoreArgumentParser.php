@@ -7,6 +7,9 @@ namespace RawPHP\Warp\Cli;
 use InvalidArgumentException;
 use RawPHP\Warp\Timing\TimingStore;
 
+/**
+ * @internal Shared CLI flag parsing for timings-dir; not host-facing.
+ */
 final class TimingStoreArgumentParser
 {
     public function __construct(
