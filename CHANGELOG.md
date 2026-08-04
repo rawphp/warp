@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.0 - 2026-08-04
+
 ### Changed
 
 - **Architecture cleanup (warm split / pure timing core)** — host-facing
