@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.7.0 - 2026-08-05
+
 ### Changed
 
 - **Architecture cleanup (pass 4)** — host-facing surface unchanged. Internals:
