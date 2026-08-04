@@ -48,21 +48,7 @@ final class TimingCollector
     public function finished(string $id, ?string $file, float $seconds): void
     {
         $this->markTerminated($id, $file);
-
-        $start = $this->startedAt[$id] ?? null;
-        unset($this->startedAt[$id]);
-
-        if ($start === null) {
-            return;
-        }
-
-        if ($file === null) {
-            $this->unattributed++;
-
-            return;
-        }
-
-        $this->tests[$id] = ['file' => $file, 'ms' => round(($seconds - $start) * 1000, 3)];
+        $this->recordDuration($id, $file, $seconds);
     }
 
     /**
@@ -115,21 +101,7 @@ final class TimingCollector
         }
 
         $this->markTerminated($id, $file);
-
-        $start = $this->startedAt[$id] ?? null;
-        unset($this->startedAt[$id]);
-
-        if ($start === null) {
-            return;
-        }
-
-        if ($file === null) {
-            $this->unattributed++;
-
-            return;
-        }
-
-        $this->tests[$id] = ['file' => $file, 'ms' => round(($seconds - $start) * 1000, 3)];
+        $this->recordDuration($id, $file, $seconds);
     }
 
     /** @return array<string, array{file: string, ms: float}> */
@@ -206,5 +178,27 @@ final class TimingCollector
     {
         $this->enumerate($id, $file ?? ($this->fileById[$id] ?? null));
         $this->terminatedIds[$id] = true;
+    }
+
+    /**
+     * Record wall-clock ms from a started() snapshot to $seconds.
+     * Consumes the start entry so a later Finished cannot double-count.
+     */
+    private function recordDuration(string $id, ?string $file, float $seconds): void
+    {
+        $start = $this->startedAt[$id] ?? null;
+        unset($this->startedAt[$id]);
+
+        if ($start === null) {
+            return;
+        }
+
+        if ($file === null) {
+            $this->unattributed++;
+
+            return;
+        }
+
+        $this->tests[$id] = ['file' => $file, 'ms' => round(($seconds - $start) * 1000, 3)];
     }
 }
