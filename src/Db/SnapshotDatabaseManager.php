@@ -5,21 +5,22 @@ declare(strict_types=1);
 namespace RawPHP\Warp\Db;
 
 use Illuminate\Foundation\Application;
-use RawPHP\Warp\Support\Dirs;
 use RuntimeException;
 
+/**
+ * Process-global WARP_DB provisioning: ensure golden snapshot, hand each
+ * process a {@see WorkerRuntime}, rebind the Laravel connection.
+ *
+ * Host-facing surface: {@see apply()}, {@see recycle()}, {@see shutdown()},
+ * {@see provisioned()}.
+ */
 final class SnapshotDatabaseManager
 {
     private static ?self $instance = null;
 
     private function __construct(
         private readonly SnapshotConfig $config,
-        private readonly MysqlBinaries $binaries,
-        private readonly SnapshotStore $store,
-        private readonly CopyOnWriteCloner $cloner,
-        private readonly string $key,
-        private readonly string $workerDir,
-        private MysqldServer $server,
+        private WorkerRuntime $worker,
     ) {}
 
     /** Provision once per process, then point $app's connection at the clone. */
@@ -46,17 +47,7 @@ final class SnapshotDatabaseManager
         $app->make('db')->purge($self->config->connection);
 
         try {
-            $self->server->stop();
-            Dirs::delete($self->workerDir.'/datadir');
-            $self->cloner->clone($self->store->datadir($self->key), $self->workerDir.'/datadir');
-
-            $self->server = new MysqldServer(
-                $self->binaries,
-                $self->workerDir.'/datadir',
-                $self->workerDir.'/mysql.sock',
-                $self->workerDir.'/error.log',
-            );
-            $self->server->start();
+            $self->worker->recycle();
         } catch (\Throwable $e) {
             // A broken instance must never be reused: the next apply() re-boots fresh.
             self::$instance = null;
@@ -74,9 +65,8 @@ final class SnapshotDatabaseManager
         }
 
         try {
-            self::$instance->server->stop();
+            self::$instance->worker->shutdown();
         } finally {
-            Dirs::delete(self::$instance->workerDir);
             self::$instance = null;
         }
     }
@@ -102,20 +92,18 @@ final class SnapshotDatabaseManager
         $store->prune(keep: 3);
         DeadWorkerSweep::run($config->runtimeDir);
 
-        $workerDir = $config->runtimeDir.'/w'.getmypid().'-'.bin2hex(random_bytes(3));
-        Dirs::ensure($workerDir);
-        file_put_contents($workerDir.'/owner.pid', (string) getmypid());
-
-        $cloner->clone($store->datadir($key), $workerDir.'/datadir');
-
-        $server = new MysqldServer($binaries, $workerDir.'/datadir', $workerDir.'/mysql.sock', $workerDir.'/error.log');
-        $server->start();
+        $worker = WorkerRuntime::provision(
+            $config->runtimeDir,
+            $binaries,
+            $cloner,
+            $store->datadir($key),
+        );
 
         register_shutdown_function(static function (): void {
             self::shutdown();
         });
 
-        return new self($config, $binaries, $store, $cloner, $key, $workerDir, $server);
+        return new self($config, $worker);
     }
 
     /** Point the app's connection at our throwaway mysqld; per-test transactions unchanged. */
@@ -128,7 +116,7 @@ final class SnapshotDatabaseManager
             (array) $repository->get("database.connections.{$connection}"),
             [
                 'host' => 'localhost',
-                'unix_socket' => $this->server->socket(),
+                'unix_socket' => $this->worker->socket(),
                 'database' => $this->config->database,
                 'username' => 'root',
                 'password' => '',

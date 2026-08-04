@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use RawPHP\Warp\Db\DeadWorkerSweep;
 use RawPHP\Warp\Db\SnapshotDatabaseManager;
+use RawPHP\Warp\Db\WorkerRuntime;
 use RawPHP\Warp\Support\Dirs;
 
 beforeEach(function () {
@@ -66,23 +67,27 @@ function spawnTermIgnoringStub(): array
 }
 
 it('does not define settleAfterStop — FS resilience lives in Dirs delete + backoff', function () {
-    expect(method_exists(SnapshotDatabaseManager::class, 'settleAfterStop'))->toBeFalse();
+    expect(method_exists(SnapshotDatabaseManager::class, 'settleAfterStop'))->toBeFalse()
+        ->and(method_exists(WorkerRuntime::class, 'settleAfterStop'))->toBeFalse();
 
-    $source = file_get_contents((new ReflectionClass(SnapshotDatabaseManager::class))->getFileName());
+    $managerSource = file_get_contents((new ReflectionClass(SnapshotDatabaseManager::class))->getFileName());
+    $workerSource = file_get_contents((new ReflectionClass(WorkerRuntime::class))->getFileName());
 
-    expect($source)->not->toContain('settleAfterStop')
-        ->and($source)->not->toMatch('/usleep\s*\(\s*100_000\s*\)/');
+    expect($managerSource)->not->toContain('settleAfterStop')
+        ->and($workerSource)->not->toContain('settleAfterStop')
+        ->and($managerSource)->not->toMatch('/usleep\s*\(\s*100_000\s*\)/')
+        ->and($workerSource)->not->toMatch('/usleep\s*\(\s*100_000\s*\)/');
 });
 
 it('recycle and shutdown stop then delete without an intermediate settle helper', function () {
-    $source = file_get_contents((new ReflectionClass(SnapshotDatabaseManager::class))->getFileName());
+    $source = file_get_contents((new ReflectionClass(WorkerRuntime::class))->getFileName());
 
     // recycle: stop() then Dirs::delete(datadir) with no settle call between
-    expect($source)->toMatch('/\$self->server->stop\(\);\s*Dirs::delete\(\$self->workerDir\.\'\/datadir\'\);/s');
+    expect($source)->toMatch('/\$this->server->stop\(\);\s*Dirs::delete\(\$this->workerDir\.\'\/datadir\'\);/s');
 
     // shutdown: stop() in try, delete workerDir in finally — no settle in between
     expect($source)->toMatch(
-        '/self::\$instance->server->stop\(\);\s*\}\s*finally\s*\{\s*Dirs::delete\(self::\$instance->workerDir\);/s',
+        '/\$this->server->stop\(\);\s*\}\s*finally\s*\{\s*Dirs::delete\(\$this->workerDir\);/s',
     );
 });
 
