@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changed
+
+- **Architecture cleanup (pass 2)** — host-facing surface unchanged. Internals:
+  `FileLock::withLockOr` for soft-open timings reads; pure `Timing\ShardTotals`
+  for shard root-mismatch policy; `Timing\PendingBatches` owns pending/
+  scan+fold so `TimingStore` is lifecycle-only. Prefer documented public symbols
+  over reflecting `@internal` class names.
+
 ## 0.5.0 - 2026-08-04
 
 ### Changed
