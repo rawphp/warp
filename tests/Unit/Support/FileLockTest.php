@@ -106,3 +106,47 @@ it('reports the underlying fopen warning when the lock file cannot be opened', f
         ->and($thrown?->getMessage())->toContain('No such file or directory')
         ->and($called)->toBeFalse();
 });
+
+it('withLockOr runs the unopenable path when the lock file cannot be opened', function () {
+    $locked = false;
+    $fallback = FileLock::withLockOr(
+        $this->root.'/missing/test.lock',
+        function () use (&$locked): string {
+            $locked = true;
+
+            return 'locked';
+        },
+        fn (): string => 'fallback',
+    );
+
+    expect($fallback)->toBe('fallback')
+        ->and($locked)->toBeFalse();
+});
+
+it('withLockOr runs the locked path when the lock can be opened', function () {
+    $result = FileLock::withLockOr(
+        $this->lockFile,
+        fn (): string => 'locked',
+        fn (): string => 'fallback',
+    );
+
+    expect($result)->toBe('locked');
+});
+
+it('withLockOr still throws when flock fails after open', function () {
+    FailingLockStream::$closed = 0;
+    expect(stream_wrapper_register('warp-failing-lock', FailingLockStream::class))->toBeTrue();
+
+    $called = false;
+
+    expect(fn () => FileLock::withLockOr(
+        'warp-failing-lock://test.lock',
+        function () use (&$called): void {
+            $called = true;
+        },
+        fn (): string => 'fallback',
+    ))->toThrow(RuntimeException::class, '[warp] cannot acquire file lock');
+
+    expect($called)->toBeFalse()
+        ->and(FailingLockStream::$closed)->toBe(1);
+});

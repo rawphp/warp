@@ -219,25 +219,11 @@ final class TimingStore
         // guarantee) - fall back to today's lockless read with its existing
         // vanished-batch tolerance. The read path never creates or modifies
         // files besides this lock attempt.
-        $lockFile = $this->dir.'/merge.lock';
-        $handle = @fopen($lockFile, 'c');
-
-        if ($handle === false) {
-            return $read();
-        }
-
-        if (! flock($handle, LOCK_EX)) {
-            fclose($handle);
-
-            throw new RuntimeException('[warp] cannot acquire merge lock for timings read at '.$lockFile);
-        }
-
-        try {
-            return $read();
-        } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
-        }
+        return FileLock::withLockOr(
+            $this->dir.'/merge.lock',
+            $read,
+            $read,
+        );
     }
 
     /** @return list<string> */
