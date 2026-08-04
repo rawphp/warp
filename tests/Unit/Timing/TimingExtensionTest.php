@@ -3,7 +3,18 @@
 declare(strict_types=1);
 
 use PHPUnit\Event\Code\Phpt;
+use RawPHP\Warp\Timing\ExtensionRegistrar;
 use RawPHP\Warp\Timing\TimingExtension;
+
+function timingExtensionSource(): string
+{
+    return (string) file_get_contents(dirname(__DIR__, 3).'/src/Timing/TimingExtension.php');
+}
+
+function timingRegistrarSource(): string
+{
+    return (string) file_get_contents(dirname(__DIR__, 3).'/src/Timing/ExtensionRegistrar.php');
+}
 
 it('no longer exposes the deleted process-level completeness machinery (finding 4/15)', function () {
     // The stop-on sniffer and the process-wide selected/finished counters are gone;
@@ -18,7 +29,7 @@ it('no longer exposes the deleted fatal-error shutdown heuristic (finding 5)', f
 });
 
 it('has no lingering references to the deleted machinery or counters in the source', function () {
-    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Timing/TimingExtension.php');
+    $source = timingExtensionSource()."\n".timingRegistrarSource();
 
     foreach ([
         'hasStopOnConfiguration',
@@ -34,8 +45,13 @@ it('has no lingering references to the deleted machinery or counters in the sour
     }
 });
 
+it('delegates subscriber wiring to ExtensionRegistrar', function () {
+    expect(timingExtensionSource())->toContain('ExtensionRegistrar::register')
+        ->and(class_exists(ExtensionRegistrar::class))->toBeTrue();
+});
+
 it('subscribes to every terminal outcome so no enumerated test can leak in-flight', function () {
-    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Timing/TimingExtension.php');
+    $source = timingRegistrarSource();
 
     // TestSuite\Loaded enumerates the full (pre-filter) suite; the four terminal
     // events close each enumerated entry even when Test\Finished never fires.
@@ -51,13 +67,11 @@ it('subscribes to every terminal outcome so no enumerated test can leak in-fligh
 });
 
 it('registers a Prepared subscriber so Errored can gate on wasPrepared (finding 5)', function () {
-    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Timing/TimingExtension.php');
-
-    expect($source)->toContain('PreparedSubscriber');
+    expect(timingRegistrarSource())->toContain('PreparedSubscriber');
 });
 
 it('shares one terminate closure across the terminal subscribers instead of copy-pasting them (finding 16)', function () {
-    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Timing/TimingExtension.php');
+    $source = timingRegistrarSource();
 
     // The (collector, root) constructor is no longer copy-pasted into every
     // subscriber: the terminal subscribers (Skipped/Errored/MarkedIncomplete)
@@ -70,7 +84,7 @@ it('shares one terminate closure across the terminal subscribers instead of copy
 });
 
 it('still records the errored-unprepared duration via the Errored telemetry after the dedup (REQ-105)', function () {
-    $source = (string) file_get_contents(dirname(__DIR__, 3).'/src/Timing/TimingExtension.php');
+    $source = timingRegistrarSource();
 
     // The dedup must not regress REQ-105: Errored still routes through errored()
     // with the event's telemetry seconds, and the Prepared subscriber survives.
