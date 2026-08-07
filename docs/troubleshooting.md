@@ -124,9 +124,20 @@ on the connection Warp rewires. Do not hardcode a host socket path for that conn
 
 ### Trait integration: wrong application factory
 
-**Cause:** Left a project `createApplication()` that does not use the trait path, or forgot to rename the body to `createClassicApplication()`.
+**Cause:** Trait added without `createClassicApplication()`, or the class still defines `createApplication()` next to the trait (collision), or classic hook does not call the real cold boot.
 
-**Fix:** Follow [Getting started](getting-started.md) exactly; one factory method name matters.
+**Fix (current Laravel):** 
+
+```php
+use InteractsWithWarmApplication;
+
+protected function createClassicApplication(): Application
+{
+    return parent::createApplication();
+}
+```
+
+Do not re-declare `createApplication()` on the class. If you had a custom factory or `CreatesApplication`, move/alias it into `createClassicApplication()` only — see [Getting started](getting-started.md).
 
 ## Still stuck
 

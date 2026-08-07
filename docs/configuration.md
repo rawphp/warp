@@ -30,7 +30,7 @@ Provided by `RawPHP\Warp\Concerns\InteractsWithWarmApplication`:
 
 | Member | Role |
 |--------|------|
-| `createClassicApplication(): Application` | **Abstract** — your cold boot (required) |
+| `createClassicApplication(): Application` | **Abstract** — your cold boot (required). On current Laravel this is usually `return parent::createApplication();` |
 | `warpResetManifest(): ResetManifest` | Override to extend `ResetManifest::default()` |
 | `warpRecycleDatabase(): void` | Re-clone DB from golden snapshot (`WARP_DB`) |
 | `usingWarmSandbox(): bool` | Whether this test instance is on a warm sandbox |

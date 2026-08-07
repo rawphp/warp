@@ -89,7 +89,10 @@ trait InteractsWithWarmApplication
         $report = WarmApplicationFactory::checkHermeticity();
 
         if (! $report->clean()) {
-            Assert::fail('[warp] hermeticity violation — this test leaked shared state: '.$report->describe());
+            Assert::fail(
+                '[warp] hermeticity violation — this test leaked shared state: '.$report->describe()
+                .'. Fix the leak, or mark #[Isolated] / group("warp-isolated") if the test must change process state.'
+            );
         }
     }
 }

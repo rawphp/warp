@@ -24,7 +24,9 @@ composer require --dev rawphp/warp
 
 ### 2. Wire the trait on your base TestCase
 
-Warp replaces the usual `createApplication()` entry point. Keep your cold-boot body, rename it to `createClassicApplication()`, and use `InteractsWithWarmApplication`.
+On current Laravel, `Illuminate\Foundation\Testing\TestCase` already implements `createApplication()` (loads `bootstrap/app.php` and bootstraps the kernel). Your app’s `Tests\TestCase` is often empty. Warp’s trait **overrides** that `createApplication()` and requires a cold-boot hook named `createClassicApplication()`.
+
+**Default path (most apps):** add the trait and delegate classic boot to the framework parent:
 
 ```php
 namespace Tests;
@@ -37,18 +39,26 @@ abstract class TestCase extends BaseTestCase
 {
     use InteractsWithWarmApplication;
 
-    /** Your original cold-boot application factory. */
+    /** Cold boot — same path Laravel already uses without Warp. */
     protected function createClassicApplication(): Application
     {
-        $app = require __DIR__.'/../bootstrap/app.php';
-        $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-
-        return $app;
+        return parent::createApplication();
     }
 }
 ```
 
-Do not leave a separate `createApplication()` on the class that shadows the trait unless you intentionally replace Warp’s implementation.
+`parent::createApplication()` is still the framework implementation. The trait’s `createApplication()` is what Pest/PHPUnit call; it either returns a warm sandbox or calls your classic hook.
+
+**If you still define a custom `createApplication()` on the class** (or use an older `CreatesApplication` trait), do **not** leave that method beside Warp’s trait (method collision). Move the body into `createClassicApplication()`, or alias:
+
+```php
+use CreatesApplication {
+    createApplication as createClassicApplication;
+}
+use InteractsWithWarmApplication;
+```
+
+Do not re-declare `createApplication()` on the class unless you intentionally replace Warp’s implementation.
 
 ### 3. Run classic (default)
 
@@ -128,7 +138,7 @@ Measured speedups on real suites are recorded in [docs/reports](reports/2026-07-
 
 | Symptom | Likely cause | What to do |
 |---------|--------------|------------|
-| Trait / method errors about `createApplication` | Old `createApplication()` still defined and conflicting, or classic factory not renamed | Keep only `createClassicApplication()` + the trait |
+| Trait / method errors about `createApplication` / abstract `createClassicApplication` | Trait added without classic hook, or class still defines `createApplication()` next to the trait | Use `createClassicApplication()` → `parent::createApplication()` (default Laravel), or move a custom factory into `createClassicApplication()` only |
 | Warm fails, classic passes | Shared singleton or package state not reset | Extend `warpResetManifest()`; see [Troubleshooting](troubleshooting.md) |
 | `[warp] hermeticity violation` | Test leaked env or mutated shared base config | Fix the leak, or mark `#[Isolated]` / `warp-isolated` if the test must change process state |
 | Composer version conflict fear | Warp only requires `php` + PHPUnit file-iterator/phpunit for the package surface | Illuminate comes from the host app; path-install is designed to avoid Illuminate pin fights |

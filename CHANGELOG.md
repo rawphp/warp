@@ -8,6 +8,10 @@
   `warp <command> --help` print command descriptions and exit 0 (no more
   `unknown option: --help`). Empty `warp timings` / `warp merge` messages name
   the TimingExtension → `WARP_TIMINGS=1` → `warp merge` path.
+- **Host-app getting started** — README and getting-started lead with the modern
+  Laravel wiring (`createClassicApplication()` → `parent::createApplication()`)
+  instead of an obsolete “rename your createApplication body / re-require
+  bootstrap/app.php” path; hermeticity failures name the isolate escape hatch.
 
 ## 0.7.0 - 2026-08-05
 

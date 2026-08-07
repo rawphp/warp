@@ -8,6 +8,8 @@ sandboxed shallow clone of it, instead of paying the full framework bootstrap
 per run via `WARP_MODE=1` and is designed to produce **byte-identical outcomes** to
 classic mode.
 
+**Host-app path:** [Install](#installation) · [Wire the trait](#usage) · [Run warm](#2-run-the-suite-warm) · [Getting started](docs/getting-started.md)
+
 ## Scope (product boundary)
 
 Warp is a **test-acceleration stack for Laravel + Pest**, not a general test
@@ -104,9 +106,10 @@ Design specs and gate reports remain under [`docs/specs/`](docs/specs/) and [`do
 
 ### 1. Add the trait to your base `TestCase`
 
-Warp wires in through a single trait. Rename your existing `createApplication()` body to
-`createClassicApplication()` — Warp calls it for the cold boot and, in warm mode, clones the
-result per test.
+Current Laravel already implements `createApplication()` on
+`Illuminate\Foundation\Testing\TestCase`. Warp’s trait overrides that method and
+needs a cold-boot hook: implement `createClassicApplication()` by delegating to the
+parent (the usual path for an empty host `TestCase`):
 
 ```php
 namespace Tests;
@@ -119,19 +122,19 @@ abstract class TestCase extends BaseTestCase
 {
     use InteractsWithWarmApplication;
 
-    /** Your original cold-boot application factory. */
+    /** Cold boot — same path Laravel uses without Warp. */
     protected function createClassicApplication(): Application
     {
-        $app = require __DIR__.'/../bootstrap/app.php';
-        $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-
-        return $app;
+        return parent::createApplication();
     }
 }
 ```
 
-That's the whole integration. With `WARP_MODE` unset, behaviour is **byte-identical** to
-before — the trait falls straight through to `createClassicApplication()`.
+That's the whole integration. With `WARP_MODE` unset, the trait calls
+`createClassicApplication()` every time (classic behaviour). If you still ship a
+custom `createApplication()` on the class, move that body into
+`createClassicApplication()` instead of keeping both (see
+[Getting started](docs/getting-started.md)).
 
 ### 2. Run the suite warm
 
@@ -383,7 +386,7 @@ artifact.
   with attribution:
 
   ```
-  [warp] hermeticity violation — this test leaked shared state: …
+  [warp] hermeticity violation — this test leaked shared state: …. Fix the leak, or mark #[Isolated] / group("warp-isolated") if the test must change process state.
   ```
 
   A leak that corrupts the base scraps it, so the next test reboots pristine. This is the

@@ -45,7 +45,7 @@ After each warm sandbox test, Warp checks that the test did not leak **shared** 
 On violation the test **fails** with:
 
 ```text
-[warp] hermeticity violation — this test leaked shared state: …
+[warp] hermeticity violation — this test leaked shared state: …. Fix the leak, or mark #[Isolated] / group("warp-isolated") if the test must change process state.
 ```
 
 If the base was corrupted, Warp scraps it so the next test reboots pristine. That is the correctness backstop so warm mode stays honest instead of silently poisoning neighbours.
