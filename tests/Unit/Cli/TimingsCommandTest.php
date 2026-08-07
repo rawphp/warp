@@ -44,7 +44,10 @@ it('says so when nothing was recorded', function () {
     [$exit, $stdout] = ($this->run)(['--timings-dir='.$this->tmp]);
 
     expect($exit)->toBe(0)
-        ->and($stdout)->toContain('no timings recorded yet');
+        ->and($stdout)->toContain('no timings recorded yet')
+        ->and($stdout)->toContain('TimingExtension')
+        ->and($stdout)->toContain('WARP_TIMINGS=1')
+        ->and($stdout)->toContain('warp merge');
 });
 
 it('uses WARP_TIMINGS_DIR when no timings-dir flag is provided', function () {

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed
+
+- **CLI help and empty states** — `warp --help` / `-h` / `help` and
+  `warp <command> --help` print command descriptions and exit 0 (no more
+  `unknown option: --help`). Empty `warp timings` / `warp merge` messages name
+  the TimingExtension → `WARP_TIMINGS=1` → `warp merge` path.
+
 ## 0.7.0 - 2026-08-05
 
 ### Changed

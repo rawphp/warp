@@ -20,7 +20,7 @@ final class TimingsCommand
         $tests = $timings->store->load();
 
         if ($tests === []) {
-            fwrite($stdout, "[warp] no timings recorded yet - run the suite with WARP_TIMINGS=1\n");
+            fwrite($stdout, "[warp] no timings recorded yet - register TimingExtension in phpunit.xml, run WARP_TIMINGS=1 ./vendor/bin/pest, then warp merge\n");
 
             return 0;
         }

@@ -44,6 +44,7 @@ it('merges pending batches to disk and reports when nothing remains', function (
         ])
         ->and($secondExit)->toBe(0)
         ->and($secondStdout)->toContain('nothing to merge')
+        ->and($secondStdout)->toContain('no pending batches')
         ->and($secondStderr)->toBe('');
 });
 
@@ -178,3 +179,36 @@ it('lists the merge command in usage output', function () {
         ->and(stream_get_contents($stdout))->toBe('')
         ->and(stream_get_contents($stderr))->toContain('warp merge [--timings-dir=DIR]');
 });
+
+it('prints help and exits 0 for --help, -h, and help', function (string $token) {
+    $stdout = fopen('php://memory', 'r+');
+    $stderr = fopen('php://memory', 'r+');
+
+    $exit = WarpCli::run(['warp', $token], $stdout, $stderr);
+
+    rewind($stdout);
+    rewind($stderr);
+    $help = stream_get_contents($stderr);
+
+    expect($exit)->toBe(0)
+        ->and(stream_get_contents($stdout))->toBe('')
+        ->and($help)->toContain('warp merge [--timings-dir=DIR]')
+        ->and($help)->toContain('Fold pending timing batches')
+        ->and($help)->toContain('record timings:');
+})->with(['--help', '-h', 'help']);
+
+it('prints help and exits 0 for subcommand --help instead of unknown option', function (string $command) {
+    $stdout = fopen('php://memory', 'r+');
+    $stderr = fopen('php://memory', 'r+');
+
+    $exit = WarpCli::run(['warp', $command, '--help'], $stdout, $stderr);
+
+    rewind($stdout);
+    rewind($stderr);
+    $help = stream_get_contents($stderr);
+
+    expect($exit)->toBe(0)
+        ->and(stream_get_contents($stdout))->toBe('')
+        ->and($help)->toContain('usage:')
+        ->and($help)->not->toContain('unknown option');
+})->with(['merge', 'shard', 'timings']);

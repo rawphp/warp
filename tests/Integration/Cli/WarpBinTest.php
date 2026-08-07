@@ -278,6 +278,24 @@ it('prints usage and exits 2 without a command', function () {
         ->and($stderr)->toContain('usage:');
 });
 
+it('prints help and exits 0 for --help on the binary', function () {
+    [$exit, $stdout, $stderr] = warpBinRun(['--help']);
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toContain('usage:')
+        ->and($stderr)->toContain('record timings:');
+});
+
+it('prints help and exits 0 for timings --help instead of unknown option', function () {
+    [$exit, $stdout, $stderr] = warpBinRun(['timings', '--help']);
+
+    expect($exit)->toBe(0)
+        ->and($stdout)->toBe('')
+        ->and($stderr)->toContain('warp timings')
+        ->and($stderr)->not->toContain('unknown option');
+});
+
 it('exits 3 for an empty shard', function () {
     [$exit, $stdout] = warpBinRun(['shard', '60/60', 'tests/Unit', '--timings-dir='.$this->dir]);
 

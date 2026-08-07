@@ -169,12 +169,23 @@ Root mismatch (artifact absolute root ≠ shard-time root):
 ### CLI summary
 
 ```text
-warp - test engine CLI
+warp - timings and duration-balanced CI shards for Pest/PHPUnit
+
 usage:
   warp merge [--timings-dir=DIR]
+      Fold pending timing batches into timings.json
   warp shard <index>/<total> [paths...] [--timings-dir=DIR] [--suffix=Test.php] [--configuration=FILE]
+      Print this shard's test files (duration-balanced when timings exist)
   warp timings [--timings-dir=DIR]
+      Summarize recorded timings (slowest files first)
+
+record timings:
+  1. Register RawPHP\Warp\Timing\TimingExtension in phpunit.xml
+  2. WARP_TIMINGS=1 ./vendor/bin/pest
+  3. ./vendor/bin/warp merge
 ```
+
+`warp --help`, `warp -h`, and `warp <command> --help` print the same help and exit 0. Bare `warp` (no command) still exits 2.
 
 Binary path when installed in an app: `./vendor/bin/warp` (Composer `"bin": ["bin/warp"]`).
 

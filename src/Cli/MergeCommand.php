@@ -20,7 +20,7 @@ final class MergeCommand
         $merged = $timings->store->mergeToDisk();
 
         if ($merged === 0) {
-            fwrite($stdout, "[warp] nothing to merge\n");
+            fwrite($stdout, "[warp] nothing to merge - no pending batches (record with WARP_TIMINGS=1 or already merged)\n");
 
             return 0;
         }
