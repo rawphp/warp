@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.7.1 - 2026-08-07
+
 ### Fixed
 
 - **CLI help and empty states** — `warp --help` / `-h` / `help` and
