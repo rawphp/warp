@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\DB;
 use RawPHP\Warp\Db\MysqldServer;
 use RawPHP\Warp\Db\SnapshotDatabaseManager;
 use RawPHP\Warp\Support\Dirs;
+use RawPHP\Warp\Support\ProcessProbe;
 
 beforeEach(function () {
     if (! mysqldAvailable()) {
@@ -41,6 +43,10 @@ beforeEach(function () {
 });
 
 afterEach(function () {
+    Dirs::installTestBeforeFsOp(null);
+    if (isset($this->goldenBackup) && is_dir($this->goldenBackup)) {
+        rename($this->goldenBackup, $this->golden);
+    }
     SnapshotDatabaseManager::shutdown();
     if (isset($this->tmp)) {
         Dirs::delete($this->tmp);
@@ -112,6 +118,7 @@ it('resets the singleton and rethrows when server->stop() throws mid-recycle, so
     $worker = (new ReflectionProperty(SnapshotDatabaseManager::class, 'worker'))->getValue($instance);
     $workerDir = $worker->workerDir();
     $server = $worker->server();
+    $orphanPid = (int) @file_get_contents($workerDir.'/datadir/warp-mysqld.pid');
     $processProperty = new ReflectionProperty(MysqldServer::class, 'process');
     $wrongResource = fopen('php://memory', 'r');
     $processProperty->setValue($server, $wrongResource);
@@ -131,8 +138,8 @@ it('resets the singleton and rethrows when server->stop() throws mid-recycle, so
     fclose($wrongResource);
 
     // recycle() lost the real process handle before it could stop the still-running
-    // mysqld — reap it directly (by pid file) so this test doesn't leak the process.
-    $orphanPid = (int) @file_get_contents($workerDir.'/datadir/warp-mysqld.pid');
+    // mysqld — reap it directly (pid read before recycle; cleanup removes the pid
+    // file with the worker dir) so this test doesn't leak the process.
     if ($orphanPid > 0) {
         exec(sprintf('kill -9 %d 2>/dev/null', $orphanPid));
     }
@@ -144,4 +151,73 @@ it('resets the singleton and rethrows when server->stop() throws mid-recycle, so
 
     expect(SnapshotDatabaseManager::provisioned())->toBeTrue()
         ->and(DB::table('marks')->count())->toBe(1);
+});
+
+/**
+ * Apply, then hide the golden datadir so the next re-clone fails mid-recycle
+ * (after a clean stop). Restored in afterEach if a test leaves it hidden.
+ *
+ * @return array{0: string, 1: int} worker dir and its mysqld pid
+ */
+function applyThenBreakNextClone(object $test, Application $app): array
+{
+    SnapshotDatabaseManager::apply($app);
+
+    // Worker dirs are w<pid>-<random>: only ours, not a concurrent run's.
+    $workerDir = glob('/tmp/warp-mgr-it/w'.getmypid().'-*')[0];
+    $pid = (int) file_get_contents($workerDir.'/datadir/warp-mysqld.pid');
+
+    $test->golden = glob($test->tmp.'/snapshots/*/datadir')[0];
+    $test->goldenBackup = $test->golden.'.hidden';
+    rename($test->golden, $test->goldenBackup);
+
+    return [$workerDir, $pid];
+}
+
+it('a failing recycle stops mysqld, removes the worker dir, and the next apply provisions exactly one', function () {
+    [$workerDir, $pid] = applyThenBreakNextClone($this, $this->app);
+    DB::purge('warp_it');
+
+    $thrown = null;
+
+    try {
+        SnapshotDatabaseManager::recycle($this->app);
+    } catch (Throwable $e) {
+        $thrown = $e;
+    }
+
+    expect($thrown)->toBeInstanceOf(RuntimeException::class)
+        ->and($thrown->getMessage())->toContain('clone source missing')
+        ->and(SnapshotDatabaseManager::provisioned())->toBeFalse()
+        ->and(is_dir($workerDir))->toBeFalse()
+        ->and(ProcessProbe::alive($pid))->toBeFalse();
+
+    rename($this->goldenBackup, $this->golden);
+    SnapshotDatabaseManager::apply($this->app);
+
+    expect(glob('/tmp/warp-mgr-it/w'.getmypid().'-*'))->toHaveCount(1)
+        ->and(DB::table('marks')->count())->toBe(1);
+});
+
+it('a failing recycle rethrows the original exception when the worker cleanup fails too', function () {
+    [$workerDir] = applyThenBreakNextClone($this, $this->app);
+    DB::purge('warp_it');
+
+    Dirs::installTestBeforeFsOp(static function (string $op, string $path) use ($workerDir): void {
+        if ($op === 'rmdir' && $path === $workerDir) {
+            throw new RuntimeException('cleanup exploded');
+        }
+    });
+
+    $thrown = null;
+
+    try {
+        SnapshotDatabaseManager::recycle($this->app);
+    } catch (Throwable $e) {
+        $thrown = $e;
+    }
+
+    expect($thrown)->toBeInstanceOf(RuntimeException::class)
+        ->and($thrown->getMessage())->toContain('clone source missing')
+        ->and(SnapshotDatabaseManager::provisioned())->toBeFalse();
 });
