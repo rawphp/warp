@@ -18,6 +18,9 @@ beforeEach(function () {
     }
 
     $this->tmp = sys_get_temp_dir().'/warp-mgr-'.bin2hex(random_bytes(4));
+    // Per process: a concurrent run (another worktree) must not wipe our workers.
+    // Short /tmp path keeps the socket under macOS's 104-byte sun_path cap.
+    $this->runtimeDir = '/tmp/warp-mgr-it-'.getmypid();
     Dirs::ensure($this->tmp.'/migrations');
     file_put_contents($this->tmp.'/migrations/001.sql', 'marks-v1');
 
@@ -32,7 +35,7 @@ beforeEach(function () {
     config()->set('warp.db', [
         'hash_paths' => [$this->tmp.'/migrations'],
         'snapshot_dir' => $this->tmp.'/snapshots',
-        'runtime_dir' => '/tmp/warp-mgr-it',
+        'runtime_dir' => $this->runtimeDir,
         // Inline build "migration" — creates schema exactly like `artisan migrate` would.
         'build_command' => [PHP_BINARY, '-r', implode('', [
             '$p = new PDO("mysql:unix_socket=".getenv("DB_SOCKET").";dbname=".getenv("DB_DATABASE"), "root", "");',
@@ -51,7 +54,9 @@ afterEach(function () {
     if (isset($this->tmp)) {
         Dirs::delete($this->tmp);
     }
-    Dirs::delete('/tmp/warp-mgr-it');
+    if (isset($this->runtimeDir)) {
+        Dirs::delete($this->runtimeDir);
+    }
 });
 
 it('provisions a clone and serves Laravel queries through the rewired connection', function () {
@@ -98,13 +103,13 @@ it('apply is idempotent within a process', function () {
 it('shutdown removes the worker runtime dir and is idempotent', function () {
     SnapshotDatabaseManager::apply($this->app);
 
-    expect(glob('/tmp/warp-mgr-it/w*'))->not->toBe([]);
+    expect(glob($this->runtimeDir.'/w*'))->not->toBe([]);
 
     DB::purge('warp_it');
     SnapshotDatabaseManager::shutdown();
     SnapshotDatabaseManager::shutdown();
 
-    expect(glob('/tmp/warp-mgr-it/w*'))->toBe([])
+    expect(glob($this->runtimeDir.'/w*'))->toBe([])
         ->and(SnapshotDatabaseManager::provisioned())->toBeFalse();
 });
 
@@ -163,8 +168,7 @@ function applyThenBreakNextClone(object $test, Application $app): array
 {
     SnapshotDatabaseManager::apply($app);
 
-    // Worker dirs are w<pid>-<random>: only ours, not a concurrent run's.
-    $workerDir = glob('/tmp/warp-mgr-it/w'.getmypid().'-*')[0];
+    $workerDir = glob($test->runtimeDir.'/w*')[0];
     $pid = (int) file_get_contents($workerDir.'/datadir/warp-mysqld.pid');
 
     $test->golden = glob($test->tmp.'/snapshots/*/datadir')[0];
@@ -195,7 +199,7 @@ it('a failing recycle stops mysqld, removes the worker dir, and the next apply p
     rename($this->goldenBackup, $this->golden);
     SnapshotDatabaseManager::apply($this->app);
 
-    expect(glob('/tmp/warp-mgr-it/w'.getmypid().'-*'))->toHaveCount(1)
+    expect(glob($this->runtimeDir.'/w*'))->toHaveCount(1)
         ->and(DB::table('marks')->count())->toBe(1);
 });
 
