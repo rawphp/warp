@@ -28,6 +28,9 @@ final class WorkerRuntime
     /**
      * Create a unique worker dir under $runtimeDir, clone golden into it,
      * and start a throwaway mysqld on a unix socket.
+     *
+     * A failed clone or start removes the worker dir before rethrowing: the
+     * owner (this process) stays alive, so {@see DeadWorkerSweep} never would.
      */
     public static function provision(
         string $runtimeDir,
@@ -37,12 +40,20 @@ final class WorkerRuntime
     ): self {
         $workerDir = $runtimeDir.'/w'.getmypid().'-'.bin2hex(random_bytes(3));
         Dirs::ensure($workerDir);
-        file_put_contents($workerDir.'/owner.pid', (string) getmypid());
+        $server = null;
 
-        $cloner->clone($goldenDatadir, $workerDir.'/datadir');
+        try {
+            file_put_contents($workerDir.'/owner.pid', (string) getmypid());
 
-        $server = self::newServer($binaries, $workerDir);
-        $server->start();
+            $cloner->clone($goldenDatadir, $workerDir.'/datadir');
+
+            $server = self::newServer($binaries, $workerDir);
+            $server->start();
+        } catch (\Throwable $e) {
+            self::discard($server, $workerDir);
+
+            throw $e;
+        }
 
         return new self($workerDir, $server, $cloner, $binaries, $goldenDatadir);
     }
@@ -84,6 +95,20 @@ final class WorkerRuntime
     public function server(): MysqldServer
     {
         return $this->server;
+    }
+
+    /** Best-effort teardown on a failure path; never masks the caller's exception. */
+    private static function discard(?MysqldServer $server, string $workerDir): void
+    {
+        try {
+            $server?->stop();
+        } catch (\Throwable) {
+        }
+
+        try {
+            Dirs::delete($workerDir);
+        } catch (\Throwable) {
+        }
     }
 
     private static function newServer(MysqlBinaries $binaries, string $workerDir): MysqldServer
