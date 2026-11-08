@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.7.2 - 2026-11-08
+
+### Fixed
+
+- **Native AIO off for throwaway mysqld** — worker and golden
+  (`--initialize-insecure`) mysqld now start with `--innodb-use-native-aio=OFF`,
+  so many parallel suites no longer exhaust the host-wide `fs.aio-max-nr` and
+  abort with `io_setup()` EAGAIN.
+- **Failed worker boot cleanup** — a worker whose clone or mysqld start fails
+  (on first boot or on recycle) no longer leaves its worker directory or a
+  stray mysqld behind. Cleanup errors are swallowed so the original exception
+  is the one reported.
+
 ## 0.7.1 - 2026-08-07
 
 ### Fixed
