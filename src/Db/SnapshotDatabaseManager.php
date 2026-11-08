@@ -50,6 +50,14 @@ final class SnapshotDatabaseManager
             $self->worker->recycle();
         } catch (\Throwable $e) {
             // A broken instance must never be reused: the next apply() re-boots fresh.
+            // Stop its mysqld and remove its dir first: this process stays alive,
+            // so DeadWorkerSweep would never reap them.
+            try {
+                $self->worker->shutdown();
+            } catch (\Throwable) {
+                // Keep the original failure; it is what the test run reports.
+            }
+
             self::$instance = null;
 
             throw $e;
