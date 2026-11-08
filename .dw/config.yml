@@ -1,0 +1,12 @@
+# Read by the /factory skill. One GitHub issue in, one draft pull request out.
+factory:
+  instructors: [tomkaczocha, rawphp]
+  base: main
+  provision:
+    - composer install --no-interaction --no-progress
+  gate:
+    - composer validate --strict
+    - ./vendor/bin/pint --test
+    - ./vendor/bin/pest
+  limits: { minutes: 90, gate_retries: 2 }
+  autonomy: pr
