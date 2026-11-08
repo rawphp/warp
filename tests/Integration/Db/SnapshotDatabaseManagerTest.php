@@ -138,17 +138,18 @@ it('resets the singleton and rethrows when server->stop() throws mid-recycle, so
 
     expect($thrown)->not->toBeNull()
         ->and($thrown)->toBeInstanceOf(TypeError::class)
-        ->and(SnapshotDatabaseManager::provisioned())->toBeFalse();
+        ->and(SnapshotDatabaseManager::provisioned())->toBeFalse()
+        // The cleanup's own stop() throws again; the dir must still go.
+        ->and(is_dir($workerDir))->toBeFalse();
 
     fclose($wrongResource);
 
-    // recycle() lost the real process handle before it could stop the still-running
-    // mysqld — reap it directly (pid read before recycle; cleanup removes the pid
-    // file with the worker dir) so this test doesn't leak the process.
+    // The swapped handle is this test's artifact: a real stop() SIGKILLs before it
+    // throws. Reap the mysqld it orphaned (pid read before recycle; the cleanup
+    // removed the pid file with the worker dir) so this test doesn't leak it.
     if ($orphanPid > 0) {
         exec(sprintf('kill -9 %d 2>/dev/null', $orphanPid));
     }
-    Dirs::delete($workerDir);
 
     // A subsequent apply() must re-provision a fresh instance, not reuse the dead one.
     DB::purge('warp_it');
@@ -178,7 +179,7 @@ function applyThenBreakNextClone(object $test, Application $app): array
     return [$workerDir, $pid];
 }
 
-it('a failing recycle stops mysqld, removes the worker dir, and the next apply provisions exactly one', function () {
+it('a failing recycle leaves no worker dir and no mysqld, and the next apply provisions exactly one', function () {
     [$workerDir, $pid] = applyThenBreakNextClone($this, $this->app);
     DB::purge('warp_it');
 
